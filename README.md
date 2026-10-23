@@ -14,7 +14,6 @@
 [![Go](https://img.shields.io/badge/backend-Go-00ADD8?logo=go&logoColor=white)](backend/)
 [![PHP](https://img.shields.io/badge/PHP-removed-8892B0?logo=php&logoColor=white)](docs/PHP_REMOVAL.md)
 [![Docker](https://img.shields.io/badge/Docker-supported-2496ED?logo=docker&logoColor=white)](doc/zh-cn/installation/install_via_docker_compose.md)
-[![CI](https://img.shields.io/badge/CI-passing-4CAF50?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
 
   </p>
   <br />
@@ -149,7 +148,7 @@ cd ../misc && sh ./create_db.sh
 - ✅ **本地源码构建** —— 唯一配方 `Dockerfile`，不再依赖任何上游预构建镜像
 - ✅ **契约回归** —— API 123/123，SSR 路由 43/43 与 PHP 版逐字节一致
 - ✅ **前端瘦身** —— vendor 精确裁剪（23.2MB / 2072 文件 → 3.5MB / 27 文件）
-- ✅ **开源治理齐备** —— CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / CI / Issue & PR 模板
+- ✅ **开源治理齐备** —— CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / Issue & PR 模板
 - ✅ **中英文档重写** —— 安装、配置、使用类文档全部按 Go 后端重写并对齐
 
 ### 计划中
@@ -157,7 +156,7 @@ cd ../misc && sh ./create_db.sh
 - ⬜ 解除仓库名连字符限制（扩展 nginx vhost 规则）
 - ⬜ SSH 公钥支持 ed25519 / ECDSA
 - ⬜ 口令哈希从 `legacy` 平滑切换到 `argon2id`
-- ⬜ CI 增加镜像构建与契约回归的夜间流水线
+- ⬜ 重新引入 CI 流水线（编译 / 契约比对 / 镜像构建）
 
 > 认领上面任意一项，或直接提交 Issue / PR，详见 [贡献指南](CONTRIBUTING.md)。
 
@@ -204,7 +203,7 @@ cd ../misc && sh ./create_db.sh
 | `doc/` | 用户文档（`zh-cn` / `en-us`） |
 | `docs/` | 后端重写的分析、计划与实施记录 |
 | `scripts/` | 本地构建、运行、复验与截图比对脚本 |
-| `.github/` | CI、Issue 模板、PR 模板、Dependabot 配置 |
+| `.github/` | Issue 模板、PR 模板 |
 
 ## 配置说明
 
@@ -319,7 +318,7 @@ cd www/view && yarn install && yarn build
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | 社区行为准则 |
 | [SECURITY.md](SECURITY.md) | 漏洞私下报告流程、部署前的默认配置加固、已知限制 |
 | [CHANGELOG.md](CHANGELOG.md) | 版本变更记录 |
-| [.github/](.github/) | CI 工作流、Issue 模板、PR 模板、Dependabot 配置 |
+| [.github/](.github/) | Issue 模板、PR 模板 |
 
 ## 关于
 

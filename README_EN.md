@@ -14,7 +14,6 @@
 [![Go](https://img.shields.io/badge/backend-Go-00ADD8?logo=go&logoColor=white)](backend/)
 [![PHP](https://img.shields.io/badge/PHP-removed-8892B0?logo=php&logoColor=white)](docs/PHP_REMOVAL.md)
 [![Docker](https://img.shields.io/badge/Docker-supported-2496ED?logo=docker&logoColor=white)](doc/en-us/installation/install_via_docker_compose.md)
-[![CI](https://img.shields.io/badge/CI-passing-4CAF50?logo=githubactions&logoColor=white)](.github/workflows/ci.yml)
 
   </p>
   <br />
@@ -153,7 +152,7 @@ The full 15-step guide lives in [Install From Scratch](doc/en-us/installation/in
 - ✅ **Built from local source** — a single recipe, `Dockerfile`; no upstream pre-built image
 - ✅ **Contract regression** — API 123/123, SSR routes 43/43 byte-for-byte identical to PHP
 - ✅ **Front-end slimmed down** — vendor tree trimmed from 23.2 MB / 2072 files to 3.5 MB / 27 files
-- ✅ **Governance in place** — CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / CI / Issue & PR templates
+- ✅ **Governance in place** — CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / Issue & PR templates
 - ✅ **Documentation rewritten** — installation, configuration and usage docs rewritten for the Go backend in both languages
 
 ### Planned
@@ -161,7 +160,7 @@ The full 15-step guide lives in [Install From Scratch](doc/en-us/installation/in
 - ⬜ Lift the hyphen restriction on repository names (extend the nginx vhost rule)
 - ⬜ Support ed25519 / ECDSA SSH public keys
 - ⬜ Move password hashes from `legacy` to `argon2id` without a flag day
-- ⬜ Add a nightly image-build and contract-regression pipeline to CI
+- ⬜ Re-introduce a CI pipeline (build / contract regression / image build)
 
 > Pick up any of the above, or just open an Issue / PR — see [CONTRIBUTING.md](CONTRIBUTING.md).
 
@@ -208,7 +207,7 @@ The full 15-step guide lives in [Install From Scratch](doc/en-us/installation/in
 | `doc/` | User documentation (`zh-cn` / `en-us`) |
 | `docs/` | Analysis, plan and implementation records of the backend rewrite |
 | `scripts/` | Local build, run, verification and screenshot comparison scripts |
-| `.github/` | CI workflow, issue templates, PR template, Dependabot configuration |
+| `.github/` | Issue templates, PR template |
 
 ## Configuration
 
@@ -338,7 +337,7 @@ Please make sure the content is accurate before submitting a `PR`, see: [Documen
 | [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) | Community code of conduct |
 | [SECURITY.md](SECURITY.md) | Private vulnerability reporting, hardening the default configuration, known limitations |
 | [CHANGELOG.md](CHANGELOG.md) | Release notes |
-| [.github/](.github/) | CI workflow, issue templates, PR template, Dependabot configuration |
+| [.github/](.github/) | Issue templates, PR template |
 
 ## About
 

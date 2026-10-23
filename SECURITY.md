@@ -72,6 +72,6 @@ CODEFEVER_PASSWORD_HASH=argon2id   # 全部账号重置口令后再切换
 ## 依赖安全
 
 前端依赖锁定在 `www/view/yarn.lock`，后端依赖锁定在 `backend/go.sum`。
-`.github/dependabot.yml` 已配置为每周检查这两处的安全更新。
+仓库暂未配置自动化依赖检查，升级依赖前请自行核对上游安全公告。
 
 如发现依赖存在漏洞，请按上面的方式私下报告。

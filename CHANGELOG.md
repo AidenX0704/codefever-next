@@ -11,6 +11,12 @@
 
 尚未发布的变更集中在此。
 
+### 变更
+
+- **移除 CI 工作流与 Dependabot 配置**。`.github/workflows/ci.yml` 与 `.github/dependabot.yml` 已删除，
+  README（中英文）、贡献指南与 PR 模板中关于 CI 的说明同步更新。
+  质量门禁改由本地一键复验 `scripts/verify.ps1` 承担（编译 → vet → gofmt → 单测 → 镜像 → 契约比对 → 冒烟 → 截图比对）。
+
 ## [0.1.0] — 2026-10-23
 
 CodeFever Next 的首个公开版本。基于
