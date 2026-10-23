@@ -83,7 +83,7 @@
     "react-redux": "^7.2.4",
     "react-refresh": "^0.8.3",
     "react-router-dom": "^5.2.0",
-    "react-syntax-highlighter": "^15.4.4",
+    "react-syntax-highlighter": "^16.1.2",
     "remark-gfm": "^3.0.1",
     "resolve": "1.18.1",
     "resolve-url-loader": "^3.1.2",
