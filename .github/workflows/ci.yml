@@ -18,7 +18,7 @@ jobs:
     name: Go 后端 (build / vet / fmt / test)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 安装 Go
         uses: actions/setup-go@v5
@@ -52,7 +52,7 @@ jobs:
     name: 契约基线完整性
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 安装 Go
         uses: actions/setup-go@v5
@@ -81,7 +81,7 @@ jobs:
     name: 镜像构建
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 校验 compose 文件
         run: docker compose config --quiet
@@ -110,7 +110,7 @@ jobs:
     name: 前端构建产物一致性
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: 校验前端产物已随仓库提交
         run: |
