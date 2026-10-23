@@ -1,0 +1,29 @@
+{
+  "id": "admin.config",
+  "method": "GET",
+  "path": "/api/admin/config",
+  "auth": "admin_web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": {
+      "allowRegister": true,
+      "email": {
+        "from": "git@mail.sender",
+        "name": "CodeFever Next"
+      },
+      "host": "<HOST>",
+      "ssh": "git@localhost:"
+    },
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":{\"host\":\"http:\\/\\/localhost\",\"ssh\":\"git@localhost:\",\"allowRegister\":true,\"email\":{\"name\":\"CodeFever Next\",\"from\":\"git@mail.sender\"}}}"
+}

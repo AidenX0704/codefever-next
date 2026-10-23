@@ -1,0 +1,66 @@
+# ============================================================================
+#  CodeFever Next —— 行尾与文件属性
+# ============================================================================
+#  默认所有文本文件统一用 LF：
+#    - 仓库内统一 LF，容器内的 sh 脚本不会因 CRLF 报 `$'\r': command not found`
+#    - misc/create_db.sh 用 grep|awk 解析 env.yaml 时不会把 \r 带进库名
+#    - 消除 "Windows 检出 / Linux 部署" 跨平台差异
+#  写文件时用 LF，检出时也用 LF：
+#    eol=lf 让 Windows 上的检出结果同样是 LF，避免在 Windows 上开发时产生
+#    整文件级别的伪 diff。
+# ============================================================================
+
+* text=auto eol=lf
+
+# --- 脚本 -------------------------------------------------------------------
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.ps1   text eol=lf
+Dockerfile* text eol=lf
+
+# --- 前端 -------------------------------------------------------------------
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.css   text eol=lf
+*.html  text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# --- Go ---------------------------------------------------------------------
+*.go    text eol=lf
+go.mod  text eol=lf
+go.sum  text eol=lf
+
+# --- 二进制资源（不做行尾转换） ----------------------------------------------
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+*.eot   binary
+*.otf   binary
+*.pdf   binary
+*.zip   binary
+*.gz    binary
+*.tar   binary
+*.exe   binary
+*.xlsx  binary
+
+# SVG 是文本，但内嵌的路径数据不应被行尾转换影响
+*.svg   text eol=lf
+
+# --- 前端构建产物 -------------------------------------------------------------
+# 构建产物随仓库提交（见 www/view/README 说明），但不应参与代码评审的 diff。
+www/view/build/** linguist-generated=true -diff
+
+# --- 本地/运行时数据 ----------------------------------------------------------
+# 运行时生成、不应产生 diff 的文件
+/config.yaml   linguist-generated=true -diff
+/env.yaml      linguist-generated=true -diff

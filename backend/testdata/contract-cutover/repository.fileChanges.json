@@ -1,0 +1,47 @@
+{
+  "id": "repository.fileChanges",
+  "method": "GET",
+  "path": "/api/repository/fileChanges",
+  "auth": "web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": {
+      "count": 1,
+      "detail": [
+        {
+          "diff": {
+            "additions": 1,
+            "deletions": 0,
+            "line": [
+              "@@ -0,0 +1 @@",
+              "+ssh push test"
+            ],
+            "raw": "@@ -0,0 +1 @@\n+ssh push test"
+          },
+          "modified": {
+            "mode": "100644",
+            "name": "SSH.md",
+            "sha": "437facb"
+          },
+          "original": {
+            "mode": null,
+            "name": null,
+            "sha": "0000000"
+          },
+          "type": "text"
+        }
+      ]
+    },
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":{\"count\":1,\"detail\":[{\"original\":{\"name\":null,\"mode\":null,\"sha\":\"0000000\"},\"modified\":{\"name\":\"SSH.md\",\"mode\":\"100644\",\"sha\":\"437facb\"},\"diff\":{\"raw\":\"@@ -0,0 +1 @@\\n+ssh push test\",\"line\":[\"@@ -0,0 +1 @@\",\"+ssh push test\"],\"additions\":1,\"deletions\":0},\"type\":\"text\"}]}}"
+}

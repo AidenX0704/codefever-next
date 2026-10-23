@@ -1,0 +1,38 @@
+{
+  "id": "repository.blameInfo",
+  "method": "GET",
+  "path": "/api/repository/blameInfo",
+  "auth": "web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": {
+      "blame": [
+        {
+          "commit": {
+            "commit": "test commit from local build",
+            "detail": "",
+            "email": "root@codefever.cn",
+            "sha": "c943e85a4f996856f19d53e0f59d47e6aa9e29ec",
+            "time": "<TS>"
+          },
+          "length": 1,
+          "start": 1
+        }
+      ],
+      "lines": [
+        "hello codefever local build"
+      ]
+    },
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":{\"blame\":[{\"start\":1,\"length\":1,\"commit\":{\"sha\":\"c943e85a4f996856f19d53e0f59d47e6aa9e29ec\",\"commit\":\"test commit from local build\",\"detail\":\"\",\"email\":\"root@codefever.cn\",\"time\":1792682516}}],\"lines\":[\"hello codefever local build\"]}}"
+}

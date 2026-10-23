@@ -1,0 +1,35 @@
+{
+  "id": "admin.systemStatus",
+  "method": "GET",
+  "path": "/api/admin/systemStatus",
+  "auth": "admin_web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": {
+      "service": {
+        "codefever": true,
+        "crond": false,
+        "nginx": false,
+        "php": false,
+        "sendmail": false
+      },
+      "usage": {
+        "group": 2,
+        "repository": 3,
+        "user": 1
+      },
+      "vm": "<VM_METRICS>"
+    },
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":{\"service\":{\"nginx\":false,\"php\":false,\"codefever\":true,\"crond\":false,\"sendmail\":false},\"usage\":{\"user\":1,\"repository\":3,\"group\":2},\"vm\":\"<VM_METRICS>\"}}"
+}

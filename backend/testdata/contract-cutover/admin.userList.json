@@ -1,0 +1,58 @@
+{
+  "id": "admin.userList",
+  "method": "POST",
+  "path": "/api/admin/userList",
+  "auth": "admin_web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": {
+      "count": 3,
+      "list": [
+        {
+          "admin": false,
+          "avatar": "d24d2281d6354ec58b27167fe21a6e1e",
+          "created": "2022-01-01 00:00:00",
+          "email": "test2@pgyer.com",
+          "id": "26c20714af8bc20aa85be657a5170e71",
+          "mfaEnabled": false,
+          "name": "test2",
+          "projects": 0,
+          "status": false
+        },
+        {
+          "admin": false,
+          "avatar": "e0a35aac9dd051168aeaf073a54e3c11",
+          "created": "2022-01-01 00:00:00",
+          "email": "test@pgyer.com",
+          "id": "f4a9c54adef17599d4f709a1167f0fcd",
+          "mfaEnabled": false,
+          "name": "test",
+          "projects": 1,
+          "status": false
+        },
+        {
+          "admin": true,
+          "avatar": "",
+          "created": "0001-01-01 00:00:00",
+          "email": "root@codefever.cn",
+          "id": "00000000000000000000000000000000",
+          "mfaEnabled": false,
+          "name": "codefever",
+          "projects": 2,
+          "status": true
+        }
+      ]
+    },
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":{\"count\":3,\"list\":[{\"id\":\"26c20714af8bc20aa85be657a5170e71\",\"email\":\"test2@pgyer.com\",\"name\":\"test2\",\"avatar\":\"d24d2281d6354ec58b27167fe21a6e1e\",\"mfaEnabled\":false,\"created\":\"2022-01-01 00:00:00\",\"status\":false,\"admin\":false,\"projects\":0},{\"id\":\"f4a9c54adef17599d4f709a1167f0fcd\",\"email\":\"test@pgyer.com\",\"name\":\"test\",\"avatar\":\"e0a35aac9dd051168aeaf073a54e3c11\",\"mfaEnabled\":false,\"created\":\"2022-01-01 00:00:00\",\"status\":false,\"admin\":false,\"projects\":1},{\"id\":\"00000000000000000000000000000000\",\"email\":\"root@codefever.cn\",\"name\":\"codefever\",\"avatar\":\"\",\"mfaEnabled\":false,\"created\":\"0001-01-01 00:00:00\",\"status\":true,\"admin\":true,\"projects\":2}]}}"
+}

@@ -1,0 +1,46 @@
+{{- /*
+数据契约：
+  .L(key)   string  语言文案，等价 PHP 的 lang(key)；缺键返回空串。
+  .AppName  string  PHP 常量 APP_NAME。
+  .Message  string  错误提示正文（PHP $message）。
+
+转义决策：
+  .Message 来自业务代码，可能包含用户数据，走 Go 的上下文转义（HTML 文本上下文），
+  避免引入 XSS；PHP 侧 echo 不转义，属于 PHP 的历史缺陷，此处按任务要求修正。
+
+移植说明：
+  PHP 侧 include 的 console/header_include.php、splash.php、console/footer_include.php
+  在本仓库中不存在，PHP 生产环境（error_reporting(0)）下这些位置输出为空，
+  Go 侧用 absent_include 占位，渲染结果一致。
+*/ -}}
+<!DOCTYPE html>
+<html>
+<head>
+
+    {{ safeHTML "<!-- Page title -->" }}
+    <title>{{ .AppName }} | {{ .L "base_message" }}</title>
+
+    {{ template "absent_include.html" . }}
+</head>
+<body class="blank">
+
+{{ template "absent_include.html" . }}
+<div class="color-line"></div>
+
+<div class="error-container">
+    <i class="pe-7s-way text-success big-icon"></i>
+    <h1>{{ .Message }}</h1>
+    <strong>{{ .L "base_error_message" }}</strong>
+    <p>
+        {{ .L "base_error_message_tips" }}    </p>
+    <input type="button" class="btn  btn-success" onclick="javascript:history.go(-1)" value="{{ .L "base_go_prepage" }}" />
+    &nbsp;&nbsp;&nbsp;<a href="/" class="btn btn-primary">{{ .L "base_go_home" }}</a>
+</div>
+
+
+{{ template "absent_include.html" . }}
+{{ safeHTML "<!-- App scripts -->" }}
+<script src="/static/scripts/homer.js"></script>
+
+</body>
+</html>

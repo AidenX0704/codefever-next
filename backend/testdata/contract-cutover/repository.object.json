@@ -1,0 +1,61 @@
+{
+  "id": "repository.object",
+  "method": "GET",
+  "path": "/api/repository/object",
+  "auth": "web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": {
+      "commit": {
+        "commit": "ssh push test",
+        "detail": "",
+        "email": "root@codefever.cn",
+        "sha": "f67cfee73d75172d4e7afd77c3efa310b460fa1b",
+        "time": "<TS>"
+      },
+      "object": [
+        {
+          "commit": {
+            "commit": "test commit from local build",
+            "detail": "",
+            "email": "root@codefever.cn",
+            "sha": "c943e85a4f996856f19d53e0f59d47e6aa9e29ec",
+            "time": "<TS>"
+          },
+          "mode": "100644",
+          "name": "README.md",
+          "object": "72d05e05bbfbdda3fa8041d581b848804c97ffa8",
+          "type": "blob",
+          "url": ""
+        },
+        {
+          "commit": {
+            "commit": "ssh push test",
+            "detail": "",
+            "email": "root@codefever.cn",
+            "sha": "f67cfee73d75172d4e7afd77c3efa310b460fa1b",
+            "time": "<TS>"
+          },
+          "mode": "100644",
+          "name": "SSH.md",
+          "object": "437facbac89d0dfe9318be50ff9724590ee343ca",
+          "type": "blob",
+          "url": ""
+        }
+      ],
+      "path": "",
+      "type": "commit"
+    },
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":{\"type\":\"commit\",\"object\":[{\"mode\":\"100644\",\"type\":\"blob\",\"object\":\"72d05e05bbfbdda3fa8041d581b848804c97ffa8\",\"name\":\"README.md\",\"commit\":{\"sha\":\"c943e85a4f996856f19d53e0f59d47e6aa9e29ec\",\"commit\":\"test commit from local build\",\"detail\":\"\",\"email\":\"root@codefever.cn\",\"time\":1792682516},\"url\":\"\"},{\"mode\":\"100644\",\"type\":\"blob\",\"object\":\"437facbac89d0dfe9318be50ff9724590ee343ca\",\"name\":\"SSH.md\",\"commit\":{\"sha\":\"f67cfee73d75172d4e7afd77c3efa310b460fa1b\",\"commit\":\"ssh push test\",\"detail\":\"\",\"email\":\"root@codefever.cn\",\"time\":1792683261},\"url\":\"\"}],\"commit\":{\"sha\":\"f67cfee73d75172d4e7afd77c3efa310b460fa1b\",\"commit\":\"ssh push test\",\"detail\":\"\",\"email\":\"root@codefever.cn\",\"time\":1792683261},\"path\":\"\"}}"
+}

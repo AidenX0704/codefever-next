@@ -1,0 +1,21 @@
+{
+  "id": "repository.deleteBranch",
+  "method": "POST",
+  "path": "/api/repository/deleteBranch",
+  "auth": "web_user",
+  "status": 400,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": 513,
+  "expect_status": null,
+  "actual_code": 513,
+  "match": true,
+  "body": {
+    "code": 513,
+    "data": [],
+    "message": "Missing Parameters",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":513,\"message\":\"Missing Parameters\",\"data\":[]}"
+}

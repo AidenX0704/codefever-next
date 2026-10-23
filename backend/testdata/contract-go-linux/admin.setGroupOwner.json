@@ -1,0 +1,21 @@
+{
+  "id": "admin.setGroupOwner",
+  "method": "POST",
+  "path": "/api/admin/setGroupOwner",
+  "auth": "admin_web_user",
+  "status": 404,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": 1031,
+  "expect_status": 404,
+  "actual_code": 1031,
+  "match": true,
+  "body": {
+    "code": 1031,
+    "data": [],
+    "message": "User Not Found",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":1031,\"message\":\"User Not Found\",\"data\":[]}"
+}

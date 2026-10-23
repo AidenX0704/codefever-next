@@ -1,0 +1,21 @@
+{
+  "id": "error.admin.nonAdminAccess",
+  "method": "GET",
+  "path": "/api/admin/systemStatus",
+  "auth": "non_admin_user",
+  "status": 403,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": 257,
+  "expect_status": 403,
+  "actual_code": 257,
+  "match": true,
+  "body": {
+    "code": 257,
+    "data": [],
+    "message": "Invalid Login Credential",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":257,\"message\":\"Invalid Login Credential\",\"data\":[]}"
+}

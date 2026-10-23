@@ -1,0 +1,49 @@
+{
+  "id": "admin.groupList",
+  "method": "POST",
+  "path": "/api/admin/groupList",
+  "auth": "admin_web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": {
+      "count": 2,
+      "list": [
+        {
+          "created": "<TS>",
+          "description": "local verification group",
+          "displayName": "Root Team",
+          "icon": null,
+          "id": "29efb28ef9dd3018353eb5a02c018b28",
+          "name": "rootteam",
+          "owner": "00000000000000000000000000000000",
+          "status": 1,
+          "type": 2,
+          "updated": -62169984000
+        },
+        {
+          "created": 1640995200,
+          "description": "",
+          "displayName": "codefever",
+          "icon": "",
+          "id": "e6508c1a66e86f697c96bdffb30c1ae3",
+          "name": "codefever",
+          "owner": "f4a9c54adef17599d4f709a1167f0fcd",
+          "status": 1,
+          "type": 2,
+          "updated": -62169984000
+        }
+      ]
+    },
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":{\"count\":2,\"list\":[{\"id\":\"29efb28ef9dd3018353eb5a02c018b28\",\"icon\":null,\"displayName\":\"Root Team\",\"name\":\"rootteam\",\"description\":\"local verification group\",\"owner\":\"00000000000000000000000000000000\",\"type\":2,\"created\":1792682255,\"updated\":-62169984000,\"status\":1},{\"id\":\"e6508c1a66e86f697c96bdffb30c1ae3\",\"icon\":\"\",\"displayName\":\"codefever\",\"name\":\"codefever\",\"description\":\"\",\"owner\":\"f4a9c54adef17599d4f709a1167f0fcd\",\"type\":2,\"created\":1640995200,\"updated\":-62169984000,\"status\":1}]}}"
+}

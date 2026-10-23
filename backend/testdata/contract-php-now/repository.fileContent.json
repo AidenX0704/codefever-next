@@ -1,0 +1,16 @@
+{
+  "id": "repository.fileContent",
+  "method": "GET",
+  "path": "/api/repository/fileContent",
+  "auth": "web_user",
+  "status": 500,
+  "content_type": "text/html; charset=UTF-8",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "missing",
+  "expect_error": null,
+  "expect_status": 500,
+  "actual_code": null,
+  "match": true,
+  "body": null,
+  "raw_body": ""
+}

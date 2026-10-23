@@ -1,0 +1,23 @@
+{
+  "id": "repository.fileContent",
+  "method": "GET",
+  "path": "/api/repository/fileContent",
+  "auth": "web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": 200,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": {
+      "raw": "hello codefever local build\n"
+    },
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":{\"raw\":\"hello codefever local build\\n\"}}"
+}

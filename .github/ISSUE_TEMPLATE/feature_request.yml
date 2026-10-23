@@ -1,0 +1,36 @@
+name: 特性请求
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢提出特性建议！请尽量说明**你要解决的问题**，而不只是想要的实现方式，
+        这样我们更容易判断如何取舍。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 要解决的问题
+      description: 你在什么场景下遇到了什么阻碍？
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望的解决方案
+      description: 你设想的功能形态是什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 考虑过的替代方案
+      description: 有没有别的办法能解决同一个问题？
+
+  - type: textarea
+    id: extra
+    attributes:
+      label: 补充信息
+      description: 截图、示例数据、相关文档链接等

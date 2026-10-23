@@ -1,0 +1,70 @@
+name: Bug 报告
+
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请先确认**没有重复的 Issue**。
+
+        ⚠️ 如果你遇到的是**安全问题**，请不要用公开 Issue 反馈，
+        请按 [SECURITY.md](../SECURITY.md) 的说明私下报告。
+
+  - type: textarea
+    id: version
+    attributes:
+      label: 部署版本与方式
+      description: 你是怎么部署的？用的是哪个版本 / commit？
+      placeholder: |
+        部署方式: docker compose up -d --build
+        版本: v0.1.0 (commit: abc1234)
+        基础镜像: webdevops/php-nginx:7.4
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 问题描述
+      description: 发生了什么？期望的行为是什么？
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 复现步骤
+      description: 一步一步列出复现过程，最好给出最小可复现的请求或操作
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: |
+        相关日志（`docker compose logs codefever` 的输出最有价值）。
+        请在贴出前检查并移除口令、密钥等敏感信息。
+      render: shell
+
+  - type: input
+    id: frontend
+    attributes:
+      label: 前端资源路径
+      description: |
+        如果问题与某个页面有关，请填写浏览器地址栏里的完整路径
+        （例如 /group/xxx/repo/yyy/branch/zzz），不要包含域名。
+      placeholder: /repositories
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 提交前确认
+      options:
+        - label: 我已搜索过现有 Issue，确认不是重复问题
+          required: true
+        - label: 我已升级到最新版并确认问题仍然存在
+          required: false
+        - label: 我已移除日志中的敏感信息
+          required: false

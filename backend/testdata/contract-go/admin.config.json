@@ -1,0 +1,21 @@
+{
+  "id": "admin.config",
+  "method": "GET",
+  "path": "/api/admin/config",
+  "auth": "admin_web_user",
+  "status": 404,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 261,
+  "match": false,
+  "body": {
+    "code": 261,
+    "data": [],
+    "message": "Endpoint Not Found Or Not Allowed Current Request Method",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":261,\"message\":\"Endpoint Not Found Or Not Allowed Current Request Method\",\"data\":[]}"
+}

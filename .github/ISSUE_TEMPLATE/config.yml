@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 安装与部署问题
+    url: https://github.com/AidenX0704/codefever-next/discussions
+    about: 部署、端口、数据库连接、离线分发等问题请先看文档，仍无解再开 Issue
+  - name: 安全漏洞
+    url: https://github.com/AidenX0704/codefever-next/security/advisories/new
+    about: 请勿用公开 Issue 报告安全问题

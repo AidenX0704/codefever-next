@@ -1,0 +1,21 @@
+{
+  "id": "error.missingAcceptHeader",
+  "method": "GET",
+  "path": "/api/user/info",
+  "auth": "web_user",
+  "status": 400,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": 259,
+  "expect_status": 400,
+  "actual_code": 259,
+  "match": true,
+  "body": {
+    "code": 259,
+    "data": [],
+    "message": "Accept and Content-Type Is Required In Header",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":259,\"message\":\"Accept and Content-Type Is Required In Header\",\"data\":[]}"
+}

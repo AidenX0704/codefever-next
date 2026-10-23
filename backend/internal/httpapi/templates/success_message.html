@@ -1,0 +1,66 @@
+{{- /*
+数据契约：
+  .L(key)         string  语言文案，等价 PHP 的 lang(key)；缺键返回空串。
+  .AppName        string  PHP 常量 APP_NAME。
+  .Message        string  提示正文（PHP $message）。
+  .RedirectURL    string  跳转地址（PHP $redirectURL），为空时显示“返回主页/返回上一页”。
+  .RedirectTitle  string  跳转按钮文案（PHP $redirectButtonTitle），为空时回落到 lang('base_confirm')。
+
+转义决策：
+  .Message / .RedirectURL / .RedirectTitle 走 Go 的上下文转义
+  （HTML 文本上下文 / URL 属性上下文），避免引入 XSS。
+
+移植说明：
+  PHP 侧 include 的 center/header_center_include.php、center/header.php、
+  center/footer_center.php、center/footer_center_include.php 在本仓库中不存在，
+  PHP 生产环境（error_reporting(0)）下这些位置输出为空，
+  Go 侧用 absent_include 占位，渲染结果一致。
+*/ -}}
+<!DOCTYPE html>
+<html>
+<head>
+    <link href="/static/assets/css/plugins/toastr/toastr.min.css" rel="stylesheet">
+    {{ template "absent_include.html" . -}}
+    <title>{{ .AppName }} | {{ .L "base_message" }}</title>
+</head>
+
+<body class="top-navigation">
+    <div id="wrapper">
+        <div id="page-wrapper" class="gray-bg">
+            {{ template "absent_include.html" . }}
+            <div class="row">
+                <div class="col-lg-10 col-lg-offset-1">
+                    <div class="wrapper wrapper-content">
+
+
+                        <div class="col-lg-12">
+                            <div class="ibox ">
+                                <div class="ibox-content text-center">
+                                    <div class="m-t-xl"></div>
+                                    <br /><br /><br /><br />
+                                    <div>
+                                        <h3>{{ .Message }}</h3>
+                                        <br />
+                                        {{ if .RedirectURL }}
+                                        <a class="btn btn-primary" href="{{ .RedirectURL }}">{{ .RedirectTitle }}</a>
+                                        {{ else }}
+                                        <a class="btn btn-primary" href="/">{{ .L "base_go_home" }}</a>
+                                        <a class="btn btn-primary" href="#" onclick="javascript:window.history.go(-1);">{{ .L "base_go_prepage" }}</a>
+                                        {{ end }}
+                                        <br /><br /><br /><br />
+                                    </div>
+                                    <div class="m-t-xl"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+            {{ template "absent_include.html" . -}}
+        </div>
+    </div>
+
+    {{ template "absent_include.html" . }}
+</body>
+</html>

@@ -1,0 +1,8 @@
+---
+host: http://localhost
+ssh: 'git@localhost:'
+allowRegister: true
+email:
+  name: CodeFever Next
+  from: git@mail.sender
+...

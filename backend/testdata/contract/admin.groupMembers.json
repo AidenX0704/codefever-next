@@ -1,0 +1,46 @@
+{
+  "id": "admin.groupMembers",
+  "method": "POST",
+  "path": "/api/admin/groupMembers",
+  "auth": "admin_web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": [
+      {
+        "admin": true,
+        "creatorFlag": true,
+        "deleteFlag": false,
+        "email": "root@codefever.cn",
+        "emails": [
+          "root@codefever.cn"
+        ],
+        "groupMember": true,
+        "host": "<HOST>",
+        "icon": "",
+        "id": "00000000000000000000000000000000",
+        "joined": "<TS>",
+        "mfaEnabled": false,
+        "name": "codefever",
+        "notification": 0,
+        "phoneCode": "86",
+        "phoneNumber": "",
+        "role": 5,
+        "ssh": "git@localhost:",
+        "status": true,
+        "team": null,
+        "unReadNotification": 0
+      }
+    ],
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":[{\"id\":\"00000000000000000000000000000000\",\"icon\":\"\",\"name\":\"codefever\",\"email\":\"root@codefever.cn\",\"phoneCode\":\"86\",\"phoneNumber\":\"\",\"team\":null,\"role\":5,\"notification\":0,\"mfaEnabled\":false,\"admin\":true,\"emails\":[\"root@codefever.cn\"],\"unReadNotification\":0,\"status\":true,\"host\":\"http:\\/\\/localhost\",\"ssh\":\"git@localhost:\",\"joined\":1792682255,\"groupMember\":true,\"creatorFlag\":true,\"deleteFlag\":false}]}"
+}

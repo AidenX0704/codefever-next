@@ -1,0 +1,16 @@
+{
+  "id": "error.endpointNotFound",
+  "method": "GET",
+  "path": "/api/nope/nope",
+  "auth": "web_user",
+  "status": 404,
+  "content_type": "text/html; charset=UTF-8",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "missing",
+  "expect_error": null,
+  "expect_status": 404,
+  "actual_code": null,
+  "match": true,
+  "body": null,
+  "raw_body": "<!DOCTYPE html>\r\n<html>\r\n<head>\r\n    <title>CodeFever</title>\r\n    \r\n</head>\r\n<body style=\"background-color:#fff\">\r\n <div style=\"height:100px;margin-bottom100px;\">&nbsp;</div>\r\n <div ng-controller=\"nopageCtrl\">\r\n     <div class=\"container error-v4\" style=\"margin-top:100px;\">\r\n         <div class=\"row\">\r\n             <div class=\"col-lg-12 col-xs-12 col-md-12 col-sm-12 text-center\">\r\n                 <p class=\"img-responsive center-block animated fadeInDown\"><img src=\"/static/assets/images/404_pic.png\"></p>\r\n                 <h1 class=\"sorry\">The page you’re looking for is not here.</h1>\r\n                 <p class=\"regret\">抱歉，页面不见了~</p>\r\n                 <a href=\"/\" role=\"button\" class=\"btn btn-primary btn-border\">\r\n                     <i class=\"fa fa-home fa-fw\"></i>\r\n                     返回首页\r\n                 </a>\r\n             </div>\r\n         </div>\r\n     </div>\r\n </div>\r\n</body>"
+}

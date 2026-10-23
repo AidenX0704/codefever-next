@@ -1,0 +1,147 @@
+{{- /*
+数据契约：
+  .L(key)        string  语言文案，等价 PHP 的 lang(key)；缺键返回空串（PHP 返回 FALSE，echo 后为空）。
+  .Host          string  PHP 常量 YAML_HOST。
+  .ReleaseNumber string  PHP 常量 RELEASENUMBER。
+  .DocMenu       []DocMenuItem  文档左侧菜单（PHP $menu）。
+  .DocSegments   []string       URL 路径分段（PHP $segments）。
+  .Doc           string         文档 Markdown 正文（PHP $doc，读取自仓库 doc/ 目录）。
+
+转义决策：
+  .Doc 会被放进 JS 模板字符串里，Go 的上下文转义器会把 < & " ' ` 编码成 \\uXXXX，
+  运行时取值与 PHP 原样输出完全等价（PHP 侧只把反引号转义成 \`）。
+  .DocMenu 的 name/path 来自仓库内的 Markdown 文件，同样按上下文转义。
+
+移植说明：
+  PHP 的 `?>` 会吞掉紧随其后的换行，Go 模板没有这个规则。
+  PHP 中“只含语句、独占一行”的代码行在 Go 里被直接删除（它们本来也不输出任何内容）。
+*/ -}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Codefever community - Doc</title>
+    {{ template "header_include.html" . }}</head>
+<body>
+    <div class="container-fluid">
+        <div class="row">
+            <div class="col-md-2 bg-EFF3F8 color-2F354D doc-left">
+                <div><img class="doc-logo" src="/static/images/logo-community-doc.png" /></div>
+                <p class="weight-600">{{ .L "base_directory" }}</p>
+
+                {{ range .DocMenu }}
+                    <div class="menu opened">
+                        <div class="menu-first flexRowRowCenter">
+                            <span class="switch"></span>
+                            <span class="ml-16">{{ .Name }}</span>
+                        </div>
+
+                        {{ if .Submenu }}
+                            <div class="menu-second">
+                                {{ range .Submenu }}
+                                    <div class="ml-50"><a class="normal-link" href="/doc/{{ $.DocItemHref .Path }}">{{ .Name }}</a></div>
+                                {{ end }}
+                            </div>
+                        {{ end }}
+                    </div>
+                {{ end }}
+            </div>
+
+            <div class="col-md-10 doc-right">
+                <div class="header flexRowCenter justifyContent">
+                    <div class="title"><h1></h1></div>
+                    <div>
+                        <span class="lang mr-50">
+                            <div class="flexRowCenter justifyContent">
+                                <span>{{ if eq .DocLang "cn" }}{{ .L "base_cn" }}{{ else }}{{ .L "base_en" }}{{ end }}</span>
+                                <span class="switch"></span>
+                            </div>
+                            <div class="lang-menu">
+                                <div><a class="normal-link {{ if eq .DocLang "cn" }}active{{ end }}" href="/doc/cn/{{ .DocRest }}">{{ .L "base_cn" }}</a></div>
+                                <div><a class="normal-link {{ if eq .DocLang "en" }}active{{ end }}" href="/doc/en/{{ .DocRest }}">{{ .L "base_en" }}</a></div>
+                            </div>
+                        </span>
+                        <a class="btn" href="/user/login">{{ .L "user_form_page_title" }}</a>
+                        <a class="btn btn-self-primary" href="/user/register">{{ .L "user_form_register_page_title" }}</a>
+                    </div>
+                </div>
+                <div class="doc-content flexRowCenter justifyContent alignStart">
+                    <div class="doc-content-left">
+                        <div class="container doc markdown-body"></div>
+                    </div>
+                    <div class="doc-nav"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {{ template "footer_include.html" . }}
+    <script>
+        $(function () {
+            var tops = [];
+            var scrollType = 0;
+            var doc = `{{ .Doc }}`;
+
+            $('.doc').append(marked.marked(doc));
+
+            $('.menu-first').on('click', function () {
+                $(this).parent().toggleClass('opened');
+            });
+
+            $('.lang').on('mouseenter', function () {
+                $(this).addClass('opened');
+            }).on('mouseleave', function () {
+                $(this).removeClass('opened');
+            });
+
+            if (doc) {
+                $('.title h1').text($('.doc h1').text());
+
+                $('.doc h3').each(function (index, item) {
+                    $('.doc-nav').append('<div><a href="#' + $(item).attr('id') +  '">' + item.innerText + '</a></div>');
+                    tops[index] = $(this).position().top;
+                });
+
+                $('.doc-nav a').on('click', function () {
+                    scrollType = 1;
+                    $('.doc-nav a').removeClass('active');
+                    $(this).addClass('active');
+                }).eq(0).addClass('active');
+
+                $('.doc-right').on('scroll', function () {
+                    var height = $(this).innerHeight();
+                    var contentHeight = $('.doc-content').innerHeight() + 64;
+                    var scrollTop = $(this).scrollTop();
+                    var progress = scrollTop / (contentHeight - height) * 100;
+
+                    $('.title h1').css('display', scrollTop > 64 ? 'block' : 'none');
+
+                    scrollTop > 0 ? $('.header').addClass('shadow') : $('.header').removeClass('shadow');
+
+                    if (scrollType == 1) {
+                        $(this).scrollTop(scrollTop - 64);
+                        scrollType = 2;
+                        return true;
+                    } else if (scrollType == 2) {
+                        scrollType = 0;
+                        return true;
+                    }
+
+                    for (var i = 0; i < tops.length - 1; i++) {
+                        var progress2 = tops[i] / contentHeight * 100;
+                        if (progress2 > progress) {
+                            break;
+                        }
+                    }
+
+                    $('.doc-nav a').removeClass('active');
+                    $('.doc-nav a').eq(i).addClass('active');
+                });
+            }
+        });
+    </script>
+</body>
+</html>

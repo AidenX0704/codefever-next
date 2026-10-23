@@ -1,0 +1,48 @@
+!*/
+
+.vscode
+.idea
+.DS_Store
+
+# 运行时配置 (由 template 复制而来, 含随机 session key, 不入库)
+/env.yaml
+/config.yaml
+/node_modules
+
+/www/robots.txt
+/www/view/node_modules
+/www/view/npm-debug.log*
+/www/view/yarn-debug.log*
+/www/view/yarn-error.log*
+
+# Go 网关编译产物
+/http-gateway/main
+/ssh-gateway/shell/main
+
+# 运行时数据
+# git-storage/ 与 file-storage/ 是 Docker 部署时的数据卷挂载点：
+# 仓库里只保留 git-storage/hooks/ 的空目录骨架（.gitkeep 占位），
+# 真实钩子软链由 Dockerfile 构建期生成，其余一律不入库。
+/file-storage/**
+/git-storage/**
+!/git-storage/hooks/
+!/git-storage/hooks/**
+
+# 本地镜像构建产物 (Dockerfile.local / docker-compose.yml)
+/dist/
+/.tmp-*
+/www/view/.tmp-build-check/
+/NUL
+
+# Go 后端 (backend/)
+/backend/bin/
+/backend/testdata/collected/
+# 本地交叉编译产物 (Windows) 与临时源码
+/backend/*.exe
+/backend/tmp_*.go
+/backend/.tmp-*
+/backend/.gotmp/
+
+# 临时文件
+/cookies.txt
+/cookies_test.txt

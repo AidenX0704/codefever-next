@@ -1,0 +1,1484 @@
+# CodeFever Next —— 后端重写契约基线清单
+#
+# 权威来源（逐字阅读推导，不是猜测）：
+#   application/controllers/api/{user,admin,group,repository}.php
+#   application/controllers/apiv1/internal.php
+#   application/controllers/api/base.php        (分派规则：<action>_<METHOD>)
+#   application/libraries/service/Network/Request.php   (参数来源 / 头校验)
+#   application/libraries/service/Network/Response.php  (响应信封)
+#   application/libraries/service/ErrorCode/ErrorCode.php (错误码 → HTTP 状态)
+#
+# 覆盖范围：108 个 /api/* 端点（user 24 + admin 19 + group 13 + repository 52）
+#           + 4 个 /apiv1/internal/* 端点
+#           + 契约错误路径用例（缺参 / 未登录 / 非管理员 / 404 / 缺 Accept / 错 Token）
+#
+# 字段说明与采集方式见 backend/contract/README.md。
+
+base_url: http://localhost:9080
+
+# ---------------------------------------------------------------------------
+# 登录：PHP 侧 /user/login 必须是 application/x-www-form-urlencoded。
+# 响应体是 JSON，但响应的 Content-Type 是 text/html; charset=UTF-8（PHP 既有行为）。
+# ---------------------------------------------------------------------------
+login:
+  path: /user/login
+  form:
+    email: root@codefever.cn
+    password: "123456"
+
+# ---------------------------------------------------------------------------
+# 采集安全约束（采集器强制执行，违反即中止，不发请求）
+#
+#  1. forbidden_write_paths 里的路径永远不允许收到 POST/PUT/DELETE。
+#     POST /api/admin/config 是 P0 缺陷：data 字段解码为 null 时，
+#     array_merge($config, null) 只发 Warning，随后 yaml_emit_file() 会把
+#     config.yaml 写成空结构；下一次请求时 www/index.php:21 的
+#     make_constants('YAML_', yaml_parse_file(config.yaml)) 拿到 null 抛
+#     TypeError → 整个应用（登录 + 全部 API）永久 500。
+#     => 单次畸形请求即可砖化全站。本基线不采集该端点的 POST 形态。
+#
+#  2. 写方法（POST/PUT/DELETE）且未标记 readonly: true 的端点，
+#     采集器只允许发送"所有参数均为空值/缺省"的请求，
+#     即只能走到"缺参 / 资源不存在"这类不产生任何写操作的失败分支。
+#
+#  3. readonly: true 仅用于"成功路径也不写库、不改写服务端文件"的 POST 端点。
+# ---------------------------------------------------------------------------
+safety:
+  forbidden_write_paths:
+    - /api/admin/config
+  require_empty_params_for_write_endpoints: true
+
+# ---------------------------------------------------------------------------
+# CI Session 配置。
+#   session.key == env.yaml 的 session.key == $config['encryption_key']。
+#   CodeIgniter 的会话完全存放在客户端 Cookie 里（sess_use_database = FALSE），
+#   用 CI_Encrypt 的 XOR 方案加密，因此采集器可以只用这个 key 就构造出一个
+#   "非管理员" 会话 Cookie —— 无需新建用户、无需写库。
+# ---------------------------------------------------------------------------
+session:
+  cookie_name: codefever_community
+  key: Ua1xLbQYjAjH5lcansNbKvfN4nJn0rIG
+  # 非管理员账号（库中已存在，u_admin=0；u_status=4 已软删除，无法登录，
+  # 所以改用会话伪造来覆盖"非管理员访问后台"分支）。
+  non_admin_user_key: 26c20714af8bc20aa85be657a5170e71
+
+# ---------------------------------------------------------------------------
+# 内部网关鉴权令牌，取自 env.yaml 的 gateway.token
+# ---------------------------------------------------------------------------
+gateway:
+  token: "<codefever_community_api_token>"
+
+# ---------------------------------------------------------------------------
+# 演示数据（只读引用）
+# ---------------------------------------------------------------------------
+demo:
+  admin_user_key: "00000000000000000000000000000000"
+  admin_email: root@codefever.cn
+  group_key: "29efb28ef9dd3018353eb5a02c018b28"   # rootteam（个人组，type=2）
+  repository_key: "1031c9342d6539fd36ff79f75ca4f8b7" # demorepo
+  branch: master
+  commit: f67cfee73d75172d4e7afd77c3efa310b460fa1b
+  parent_commit: c943e85a4f996856f19d53e0f59d47e6aa9e29ec
+  file: README.md
+  repo_path: rootteam/demorepo.git
+
+# ---------------------------------------------------------------------------
+# 不存在的资源 key —— 让写端点走"资源不存在 / 参数无效"分支，
+# 从而在不污染演示库的前提下覆盖写端点的错误路径。
+# ---------------------------------------------------------------------------
+invalid:
+  repository_key: nonexistent_repository_key_xxx
+  group_key: nonexistent_group_key_xxx
+  user_key: nonexistent_user_key_xxx
+  email: nobody-nonexistent@example.invalid
+  commit_sha: 0000000000000000000000000000000000000000
+  webhook_key: nonexistent_webhook_key_xxx
+  ssh_key_id: nonexistent_ssh_key_id_xxx
+  merge_request: nonexistent_merge_request_key_xxx
+
+# ===========================================================================
+# 端点用例
+#
+#   auth:
+#     web_user         —— 登录后的普通用户会话（root）
+#     admin_web_user   —— 登录后的管理员会话（当前 root 即管理员）
+#     non_admin_user   —— 伪造的非管理员会话（见上方 session 段）
+#     anonymous        —— 不携带 Cookie
+#     internal_gateway —— 内部网关（Token 头）
+#
+#   params[].from:
+#     query —— URL 查询参数
+#     body  —— multipart/form-data 表单字段
+#     json  —— application/json 请求体字段
+#     file  —— multipart/form-data 文件字段（value 相对 manifest 所在目录）
+#
+#   expect_error   —— 期望的业务错误码（十进制）；null 表示期望成功
+#   expect_status  —— 期望的 HTTP 状态码；省略时默认 200
+#   expect_content_type —— 期望的响应 Content-Type 前缀；省略时不校验
+#   readonly       —— true 表示该 POST 端点的成功路径无副作用，可带参数调用
+# ===========================================================================
+endpoints:
+
+  # ------------------------------------------------------------------ user
+  - id: user.info
+    controller: user
+    action: info
+    method: GET
+    auth: web_user
+    path: /api/user/info
+    params: []
+    expect_error: null
+    notes: "当前登录用户档案"
+
+  - id: user.listKey
+    controller: user
+    action: listKey
+    method: GET
+    auth: web_user
+    path: /api/user/listKey
+    params: []
+    expect_error: null
+    notes: "列出当前用户的 SSH 公钥"
+
+  - id: user.getMFAData
+    controller: user
+    action: getMFAData
+    method: GET
+    auth: web_user
+    path: /api/user/getMFAData
+    params: []
+    expect_error: null
+    notes: "生成一次性 MFA secret 与二维码（不落库）；secret/二维码每次都随机，采集时归一化"
+
+  - id: user.notifications
+    controller: user
+    action: notifications
+    method: GET
+    auth: web_user
+    path: /api/user/notifications
+    params:
+      - {name: category, from: query, value: "0"}   # 0=全部 1=未读 2=系统 3=@我
+    expect_error: null
+
+  - id: user.notificationRefused
+    controller: user
+    action: notificationRefused
+    method: GET
+    auth: web_user
+    path: /api/user/notificationRefused
+    params: []
+    expect_error: null
+
+  - id: user.addSSHKey
+    controller: user
+    action: addSSHKey
+    method: POST
+    auth: web_user
+    path: /api/user/addSSHKey
+    params: []
+    expect_error: 513
+    notes: "缺 name/key → 0x0201；不传参以避免新增 SSH 密钥"
+
+  - id: user.removeSSHKey
+    controller: user
+    action: removeSSHKey
+    method: POST
+    auth: web_user
+    path: /api/user/removeSSHKey
+    params: []
+    expect_error: 513
+    notes: "缺 id → 0x0201；不传参以避免删除既有密钥"
+
+  - id: user.getCountriesCode
+    controller: user
+    action: getCountriesCode
+    method: POST
+    auth: web_user
+    path: /api/user/getCountriesCode
+    params: []
+    expect_error: null
+    readonly: true
+    notes: "纯查询，无副作用，走成功路径"
+
+  - id: user.updateBasicInfo
+    controller: user
+    action: updateBasicInfo
+    method: POST
+    auth: web_user
+    path: /api/user/updateBasicInfo
+    params: []
+    expect_error: 513
+    notes: "缺 name/email → 0x0201（校验在 update 之前）"
+
+  - id: user.update
+    controller: user
+    action: update
+    method: POST
+    auth: web_user
+    path: /api/user/update
+    params: []
+    expect_error: 513
+    notes: "缺 field/data → 0x0201"
+
+  - id: user.uploadAvatar
+    controller: user
+    action: uploadAvatar
+    method: POST
+    auth: web_user
+    path: /api/user/uploadAvatar
+    params: []
+    expect_error: 513
+    notes: "无文件 → 0x0201；带文件会直接覆盖 u_avatar，故不上传任何文件"
+
+  - id: user.updatePassword
+    controller: user
+    action: updatePassword
+    method: POST
+    auth: web_user
+    path: /api/user/updatePassword
+    params: []
+    expect_error: 513
+    notes: "缺 current/new → 0x0201，校验在 setPassword 之前"
+
+  - id: user.getEmailCode
+    controller: user
+    action: getEmailCode
+    method: POST
+    auth: web_user
+    path: /api/user/getEmailCode
+    params: []
+    expect_error: 513
+    notes: "缺 email/password → 0x0201（校验在发信之前，不会真的发邮件）"
+
+  - id: user.changeEmail
+    controller: user
+    action: changeEmail
+    method: POST
+    auth: web_user
+    path: /api/user/changeEmail
+    params: []
+    expect_error: 513
+    notes: "缺 email/code/password → 0x0201"
+
+  - id: user.addCommitEmail
+    controller: user
+    action: addCommitEmail
+    method: POST
+    auth: web_user
+    path: /api/user/addCommitEmail
+    params: []
+    expect_error: 513
+    notes: "缺 email → 0x0201（校验在 insert 之前）"
+
+  - id: user.resentCommitEmailCode
+    controller: user
+    action: resentCommitEmailCode
+    method: POST
+    auth: web_user
+    path: /api/user/resentCommitEmailCode
+    params: []
+    expect_error: 513
+    notes: "缺 email → 0x0201（校验在发信之前）"
+
+  - id: user.deleteCommitEmail
+    controller: user
+    action: deleteCommitEmail
+    method: POST
+    auth: web_user
+    path: /api/user/deleteCommitEmail
+    params: []
+    expect_error: 513
+    notes: "缺 id → 0x0201（校验在软删除之前）"
+
+  - id: user.validationCommitEmailCode
+    controller: user
+    action: validationCommitEmailCode
+    method: POST
+    auth: web_user
+    path: /api/user/validationCommitEmailCode
+    params: []
+    expect_error: 513
+    notes: "缺 id/email/code → 0x0201"
+
+  - id: user.updateMFAData
+    controller: user
+    action: updateMFAData
+    method: POST
+    auth: web_user
+    path: /api/user/updateMFAData
+    params: []
+    expect_error: 513
+    notes: "缺 secret/code1/code2 → 0x0201（校验在 setMFASecret 之前）"
+
+  - id: user.revokeMFAData
+    controller: user
+    action: revokeMFAData
+    method: POST
+    auth: anonymous
+    path: /api/user/revokeMFAData
+    params: []
+    expect_error: 257
+    expect_status: 403
+    notes: >-
+      该端点登录后没有任何参数/权限分支，必定执行 setMFASecret(u_key,'')，
+      会改写 u_2fa 与 u_updated。为保持数据库只读，这里只记录未登录分支。
+
+  - id: user.setNotificationRead
+    controller: user
+    action: setNotificationRead
+    method: POST
+    auth: web_user
+    path: /api/user/setNotificationRead
+    params: []
+    expect_error: 513
+    notes: "all 与 id 同时为空 → 0x0201"
+
+  - id: user.deleteNotification
+    controller: user
+    action: deleteNotification
+    method: POST
+    auth: web_user
+    path: /api/user/deleteNotification
+    params: []
+    expect_error: 513
+    notes: "all 与 id 同时为空 → 0x0201"
+
+  - id: user.userNotificationSetting
+    controller: user
+    action: userNotificationSetting
+    method: POST
+    auth: web_user
+    path: /api/user/userNotificationSetting
+    params: []
+    expect_error: 513
+    notes: "缺 offset → 0x0201"
+
+  - id: user.setGroupOrRepoNotification
+    controller: user
+    action: setGroupOrRepoNotification
+    method: POST
+    auth: web_user
+    path: /api/user/setGroupOrRepoNotification
+    params: []
+    expect_error: 513
+    notes: "缺 type/target → 0x0201"
+
+  # ----------------------------------------------------------------- admin
+  - id: admin.systemStatus
+    controller: admin
+    action: systemStatus
+    method: GET
+    auth: admin_web_user
+    path: /api/admin/systemStatus
+    params: []
+    expect_error: null
+    notes: "只读（统计 + 系统命令探测）；vm 指标每次都不同，采集时归一化"
+
+  - id: admin.config
+    controller: admin
+    action: config
+    method: GET
+    auth: admin_web_user
+    path: /api/admin/config
+    params: []
+    expect_error: null
+    notes: >-
+      只读取 config.yaml，不改写。该端点的 POST 形态存在"单请求砖化全站"的
+      P0 缺陷（见 safety 段），本基线不采集。
+
+  - id: admin.userList
+    controller: admin
+    action: userList
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/userList
+    params:
+      - {name: category, from: body, value: "0"}
+      - {name: keyword, from: body, value: ""}
+      - {name: sort, from: body, value: "name"}
+      - {name: page, from: body, value: "1"}
+      - {name: pagesize, from: body, value: "20"}
+    expect_error: null
+    readonly: true
+    notes: "纯查询，走成功路径"
+
+  - id: admin.updateUserStatus
+    controller: admin
+    action: updateUserStatus
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/updateUserStatus
+    params: []
+    expect_error: 513
+    notes: "缺 user/status → 0x0201（校验在 update 之前）"
+
+  - id: admin.closeUserMFA
+    controller: admin
+    action: closeUserMFA
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/closeUserMFA
+    params: []
+    expect_error: 513
+    notes: "缺 user → 0x0201"
+
+  - id: admin.resetPassword
+    controller: admin
+    action: resetPassword
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/resetPassword
+    params: []
+    expect_error: 513
+    notes: "缺 user/password → 0x0201（校验在改密之前）"
+
+  - id: admin.checkPassword
+    controller: admin
+    action: checkPassword
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/checkPassword
+    params:
+      - {name: password, from: body, value: "definitely-not-the-password"}
+    expect_error: 1029
+    expect_status: 400
+    readonly: true
+    notes: "只做口令比对，不写库；口令不匹配 → 0x0405"
+
+  - id: admin.setAdministrator
+    controller: admin
+    action: setAdministrator
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/setAdministrator
+    params: []
+    expect_error: 513
+    notes: "缺 user → 0x0201"
+
+  - id: admin.addUser
+    controller: admin
+    action: addUser
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/addUser
+    params: []
+    expect_error: 513
+    notes: "缺 name/email → 0x0201（校验在 insert 之前）"
+
+  - id: admin.groupList
+    controller: admin
+    action: groupList
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/groupList
+    params:
+      - {name: keyword, from: body, value: ""}
+      - {name: sort, from: body, value: "name"}
+      - {name: page, from: body, value: "1"}
+      - {name: pagesize, from: body, value: "20"}
+    expect_error: null
+    readonly: true
+    notes: "纯查询，走成功路径"
+
+  - id: admin.groupMembers
+    controller: admin
+    action: groupMembers
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/groupMembers
+    params:
+      - {name: group, from: body, value: "29efb28ef9dd3018353eb5a02c018b28"}
+    expect_error: null
+    readonly: true
+    notes: "纯查询，走成功路径"
+
+  - id: admin.groupAddMember
+    controller: admin
+    action: groupAddMember
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/groupAddMember
+    params: []
+    expect_error: 513
+    notes: "缺 group/email → 0x0201"
+
+  - id: admin.groupRemoveMember
+    controller: admin
+    action: groupRemoveMember
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/groupRemoveMember
+    params: []
+    expect_error: 513
+    notes: "缺 group/user → 0x0201"
+
+  - id: admin.setGroupOwner
+    controller: admin
+    action: setGroupOwner
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/setGroupOwner
+    params: []
+    expect_error: 1031
+    expect_status: 404
+    notes: >-
+      该端点没有参数校验：缺 user 时 userModel->get('') 查不到 → 0x0407，
+      在 setMemberRole 之前就返回，不写库。
+
+  - id: admin.repositoryList
+    controller: admin
+    action: repositoryList
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/repositoryList
+    params:
+      - {name: keyword, from: body, value: ""}
+      - {name: sort, from: body, value: "name"}
+      - {name: page, from: body, value: "1"}
+      - {name: pagesize, from: body, value: "20"}
+    expect_error: null
+    readonly: true
+    notes: "纯查询，走成功路径"
+
+  - id: admin.repositoryMembers
+    controller: admin
+    action: repositoryMembers
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/repositoryMembers
+    params:
+      - {name: repository, from: body, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+    expect_error: null
+    readonly: true
+    notes: "纯查询，走成功路径"
+
+  - id: admin.repositoryAddMember
+    controller: admin
+    action: repositoryAddMember
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/repositoryAddMember
+    params: []
+    expect_error: 513
+    notes: "缺 repository/email → 0x0201"
+
+  - id: admin.repositoryRemoveMember
+    controller: admin
+    action: repositoryRemoveMember
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/repositoryRemoveMember
+    params: []
+    expect_error: 513
+    notes: "缺 repository/user → 0x0201"
+
+  # ----------------------------------------------------------------- group
+  - id: group.list
+    controller: group
+    action: list
+    method: GET
+    auth: web_user
+    path: /api/group/list
+    params: []
+    expect_error: null
+
+  - id: group.config
+    controller: group
+    action: config
+    method: GET
+    auth: web_user
+    path: /api/group/config
+    params:
+      - {name: gKey, from: query, value: "29efb28ef9dd3018353eb5a02c018b28"}
+    expect_error: null
+
+  - id: group.mergeRequests
+    controller: group
+    action: mergeRequests
+    method: GET
+    auth: web_user
+    path: /api/group/mergeRequests
+    params:
+      - {name: group, from: query, value: "29efb28ef9dd3018353eb5a02c018b28"}
+      - {name: status, from: query, value: "0"}
+      - {name: keyword, from: query, value: ""}
+      - {name: sort, from: query, value: "desc"}
+      - {name: page, from: query, value: "1"}
+      - {name: pagesize, from: query, value: "20"}
+    expect_error: null
+
+  - id: group.activities
+    controller: group
+    action: activities
+    method: GET
+    auth: web_user
+    path: /api/group/activities
+    params:
+      - {name: group, from: query, value: "29efb28ef9dd3018353eb5a02c018b28"}
+      - {name: category, from: query, value: "0"}
+      - {name: keyword, from: query, value: ""}
+      - {name: page, from: query, value: "1"}
+      - {name: pagesize, from: query, value: "20"}
+    expect_error: null
+
+  - id: group.create
+    controller: group
+    action: create
+    method: POST
+    auth: web_user
+    path: /api/group/create
+    params: []
+    expect_error: 513
+    notes: "缺 displayName/name/type → 0x0201（校验在 create 之前）"
+
+  - id: group.uploadAvatar
+    controller: group
+    action: uploadAvatar
+    method: POST
+    auth: web_user
+    path: /api/group/uploadAvatar
+    params: []
+    expect_error: 513
+    notes: "缺 group 与文件 → 0x0201；不上传任何文件，避免覆盖 g_avatar"
+
+  - id: group.update
+    controller: group
+    action: update
+    method: POST
+    auth: web_user
+    path: /api/group/update
+    params: []
+    expect_error: 513
+    notes: "缺 group/displayName → 0x0201"
+
+  - id: group.addMember
+    controller: group
+    action: addMember
+    method: POST
+    auth: web_user
+    path: /api/group/addMember
+    params: []
+    expect_error: 513
+    notes: "缺 group/email → 0x0201"
+
+  - id: group.changeMemberRole
+    controller: group
+    action: changeMemberRole
+    method: POST
+    auth: web_user
+    path: /api/group/changeMemberRole
+    params: []
+    expect_error: 513
+    notes: "缺 group/userID/roleID → 0x0201"
+
+  - id: group.removeMember
+    controller: group
+    action: removeMember
+    method: POST
+    auth: web_user
+    path: /api/group/removeMember
+    params: []
+    expect_error: 513
+    notes: "缺 group/userID → 0x0201"
+
+  - id: group.changeOwner
+    controller: group
+    action: changeOwner
+    method: POST
+    auth: web_user
+    path: /api/group/changeOwner
+    params: []
+    expect_error: 513
+    notes: "缺 group/userID → 0x0201"
+
+  - id: group.updateName
+    controller: group
+    action: updateName
+    method: POST
+    auth: web_user
+    path: /api/group/updateName
+    params: []
+    expect_error: 513
+    notes: "缺 group/name → 0x0201"
+
+  - id: group.deleteGroup
+    controller: group
+    action: deleteGroup
+    method: POST
+    auth: web_user
+    path: /api/group/deleteGroup
+    params: []
+    expect_error: 513
+    notes: "缺 group → 0x0201"
+
+  # ------------------------------------------------------------- repository
+  - id: repository.list
+    controller: repository
+    action: list
+    method: GET
+    auth: web_user
+    path: /api/repository/list
+    params: []
+    expect_error: null
+
+  - id: repository.config
+    controller: repository
+    action: config
+    method: GET
+    auth: web_user
+    path: /api/repository/config
+    params:
+      - {name: rKey, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+    expect_error: null
+
+  - id: repository.activities
+    controller: repository
+    action: activities
+    method: GET
+    auth: web_user
+    path: /api/repository/activities
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: category, from: query, value: "0"}
+      - {name: keyword, from: query, value: ""}
+      - {name: page, from: query, value: "1"}
+      - {name: pagesize, from: query, value: "20"}
+    expect_error: null
+
+  - id: repository.protectedBranchRules
+    controller: repository
+    action: protectedBranchRules
+    method: GET
+    auth: web_user
+    path: /api/repository/protectedBranchRules
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+    expect_error: null
+
+  - id: repository.commitList
+    controller: repository
+    action: commitList
+    method: GET
+    auth: web_user
+    path: /api/repository/commitList
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: revision, from: query, value: "master"}
+      - {name: path, from: query, value: ""}
+      - {name: keyword, from: query, value: ""}
+      - {name: page, from: query, value: "1"}
+      - {name: pagesize, from: query, value: "10"}
+    expect_error: null
+
+  - id: repository.commitDetail
+    controller: repository
+    action: commitDetail
+    method: GET
+    auth: web_user
+    path: /api/repository/commitDetail
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: commitSHA, from: query, value: "f67cfee73d75172d4e7afd77c3efa310b460fa1b"}
+    expect_error: null
+
+  - id: repository.fileChanges
+    controller: repository
+    action: fileChanges
+    method: GET
+    auth: web_user
+    path: /api/repository/fileChanges
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: original, from: query, value: "c943e85a4f996856f19d53e0f59d47e6aa9e29ec"}
+      - {name: modified, from: query, value: "f67cfee73d75172d4e7afd77c3efa310b460fa1b"}
+    expect_error: null
+
+  - id: repository.refListContainSHA
+    controller: repository
+    action: refListContainSHA
+    method: GET
+    auth: web_user
+    path: /api/repository/refListContainSHA
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: hash, from: query, value: "f67cfee73d75172d4e7afd77c3efa310b460fa1b"}
+    expect_error: null
+
+  - id: repository.fileContent
+    controller: repository
+    action: fileContent
+    method: GET
+    auth: web_user
+    path: /api/repository/fileContent
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: sha, from: query, value: "master"}
+      - {name: path, from: query, value: "README.md"}
+    expect_error: null
+    expect_status: 200
+    notes: >-
+      PHP 既有缺陷：Repository_model 没有 geFilesByBranchOrSHA1Hash 方法
+      （方法名拼写错误 ge-），调用即致命错误 → HTTP 500 / 空 body。
+      新后端已用 git 原生语法 cat-file blob <sha>:<path> 实现本端点，
+      因此期望值从 500 修正为 200。该端点前端无调用点，行为变更不影响 UI。
+      参考 application/controllers/api/repository.php:1002-1051。
+
+  - id: repository.object
+    controller: repository
+    action: object
+    method: GET
+    auth: web_user
+    path: /api/repository/object
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: parent, from: query, value: "master"}
+      - {name: path, from: query, value: ""}
+      - {name: revision, from: query, value: "master"}
+    expect_error: null
+
+  - id: repository.pathStack
+    controller: repository
+    action: pathStack
+    method: GET
+    auth: web_user
+    path: /api/repository/pathStack
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: revision, from: query, value: "master"}
+      - {name: path, from: query, value: "README.md"}
+    expect_error: null
+
+  - id: repository.mergeRequests
+    controller: repository
+    action: mergeRequests
+    method: GET
+    auth: web_user
+    path: /api/repository/mergeRequests
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: status, from: query, value: "0"}
+      - {name: keyword, from: query, value: ""}
+      - {name: sort, from: query, value: "desc"}
+      - {name: page, from: query, value: "1"}
+      - {name: pagesize, from: query, value: "20"}
+    expect_error: null
+
+  - id: repository.relatedMergeRequests
+    controller: repository
+    action: relatedMergeRequests
+    method: GET
+    auth: web_user
+    path: /api/repository/relatedMergeRequests
+    params:
+      - {name: status, from: query, value: "0"}
+      - {name: keyword, from: query, value: ""}
+      - {name: sort, from: query, value: "desc"}
+      - {name: page, from: query, value: "1"}
+      - {name: pagesize, from: query, value: "20"}
+    expect_error: null
+
+  - id: repository.mergeRequestCommits
+    controller: repository
+    action: mergeRequestCommits
+    method: GET
+    auth: web_user
+    path: /api/repository/mergeRequestCommits
+    params: []
+    expect_error: 513
+    notes: "演示库中没有 MR，缺参 → 0x0201"
+
+  - id: repository.lastCommitLog
+    controller: repository
+    action: lastCommitLog
+    method: GET
+    auth: web_user
+    path: /api/repository/lastCommitLog
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: ref, from: query, value: "master"}
+      - {name: path, from: query, value: "README.md"}
+    expect_error: null
+
+  - id: repository.branchList
+    controller: repository
+    action: branchList
+    method: GET
+    auth: web_user
+    path: /api/repository/branchList
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+    expect_error: null
+
+  - id: repository.mergeRequestVersionList
+    controller: repository
+    action: mergeRequestVersionList
+    method: GET
+    auth: web_user
+    path: /api/repository/mergeRequestVersionList
+    params: []
+    expect_error: 513
+    notes: "演示库中没有 MR，缺参 → 0x0201"
+
+  - id: repository.blameInfo
+    controller: repository
+    action: blameInfo
+    method: GET
+    auth: web_user
+    path: /api/repository/blameInfo
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: revision, from: query, value: "master"}
+      - {name: path, from: query, value: "README.md"}
+    expect_error: null
+
+  - id: repository.mergeRequestDetail
+    controller: repository
+    action: mergeRequestDetail
+    method: GET
+    auth: web_user
+    path: /api/repository/mergeRequestDetail
+    params: []
+    expect_error: 513
+    notes: "演示库中没有 MR，缺参 → 0x0201"
+
+  - id: repository.tagList
+    controller: repository
+    action: tagList
+    method: GET
+    auth: web_user
+    path: /api/repository/tagList
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+    expect_error: null
+
+  - id: repository.targetRepository
+    controller: repository
+    action: targetRepository
+    method: GET
+    auth: web_user
+    path: /api/repository/targetRepository
+    params:
+      - {name: repository, from: query, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+    expect_error: null
+
+  - id: repository.create
+    controller: repository
+    action: create
+    method: POST
+    auth: web_user
+    path: /api/repository/create
+    params: []
+    expect_error: 513
+    notes: "缺 displayName/group/name → 0x0201（校验在 create 之前）"
+
+  - id: repository.fork
+    controller: repository
+    action: fork
+    method: POST
+    auth: web_user
+    path: /api/repository/fork
+    params: []
+    expect_error: 513
+    notes: "缺 displayName/group/name/forkID → 0x0201"
+
+  - id: repository.uploadAvatar
+    controller: repository
+    action: uploadAvatar
+    method: POST
+    auth: web_user
+    path: /api/repository/uploadAvatar
+    params: []
+    expect_error: 513
+    notes: "缺 repository 与文件 → 0x0201；不上传任何文件，避免覆盖 r_avatar"
+
+  - id: repository.update
+    controller: repository
+    action: update
+    method: POST
+    auth: web_user
+    path: /api/repository/update
+    params: []
+    expect_error: 513
+    notes: "缺 repository/displayName → 0x0201"
+
+  - id: repository.updateName
+    controller: repository
+    action: updateName
+    method: POST
+    auth: web_user
+    path: /api/repository/updateName
+    params: []
+    expect_error: 513
+    notes: "缺 repository/name → 0x0201"
+
+  - id: repository.addMember
+    controller: repository
+    action: addMember
+    method: POST
+    auth: web_user
+    path: /api/repository/addMember
+    params: []
+    expect_error: 513
+    notes: "缺 repository/email → 0x0201"
+
+  - id: repository.changeMemberRole
+    controller: repository
+    action: changeMemberRole
+    method: POST
+    auth: web_user
+    path: /api/repository/changeMemberRole
+    params: []
+    expect_error: 513
+    notes: "缺 repository/userID/roleID → 0x0201"
+
+  - id: repository.changeOwner
+    controller: repository
+    action: changeOwner
+    method: POST
+    auth: web_user
+    path: /api/repository/changeOwner
+    params: []
+    expect_error: 513
+    notes: "缺 repository/userID → 0x0201"
+
+  - id: repository.removeMember
+    controller: repository
+    action: removeMember
+    method: POST
+    auth: web_user
+    path: /api/repository/removeMember
+    params: []
+    expect_error: 513
+    notes: "缺 repository/userID → 0x0201"
+
+  - id: repository.deleteRepository
+    controller: repository
+    action: deleteRepository
+    method: POST
+    auth: web_user
+    path: /api/repository/deleteRepository
+    params: []
+    expect_error: 513
+    notes: "缺 repository → 0x0201"
+
+  - id: repository.defaultBranch
+    controller: repository
+    action: defaultBranch
+    method: POST
+    auth: web_user
+    path: /api/repository/defaultBranch
+    params: []
+    expect_error: 513
+    notes: "缺 branch → 0x0201"
+
+  - id: repository.createProtectedBranchRule
+    controller: repository
+    action: createProtectedBranchRule
+    method: POST
+    auth: web_user
+    path: /api/repository/createProtectedBranchRule
+    params: []
+    expect_error: 513
+    notes: "缺 repository/rule/rolePush/roleMerge → 0x0201"
+
+  - id: repository.updateProtectedBranchRule
+    controller: repository
+    action: updateProtectedBranchRule
+    method: POST
+    auth: web_user
+    path: /api/repository/updateProtectedBranchRule
+    params: []
+    expect_error: 513
+    notes: "缺 repository/id/rule/rolePush/roleMerge → 0x0201"
+
+  - id: repository.deleteProtectedBranchRule
+    controller: repository
+    action: deleteProtectedBranchRule
+    method: POST
+    auth: web_user
+    path: /api/repository/deleteProtectedBranchRule
+    params: []
+    expect_error: 513
+    notes: "缺 repository/id/rule → 0x0201"
+
+  - id: repository.mergeRequestClose
+    controller: repository
+    action: mergeRequestClose
+    method: POST
+    auth: web_user
+    path: /api/repository/mergeRequestClose
+    params: []
+    expect_error: 513
+    notes: "缺 mergeRequest → 0x0201"
+
+  - id: repository.createBranch
+    controller: repository
+    action: createBranch
+    method: POST
+    auth: web_user
+    path: /api/repository/createBranch
+    params: []
+    expect_error: 513
+    notes: "缺 repository/name/origin → 0x0201"
+
+  - id: repository.createMergeRequest
+    controller: repository
+    action: createMergeRequest
+    method: POST
+    auth: web_user
+    path: /api/repository/createMergeRequest
+    params: []
+    expect_error: 513
+    notes: "缺 source/target 仓库与分支 → 0x0201"
+
+  - id: repository.mergeRequestReview
+    controller: repository
+    action: mergeRequestReview
+    method: POST
+    auth: web_user
+    path: /api/repository/mergeRequestReview
+    params: []
+    expect_error: 513
+    notes: "缺 id → 0x0201"
+
+  - id: repository.assignReviewer
+    controller: repository
+    action: assignReviewer
+    method: POST
+    auth: web_user
+    path: /api/repository/assignReviewer
+    params: []
+    expect_error: 513
+    notes: "缺 id/reviewer → 0x0201"
+
+  - id: repository.deleteReviewer
+    controller: repository
+    action: deleteReviewer
+    method: POST
+    auth: web_user
+    path: /api/repository/deleteReviewer
+    params: []
+    expect_error: 513
+    notes: "缺 id → 0x0201"
+
+  - id: repository.checkMergeType
+    controller: repository
+    action: checkMergeType
+    method: POST
+    auth: web_user
+    path: /api/repository/checkMergeType
+    params: []
+    expect_error: 513
+    readonly: true
+    notes: "只读端点；缺 mergeRequest → 0x0201"
+
+  - id: repository.mergeBranch
+    controller: repository
+    action: mergeBranch
+    method: POST
+    auth: web_user
+    path: /api/repository/mergeBranch
+    params: []
+    expect_error: 513
+    notes: "缺 mergeRequest → 0x0201"
+
+  - id: repository.deleteBranch
+    controller: repository
+    action: deleteBranch
+    method: POST
+    auth: web_user
+    path: /api/repository/deleteBranch
+    params: []
+    expect_error: 513
+    notes: "缺 repository/branch → 0x0201"
+
+  - id: repository.createTag
+    controller: repository
+    action: createTag
+    method: POST
+    auth: web_user
+    path: /api/repository/createTag
+    params: []
+    expect_error: 513
+    notes: "缺 repository/name → 0x0201"
+
+  - id: repository.deleteTag
+    controller: repository
+    action: deleteTag
+    method: POST
+    auth: web_user
+    path: /api/repository/deleteTag
+    params: []
+    expect_error: 513
+    notes: "缺 repository/tag → 0x0201"
+
+  - id: repository.getWebhook
+    controller: repository
+    action: getWebhook
+    method: POST
+    auth: web_user
+    path: /api/repository/getWebhook
+    params:
+      - {name: repository, from: body, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+      - {name: rwKey, from: body, value: "nonexistent_webhook_key_xxx"}
+    expect_error: null
+    readonly: true
+    notes: "纯查询（演示库没有 webhook），走成功路径"
+
+  - id: repository.webhooks
+    controller: repository
+    action: webhooks
+    method: POST
+    auth: web_user
+    path: /api/repository/webhooks
+    params:
+      - {name: repository, from: body, value: "1031c9342d6539fd36ff79f75ca4f8b7"}
+    expect_error: null
+    readonly: true
+    notes: "纯查询，走成功路径"
+
+  - id: repository.editWebhook
+    controller: repository
+    action: editWebhook
+    method: POST
+    auth: web_user
+    path: /api/repository/editWebhook
+    params: []
+    expect_error: 513
+    notes: "缺 url/events/active → 0x0201（校验在 upsert 之前）"
+
+  - id: repository.deleteWebhook
+    controller: repository
+    action: deleteWebhook
+    method: POST
+    auth: web_user
+    path: /api/repository/deleteWebhook
+    params: []
+    expect_error: 513
+    notes: "缺 repository/rwKey → 0x0201"
+
+  - id: repository.getRepositoryWebhookLogs
+    controller: repository
+    action: getRepositoryWebhookLogs
+    method: POST
+    auth: web_user
+    path: /api/repository/getRepositoryWebhookLogs
+    params: []
+    expect_error: 513
+    readonly: true
+    notes: "纯查询，缺 webhook → 0x0201"
+
+  - id: repository.getRepositoryWebhookLogData
+    controller: repository
+    action: getRepositoryWebhookLogData
+    method: POST
+    auth: web_user
+    path: /api/repository/getRepositoryWebhookLogData
+    params: []
+    expect_error: 513
+    readonly: true
+    notes: "纯查询，缺 id → 0x0201"
+
+  # ---------------------------------------------- apiv1/internal（网关侧）
+  - id: internal.authHTTP
+    controller: internal
+    action: authHTTP
+    method: GET
+    auth: internal_gateway
+    path: /apiv1/internal/authHTTP
+    params:
+      - {name: user, from: json, value: "root@codefever.cn"}
+      - {name: pass, from: json, value: "123456"}
+      - {name: repo, from: json, value: "rootteam/demorepo.git"}
+      - {name: action, from: json, value: "git-upload-pack"}
+    expect_error: null
+    readonly: true
+    notes: "HTTP 克隆鉴权：GET + JSON body；纯读，不写库"
+
+  - id: internal.authSSH
+    controller: internal
+    action: authSSH
+    method: GET
+    auth: internal_gateway
+    path: /apiv1/internal/authSSH
+    params:
+      - {name: userID, from: json, value: "00000000000000000000000000000000"}
+      - {name: repo, from: json, value: "rootteam/demorepo.git"}
+      - {name: action, from: json, value: "git-upload-pack"}
+    expect_error: null
+    readonly: true
+    notes: "SSH 克隆鉴权：GET + JSON body；纯读，不写库"
+
+  - id: internal.searchPublicKey
+    controller: internal
+    action: searchPublicKey
+    method: GET
+    auth: internal_gateway
+    path: /apiv1/internal/searchPublicKey
+    params:
+      - {name: fingerprint, from: json, value: ""}
+      - {name: publicKey, from: json, value: ""}
+    expect_error: 513
+    readonly: true
+    notes: "留空字符串走缺参分支 → 0x0201"
+
+  - id: internal.hooks
+    controller: internal
+    action: hooks
+    method: POST
+    auth: internal_gateway
+    path: /apiv1/internal/hooks
+    params:
+      - {name: args, from: json, value: []}
+    expect_error: 513
+    notes: >-
+      该端点只有 POST 形态。args 为空 → 直接走 reject(0x0201)，
+      不进入 hook 处理分支，因此不会写 activities 表、不会触发 webhook。
+
+  # ------------------------------------------------------- 契约错误路径用例
+  - id: error.user.missingParams
+    controller: user
+    action: addSSHKey
+    method: POST
+    auth: web_user
+    path: /api/user/addSSHKey
+    params: []
+    expect_error: 513
+    expect_status: 400
+    notes: "user 控制器：必填参数缺失 → 0x0201"
+
+  - id: error.admin.missingParams
+    controller: admin
+    action: addUser
+    method: POST
+    auth: admin_web_user
+    path: /api/admin/addUser
+    params: []
+    expect_error: 513
+    expect_status: 400
+    notes: "admin 控制器：必填参数缺失 → 0x0201"
+
+  - id: error.group.missingParams
+    controller: group
+    action: create
+    method: POST
+    auth: web_user
+    path: /api/group/create
+    params: []
+    expect_error: 513
+    expect_status: 400
+    notes: "group 控制器：必填参数缺失 → 0x0201"
+
+  - id: error.repository.missingParams
+    controller: repository
+    action: create
+    method: POST
+    auth: web_user
+    path: /api/repository/create
+    params: []
+    expect_error: 513
+    expect_status: 400
+    notes: "repository 控制器：必填参数缺失 → 0x0201"
+
+  - id: error.user.unauthenticated
+    controller: user
+    action: info
+    method: GET
+    auth: anonymous
+    path: /api/user/info
+    params: []
+    expect_error: 257
+    expect_status: 403
+    notes: "user 控制器：未登录 → 0x0101"
+
+  - id: error.admin.unauthenticated
+    controller: admin
+    action: systemStatus
+    method: GET
+    auth: anonymous
+    path: /api/admin/systemStatus
+    params: []
+    expect_error: 257
+    expect_status: 403
+    notes: "admin 控制器：未登录 → 0x0101"
+
+  - id: error.group.unauthenticated
+    controller: group
+    action: list
+    method: GET
+    auth: anonymous
+    path: /api/group/list
+    params: []
+    expect_error: 257
+    expect_status: 403
+    notes: "group 控制器：未登录 → 0x0101"
+
+  - id: error.repository.unauthenticated
+    controller: repository
+    action: list
+    method: GET
+    auth: anonymous
+    path: /api/repository/list
+    params: []
+    expect_error: 257
+    expect_status: 403
+    notes: "repository 控制器：未登录 → 0x0101"
+
+  - id: error.admin.nonAdminAccess
+    controller: admin
+    action: systemStatus
+    method: GET
+    auth: non_admin_user
+    path: /api/admin/systemStatus
+    params: []
+    expect_error: 257
+    expect_status: 403
+    notes: >-
+      已登录但 u_admin=0 的会话访问 /api/admin/* → 0x0101。
+      演示库里唯一的非管理员账号 u_status=4（已软删除）无法登录，
+      因此用 CI 会话 Cookie 的加密方案伪造一个只存在于客户端的会话，
+      全程不写数据库。
+
+  - id: error.endpointNotFound
+    controller: nope
+    action: nope
+    method: GET
+    auth: web_user
+    path: /api/nope/nope
+    params: []
+    expect_error: null
+    expect_status: 404
+    expect_content_type: text/html
+    notes: >-
+      不存在的路由落到 CI 的 404 页面：HTTP 404 + Content-Type: text/html，
+      不是 JSON 信封。
+
+  - id: error.missingAcceptHeader
+    controller: user
+    action: info
+    method: GET
+    auth: web_user
+    path: /api/user/info
+    params: []
+    expect_error: 259
+    expect_status: 400
+    expect_content_type: application/json
+    omit_accept: true
+    notes: "缺 Accept: application/json → 0x0103（该校验先于鉴权）"
+
+  - id: error.internal.badToken
+    controller: internal
+    action: authHTTP
+    method: GET
+    auth: internal_gateway
+    path: /apiv1/internal/authHTTP
+    params:
+      - {name: user, from: json, value: "root@codefever.cn"}
+      - {name: pass, from: json, value: "123456"}
+      - {name: repo, from: json, value: "rootteam/demorepo.git"}
+      - {name: action, from: json, value: "git-upload-pack"}
+    expect_error: 257
+    expect_status: 403
+    bad_token: true
+    readonly: true
+    notes: "内部网关 Token 错误 → 0x0101"

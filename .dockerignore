@@ -1,0 +1,43 @@
+# 排除与镜像构建无关的内容, 减小构建上下文
+.git
+.gitignore
+.gitattributes
+.editorconfig
+
+# 文档与社区治理文件 (运行期不需要)
+doc/
+docs/
+scripts/
+.github/
+CONTRIBUTING.md
+CODE_OF_CONDUCT.md
+SECURITY.md
+CHANGELOG.md
+LOCAL_DEPLOY.md
+README.md
+README_EN.md
+LICENSE
+
+# 前端源码 (构建产物 www/view/build 已随仓库提交, 运行时不需要 src)
+www/view/src/
+www/view/config/
+www/view/scripts/
+www/view/package.json
+www/view/yarn.lock
+www/view/.gitignore
+# 前端依赖 (仅本地构建时需要, 体积数百 MB, 绝不能进镜像)
+www/view/node_modules/
+
+# 本地构建产物
+dist/
+*.tar
+.tmp-*
+NUL
+
+# Go 后端的本地构建产物与测试基线（镜像运行时不需要，仓库里仍然保留）
+backend/bin/
+backend/testdata/
+backend/*.exe
+backend/tmp_*.go
+backend/.tmp-*
+backend/.gotmp/

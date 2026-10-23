@@ -1,0 +1,121 @@
+{
+  "id": "admin.repositoryList",
+  "method": "POST",
+  "path": "/api/admin/repositoryList",
+  "auth": "admin_web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": {
+      "count": 3,
+      "list": [
+        {
+          "created": "<TS>",
+          "defaultBranch": null,
+          "description": "local build verification",
+          "displayName": "demo repo",
+          "forkCount": 0,
+          "forkFrom": null,
+          "group": {
+            "created": "<TS>",
+            "description": "local verification group",
+            "displayName": "Root Team",
+            "icon": null,
+            "id": "29efb28ef9dd3018353eb5a02c018b28",
+            "name": "rootteam",
+            "owner": "00000000000000000000000000000000",
+            "status": 1,
+            "type": 2,
+            "updated": -62169984000
+          },
+          "icon": null,
+          "id": "1031c9342d6539fd36ff79f75ca4f8b7",
+          "mergeRequestCount": {
+            "all": 0,
+            "closed": 0,
+            "merged": 0,
+            "open": 0
+          },
+          "name": "demorepo",
+          "owner": "00000000000000000000000000000000",
+          "status": 1,
+          "updated": "<TS>"
+        },
+        {
+          "created": "<TS>",
+          "defaultBranch": null,
+          "description": "local build verification",
+          "displayName": "demo-repo",
+          "forkCount": 0,
+          "forkFrom": null,
+          "group": {
+            "created": "<TS>",
+            "description": "local verification group",
+            "displayName": "Root Team",
+            "icon": null,
+            "id": "29efb28ef9dd3018353eb5a02c018b28",
+            "name": "rootteam",
+            "owner": "00000000000000000000000000000000",
+            "status": 1,
+            "type": 2,
+            "updated": -62169984000
+          },
+          "icon": null,
+          "id": "44eb23f165172f28003812a287cb80e1",
+          "mergeRequestCount": {
+            "all": 0,
+            "closed": 0,
+            "merged": 0,
+            "open": 0
+          },
+          "name": "demo-repo",
+          "owner": "00000000000000000000000000000000",
+          "status": 1,
+          "updated": "<TS>"
+        },
+        {
+          "created": 1640995200,
+          "defaultBranch": null,
+          "description": "Codefever community test repository",
+          "displayName": "codefever",
+          "forkCount": 0,
+          "forkFrom": null,
+          "group": {
+            "created": 1640995200,
+            "description": "",
+            "displayName": "codefever",
+            "icon": "",
+            "id": "e6508c1a66e86f697c96bdffb30c1ae3",
+            "name": "codefever",
+            "owner": "f4a9c54adef17599d4f709a1167f0fcd",
+            "status": 1,
+            "type": 2,
+            "updated": -62169984000
+          },
+          "icon": null,
+          "id": "2f941aef39bc8a048da55dd28c678655",
+          "mergeRequestCount": {
+            "all": 0,
+            "closed": 0,
+            "merged": 0,
+            "open": 0
+          },
+          "name": "codefever",
+          "owner": "f4a9c54adef17599d4f709a1167f0fcd",
+          "status": 1,
+          "updated": -62169984000
+        }
+      ]
+    },
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":{\"count\":3,\"list\":[{\"id\":\"1031c9342d6539fd36ff79f75ca4f8b7\",\"icon\":null,\"displayName\":\"demo repo\",\"name\":\"demorepo\",\"description\":\"local build verification\",\"owner\":\"00000000000000000000000000000000\",\"forkFrom\":null,\"created\":1792682299,\"updated\":1792683262,\"group\":{\"id\":\"29efb28ef9dd3018353eb5a02c018b28\",\"icon\":null,\"displayName\":\"Root Team\",\"name\":\"rootteam\",\"description\":\"local verification group\",\"owner\":\"00000000000000000000000000000000\",\"type\":2,\"created\":1792682255,\"updated\":-62169984000,\"status\":1},\"forkCount\":0,\"mergeRequestCount\":{\"open\":0,\"merged\":0,\"closed\":0,\"all\":0},\"defaultBranch\":null,\"status\":1},{\"id\":\"44eb23f165172f28003812a287cb80e1\",\"icon\":null,\"displayName\":\"demo-repo\",\"name\":\"demo-repo\",\"description\":\"local build verification\",\"owner\":\"00000000000000000000000000000000\",\"forkFrom\":null,\"created\":1792682263,\"updated\":1792682263,\"group\":{\"id\":\"29efb28ef9dd3018353eb5a02c018b28\",\"icon\":null,\"displayName\":\"Root Team\",\"name\":\"rootteam\",\"description\":\"local verification group\",\"owner\":\"00000000000000000000000000000000\",\"type\":2,\"created\":1792682255,\"updated\":-62169984000,\"status\":1},\"forkCount\":0,\"mergeRequestCount\":{\"open\":0,\"merged\":0,\"closed\":0,\"all\":0},\"defaultBranch\":null,\"status\":1},{\"id\":\"2f941aef39bc8a048da55dd28c678655\",\"icon\":null,\"displayName\":\"codefever\",\"name\":\"codefever\",\"description\":\"Codefever community test repository\",\"owner\":\"f4a9c54adef17599d4f709a1167f0fcd\",\"forkFrom\":null,\"created\":1640995200,\"updated\":-62169984000,\"group\":{\"id\":\"e6508c1a66e86f697c96bdffb30c1ae3\",\"icon\":\"\",\"displayName\":\"codefever\",\"name\":\"codefever\",\"description\":\"\",\"owner\":\"f4a9c54adef17599d4f709a1167f0fcd\",\"type\":2,\"created\":1640995200,\"updated\":-62169984000,\"status\":1},\"forkCount\":0,\"mergeRequestCount\":{\"open\":0,\"merged\":0,\"closed\":0,\"all\":0},\"defaultBranch\":null,\"status\":1}]}}"
+}

@@ -1,0 +1,59 @@
+{
+  "id": "repository.activities",
+  "method": "GET",
+  "path": "/api/repository/activities",
+  "auth": "web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": [
+      {
+        "content": {
+          "from": "c943e85a4f996856f19d53e0f59d47e6aa9e29ec",
+          "name": "master",
+          "to": "f67cfee73d75172d4e7afd77c3efa310b460fa1b"
+        },
+        "creator": "00000000000000000000000000000000",
+        "group": "29efb28ef9dd3018353eb5a02c018b28",
+        "id": "8b58d2974a9c9865d32cb93e94b9fa11",
+        "repository": "1031c9342d6539fd36ff79f75ca4f8b7",
+        "time": "<TS>",
+        "type": 1025
+      },
+      {
+        "content": {
+          "from": "0000000000000000000000000000000000000000",
+          "name": "master",
+          "to": "c943e85a4f996856f19d53e0f59d47e6aa9e29ec"
+        },
+        "creator": "00000000000000000000000000000000",
+        "group": "29efb28ef9dd3018353eb5a02c018b28",
+        "id": "5713f06510f77bc2a511f24b59039146",
+        "repository": "1031c9342d6539fd36ff79f75ca4f8b7",
+        "time": "<TS>",
+        "type": 1026
+      },
+      {
+        "content": {
+          "name": "Root Team/demo repo"
+        },
+        "creator": "00000000000000000000000000000000",
+        "group": "29efb28ef9dd3018353eb5a02c018b28",
+        "id": "92bcdc1ea77e53b8701b9565f306ff45",
+        "repository": "1031c9342d6539fd36ff79f75ca4f8b7",
+        "time": "<TS>",
+        "type": 769
+      }
+    ],
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":[{\"id\":\"8b58d2974a9c9865d32cb93e94b9fa11\",\"type\":1025,\"creator\":\"00000000000000000000000000000000\",\"group\":\"29efb28ef9dd3018353eb5a02c018b28\",\"repository\":\"1031c9342d6539fd36ff79f75ca4f8b7\",\"content\":{\"name\":\"master\",\"from\":\"c943e85a4f996856f19d53e0f59d47e6aa9e29ec\",\"to\":\"f67cfee73d75172d4e7afd77c3efa310b460fa1b\"},\"time\":1792683262},{\"id\":\"5713f06510f77bc2a511f24b59039146\",\"type\":1026,\"creator\":\"00000000000000000000000000000000\",\"group\":\"29efb28ef9dd3018353eb5a02c018b28\",\"repository\":\"1031c9342d6539fd36ff79f75ca4f8b7\",\"content\":{\"name\":\"master\",\"from\":\"0000000000000000000000000000000000000000\",\"to\":\"c943e85a4f996856f19d53e0f59d47e6aa9e29ec\"},\"time\":1792682517},{\"id\":\"92bcdc1ea77e53b8701b9565f306ff45\",\"type\":769,\"creator\":\"00000000000000000000000000000000\",\"group\":\"29efb28ef9dd3018353eb5a02c018b28\",\"repository\":\"1031c9342d6539fd36ff79f75ca4f8b7\",\"content\":{\"name\":\"Root Team\\/demo repo\"},\"time\":1792682299}]}"
+}

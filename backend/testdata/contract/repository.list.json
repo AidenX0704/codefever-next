@@ -1,0 +1,140 @@
+{
+  "id": "repository.list",
+  "method": "GET",
+  "path": "/api/repository/list",
+  "auth": "web_user",
+  "status": 200,
+  "content_type": "application/json",
+  "request_id": "<REQUEST_ID>",
+  "request_id_format": "UUID-8-4-4-4-12-UPPERCASE-HEX",
+  "expect_error": null,
+  "expect_status": null,
+  "actual_code": 0,
+  "match": true,
+  "body": {
+    "code": 0,
+    "data": [
+      {
+        "created": "<TS>",
+        "defaultBranch": null,
+        "description": "local build verification",
+        "displayName": "demo repo",
+        "forkCount": 0,
+        "forkFrom": null,
+        "group": {
+          "created": "<TS>",
+          "description": "local verification group",
+          "displayName": "Root Team",
+          "icon": null,
+          "id": "29efb28ef9dd3018353eb5a02c018b28",
+          "name": "rootteam",
+          "owner": "00000000000000000000000000000000",
+          "status": 1,
+          "type": 2,
+          "updated": -62169984000
+        },
+        "icon": null,
+        "id": "1031c9342d6539fd36ff79f75ca4f8b7",
+        "members": [
+          {
+            "admin": true,
+            "creatorFlag": true,
+            "deleteFlag": false,
+            "email": "root@codefever.cn",
+            "emails": [
+              "root@codefever.cn"
+            ],
+            "groupMember": false,
+            "host": "<HOST>",
+            "icon": "",
+            "id": "00000000000000000000000000000000",
+            "joined": "<TS>",
+            "mfaEnabled": false,
+            "name": "codefever",
+            "notification": 0,
+            "phoneCode": "86",
+            "phoneNumber": "",
+            "role": 5,
+            "ssh": "git@localhost:",
+            "status": true,
+            "team": null,
+            "unReadNotification": 0
+          }
+        ],
+        "mergeRequestCount": {
+          "all": 0,
+          "closed": 0,
+          "merged": 0,
+          "open": 0
+        },
+        "name": "demorepo",
+        "owner": "00000000000000000000000000000000",
+        "role": 5,
+        "status": 1,
+        "updated": "<TS>"
+      },
+      {
+        "created": "<TS>",
+        "defaultBranch": null,
+        "description": "local build verification",
+        "displayName": "demo-repo",
+        "forkCount": 0,
+        "forkFrom": null,
+        "group": {
+          "created": "<TS>",
+          "description": "local verification group",
+          "displayName": "Root Team",
+          "icon": null,
+          "id": "29efb28ef9dd3018353eb5a02c018b28",
+          "name": "rootteam",
+          "owner": "00000000000000000000000000000000",
+          "status": 1,
+          "type": 2,
+          "updated": -62169984000
+        },
+        "icon": null,
+        "id": "44eb23f165172f28003812a287cb80e1",
+        "members": [
+          {
+            "admin": true,
+            "creatorFlag": true,
+            "deleteFlag": false,
+            "email": "root@codefever.cn",
+            "emails": [
+              "root@codefever.cn"
+            ],
+            "groupMember": false,
+            "host": "<HOST>",
+            "icon": "",
+            "id": "00000000000000000000000000000000",
+            "joined": "<TS>",
+            "mfaEnabled": false,
+            "name": "codefever",
+            "notification": 0,
+            "phoneCode": "86",
+            "phoneNumber": "",
+            "role": 5,
+            "ssh": "git@localhost:",
+            "status": true,
+            "team": null,
+            "unReadNotification": 0
+          }
+        ],
+        "mergeRequestCount": {
+          "all": 0,
+          "closed": 0,
+          "merged": 0,
+          "open": 0
+        },
+        "name": "demo-repo",
+        "owner": "00000000000000000000000000000000",
+        "role": 5,
+        "status": 1,
+        "updated": "<TS>"
+      }
+    ],
+    "message": "Success",
+    "request-id": "<REQUEST_ID>"
+  },
+  "raw_body": "{\"request-id\":\"<REQUEST_ID>\",\"code\":0,\"message\":\"Success\",\"data\":[{\"id\":\"1031c9342d6539fd36ff79f75ca4f8b7\",\"icon\":null,\"displayName\":\"demo repo\",\"name\":\"demorepo\",\"description\":\"local build verification\",\"owner\":\"00000000000000000000000000000000\",\"forkFrom\":null,\"created\":1792682299,\"updated\":1792683262,\"group\":{\"id\":\"29efb28ef9dd3018353eb5a02c018b28\",\"icon\":null,\"displayName\":\"Root Team\",\"name\":\"rootteam\",\"description\":\"local verification group\",\"owner\":\"00000000000000000000000000000000\",\"type\":2,\"created\":1792682255,\"updated\":-62169984000,\"status\":1},\"forkCount\":0,\"mergeRequestCount\":{\"open\":0,\"merged\":0,\"closed\":0,\"all\":0},\"defaultBranch\":null,\"status\":1,\"role\":5,\"members\":[{\"id\":\"00000000000000000000000000000000\",\"icon\":\"\",\"name\":\"codefever\",\"email\":\"root@codefever.cn\",\"phoneCode\":\"86\",\"phoneNumber\":\"\",\"team\":null,\"role\":5,\"notification\":0,\"mfaEnabled\":false,\"admin\":true,\"emails\":[\"root@codefever.cn\"],\"unReadNotification\":0,\"status\":true,\"host\":\"http:\\/\\/localhost\",\"ssh\":\"git@localhost:\",\"joined\":1792682299,\"groupMember\":false,\"creatorFlag\":true,\"deleteFlag\":false}]},{\"id\":\"44eb23f165172f28003812a287cb80e1\",\"icon\":null,\"displayName\":\"demo-repo\",\"name\":\"demo-repo\",\"description\":\"local build verification\",\"owner\":\"00000000000000000000000000000000\",\"forkFrom\":null,\"created\":1792682263,\"updated\":1792682263,\"group\":{\"id\":\"29efb28ef9dd3018353eb5a02c018b28\",\"icon\":null,\"displayName\":\"Root Team\",\"name\":\"rootteam\",\"description\":\"local verification group\",\"owner\":\"00000000000000000000000000000000\",\"type\":2,\"created\":1792682255,\"updated\":-62169984000,\"status\":1},\"forkCount\":0,\"mergeRequestCount\":{\"open\":0,\"merged\":0,\"closed\":0,\"all\":0},\"defaultBranch\":null,\"status\":1,\"role\":5,\"members\":[{\"id\":\"00000000000000000000000000000000\",\"icon\":\"\",\"name\":\"codefever\",\"email\":\"root@codefever.cn\",\"phoneCode\":\"86\",\"phoneNumber\":\"\",\"team\":null,\"role\":5,\"notification\":0,\"mfaEnabled\":false,\"admin\":true,\"emails\":[\"root@codefever.cn\"],\"unReadNotification\":0,\"status\":true,\"host\":\"http:\\/\\/localhost\",\"ssh\":\"git@localhost:\",\"joined\":1792682263,\"groupMember\":false,\"creatorFlag\":true,\"deleteFlag\":false}]}]}"
+}
