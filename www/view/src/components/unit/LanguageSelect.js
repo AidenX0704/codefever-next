@@ -11,7 +11,7 @@ import { injectIntl } from 'react-intl'
 import Menu from '@material-ui/core/Menu'
 import MenuItem from '@material-ui/core/MenuItem'
 import ListItemText from '@material-ui/core/ListItemText'
-import { plLocalization } from '@pgyer/icons'
+import plLocalization from '@pgyer/icons/icons/plLocalization'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 
 // style

@@ -428,9 +428,32 @@ module.exports = function (webpackEnv) {
                     },
                   ],
                   //babel plugin for prismjs
+                  //
+                  // 性能整改 E2（2026-10）：语言从 56 种裁到 36 种。
+                  //
+                  // 依据：src/config/Constants.js 的 codeFileExtentsions 是
+                  // **唯一**决定高亮语言的地方（getCodeLanguageType 只产出
+                  // 该表中的值，未命中的扩展名一律回落到 markdown）。
+                  // 因此本列表应当恰好覆盖该表能产出的 prism 组件 id：
+                  //   html/xml → markup，mysql/pgsql → sql，
+                  //   objective-c → objectivec，vb → vbnet，
+                  //   c 是 cpp 的依赖，clike 是 javascript/java 等的依赖。
+                  // 被裁掉的 20 种（applescript、arduino、asm6502、aspnet、
+                  // cmake、dart、django、erlang、fortran、latex、lisp、llvm、
+                  // matlab、qml、plsql、sass、scala、stylus、verilog、vhdl、
+                  // vim、wasm、jsdoc、phpdoc、toml、nginx、git）在这套映射下
+                  // **永远不会被选中**，属于纯粹的体积浪费。
+                  //
+                  // 另外补上了原先缺失、但映射表会用到的 8 种：
+                  // bat、clojure、csharp、java、less、objectivec、pascal、r
+                  // —— 整改前它们会静默回落到 markdown 高亮。
                   ["prismjs", {
-                    "languages": ["markup", "css", "clike", "javascript", "applescript", "arduino", "asm6502", "aspnet", "bash", "c", "cpp", "coffee", "cmake", "dart", "django", "erlang", "fortran", "git", "go", "graphql", "ini", "jsdoc", "json", "kotlin", "latex", "lisp", "llvm", "lua", "matlab", "nginx", "perl", "php", "phpdoc", "plsql", "powershell", "python", "qml", "jsx", "tsx", "ruby", "rust", "sass", "scss", "scala", "sql", "stylus", "swift", "toml", "typescript", "verilog", "vhdl", "vim", "vb", "wasm", "yaml", "markdown"],
+                    "languages": ["markup", "css", "clike", "javascript", "diff", "bash", "c", "cpp", "csharp", "go", "graphql", "ini", "java", "json", "kotlin", "less", "lua", "markdown", "objectivec", "pascal", "perl", "php", "powershell", "python", "r", "ruby", "rust", "scss", "sql", "swift", "typescript", "vbnet", "yaml", "batch", "clojure", "coffeescript"],
                     "plugins": [],
+                    // 主题：代码块主题由 Prism 的 coy 提供。
+                    // CodeViewer / CodeDiffViewer 里另外 import 的
+                    // highlight.js atom-one-light.css 已删除（它们渲染用 Prism，
+                    // 那份 CSS 从未被用到）。
                     "theme": "coy",
                     "css": true
                   }],
@@ -595,6 +618,13 @@ module.exports = function (webpackEnv) {
           {},
           {
             inject: true,
+            // 2026-10 性能整改 A3：产出带 defer 的 <script>。
+            // html-webpack-plugin 4.5.0 的默认值是 'blocking'，即把
+            // <script src> 直接放 body 尾部且无 defer —— 那会阻塞 HTML 解析
+            // 直到 1.7 MB 的 vendor + main 全部下载并执行完毕。
+            // 'defer' 会把脚本移到 <head> 并加 defer：并行下载、DOMContentLoaded
+            // 前按序执行，解析不再被阻塞。
+            scriptLoading: 'defer',
             template: paths.appHtml,
           },
           isEnvProduction

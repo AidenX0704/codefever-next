@@ -9,11 +9,69 @@ import { injectIntl } from 'react-intl'
 // component
 // import hljs from 'highlight.js'
 import Prism from 'prismjs'
-import 'highlight.js/styles/atom-one-light.css'
+// 性能整改 E2：删掉 highlight.js 的主题样式表。
+// 这里的渲染全程使用 Prism（hljs 的 import 早已被注释掉），
+// 那份 CSS 只会白白进入 3.6 KB 的样式 chunk。
 import { getCodeLanguageType, makeLink } from 'APPSRC/helpers/VaribleHelper'
 import CodeLine from 'APPSRC/components/unit/CodeLine'
 import CommitItem from 'APPSRC/components/unit/CommitItem'
 import CircularProgress from '@material-ui/core/CircularProgress'
+
+// ---------------------------------------------------------------------------
+// 性能整改 F5（2026-10）：高亮结果缓存 + blame 索引
+// ---------------------------------------------------------------------------
+//
+// 整改前 render() 每次都会：
+//   1. Prism.highlight(整个文件) 再 split 成行；
+//   2. 对每一行做 blame.filter(...) —— O(行数 × blame 段数)。
+//
+// 而 shouldComponentUpdate 无条件 return true，于是父组件任何一次重渲染
+// （哪怕只是搜索框敲了一个字符）都会把这两步全跑一遍：
+// 5000 行的文件是数百毫秒级的主线程长任务。
+//
+// 这里做两件事：
+//   * 高亮结果按「语言 + 全文」缓存，文件内容不变就不重算；
+//   * blame 按数组引用建一次索引（Map: 起始行 -> blame 段），把每行的
+//     线性查找换成 O(1)。
+//
+// 两个缓存都有上界，避免长时间浏览大量文件时无限增长。
+const HIGHLIGHT_CACHE_MAX = 8
+const highlightCache = new Map()
+
+function highlightCached (text, lang) {
+  const key = lang + '|' + text
+  const hit = highlightCache.get(key)
+  if (hit !== undefined) {
+    return hit
+  }
+  const grammar = Prism.languages[lang] || Prism.languages.markdown
+  const parsed = Prism.highlight(text, grammar, lang)
+  if (highlightCache.size >= HIGHLIGHT_CACHE_MAX) {
+    // 简单淘汰：删掉最早插入的一条（Map 保持插入顺序）。
+    highlightCache.delete(highlightCache.keys().next().value)
+  }
+  highlightCache.set(key, parsed)
+  return parsed
+}
+
+const blameIndexCache = new WeakMap()
+
+// blameIndex 把 blame 数组建成「起始行 -> 段落」的 Map，按数组引用缓存。
+function blameIndex (blame) {
+  if (!blame || !blame.length) {
+    return new Map()
+  }
+  let index = blameIndexCache.get(blame)
+  if (index) {
+    return index
+  }
+  index = new Map()
+  for (let i = 0; i < blame.length; i++) {
+    index.set(blame[i].start, blame[i])
+  }
+  blameIndexCache.set(blame, index)
+  return index
+}
 
 // style
 const styles = theme => ({
@@ -79,7 +137,17 @@ class CodeViewer extends React.Component {
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    return true
+    // 性能整改 F5：原实现无条件 return true，父组件任何重渲染都会触发
+    // 全文件重新高亮 + 全量 blame 查找。这里只比较真正影响输出的 props。
+    //
+    // 之所以可以用引用比较：数据来自 API 响应，reducer 整体替换对象
+    // （见 reducers/DataStore.js 的不可变改造），内容变化时引用必然变化。
+    return nextProps.object !== this.props.object ||
+      nextProps.blame !== this.props.blame ||
+      nextProps.fragment !== this.props.fragment ||
+      nextProps.currentRepositoryConfig !== this.props.currentRepositoryConfig ||
+      nextProps.match !== this.props.match ||
+      nextState.lineNumber !== this.state.lineNumber
   }
 
   componentDidUpdate (prevProps, prevState) {
@@ -93,20 +161,23 @@ class CodeViewer extends React.Component {
     const codes = fragment ? object.object : object.object.raw.split('\n')
     // let parsed = hljs.highlight(lang, object.object.raw, true)
     // let parsedHtml = parsed.value.split('\n')
-    const parsed = Prism.highlight(codes.join('\n'), Prism.languages[lang] || Prism.languages.markdown, lang)
-    const parsedHtml = parsed.split('\n')
+    // 性能整改 F5：按「语言 + 全文」缓存，内容不变就不重新高亮。
+    const parsedHtml = highlightCached(codes.join('\n'), lang).split('\n')
     let codeLines = []
 
     if (blame && blame.length) {
       let count = 0
+      const blameByStart = blameIndex(blame)
       codeLines = codes.map((item, key) => {
         let blameCell = null
-        const blameData = blame.filter(blameItem => blameItem.start === (key + 1))
-        if (blameData && blameData[0]) {
-          count = blameData[0].length
-          blameCell = <td className={classes.blame} rowSpan={blameData[0].length}>
+        // 性能整改 F5：blame 预先建成 Map（起始行 → 段落），
+        // 把每行的 O(blame 段数) 查找降为 O(1)（原先 1000 行 × 400 段 = 40 万次比较）。
+        const blameData = blameByStart.get(key + 1)
+        if (blameData) {
+          count = blameData.length
+          blameCell = <td className={classes.blame} rowSpan={blameData.length}>
             <CommitItem key={key}
-              data={blameData[0].commit}
+              data={blameData.commit}
               linkPathBase={makeLink(
                 match.params.groupName,
                 match.params.repositoryName,

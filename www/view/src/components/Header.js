@@ -20,7 +20,11 @@ import UserOption from 'APPSRC/components/unit/UserOption'
 import withScrollTrigger from 'APPSRC/helpers/withScrollTrigger'
 import LanguageSelect from 'APPSRC/components/unit/LanguageSelect'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
-import { psAddAlt, plMerge, plBell, plHelp, plRepair } from '@pgyer/icons'
+import psAddAlt from '@pgyer/icons/icons/psAddAlt'
+import plMerge from '@pgyer/icons/icons/plMerge'
+import plBell from '@pgyer/icons/icons/plBell'
+import plHelp from '@pgyer/icons/icons/plHelp'
+import plRepair from '@pgyer/icons/icons/plRepair'
 import GroupRepositoryMenu from 'APPSRC/components/unit/GroupRepositoryMenu'
 
 // style

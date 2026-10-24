@@ -12,7 +12,7 @@ import MenuItem from '@material-ui/core/MenuItem'
 import TextField from '@material-ui/core/TextField'
 import Typography from '@material-ui/core/Typography'
 import CircularProgress from '@material-ui/core/CircularProgress'
-import { plTrash } from '@pgyer/icons'
+import plTrash from '@pgyer/icons/icons/plTrash'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 import TableList from 'APPSRC/components/unit/TableList'
 import RepositoryData from 'APPSRC/data_providers/RepositoryData'
@@ -122,7 +122,7 @@ class RepositorySettingJob extends React.Component {
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (JSON.stringify(nextProps.currentRepositoryKey) !== JSON.stringify(this.props.currentRepositoryKey)) {
+    if (nextProps.currentRepositoryKey !== this.props.currentRepositoryKey && JSON.stringify(nextProps.currentRepositoryKey) !== JSON.stringify(this.props.currentRepositoryKey)) {
       this.getData(nextProps)
       return false
     }

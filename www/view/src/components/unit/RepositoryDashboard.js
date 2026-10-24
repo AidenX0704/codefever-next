@@ -18,17 +18,14 @@ import TextField from '@material-ui/core/TextField'
 import InputAdornment from '@material-ui/core/InputAdornment'
 import Popover from '@material-ui/core/Popover'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {
-  plFork,
-  plFile,
-  plCommit,
-  plBranch,
-  plMerge,
-  plMember,
-  plTag,
-  plCopy
-} from '@pgyer/icons'
-
+import plFork from '@pgyer/icons/icons/plFork'
+import plFile from '@pgyer/icons/icons/plFile'
+import plCommit from '@pgyer/icons/icons/plCommit'
+import plBranch from '@pgyer/icons/icons/plBranch'
+import plMerge from '@pgyer/icons/icons/plMerge'
+import plMember from '@pgyer/icons/icons/plMember'
+import plTag from '@pgyer/icons/icons/plTag'
+import plCopy from '@pgyer/icons/icons/plCopy'
 import TabHeader from 'APPSRC/components/unit/TabHeader'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 import ShowHelper from 'APPSRC/components/unit/ShowHelper'

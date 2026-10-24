@@ -12,8 +12,9 @@ import TextField from '@material-ui/core/TextField'
 import ListSubheader from '@material-ui/core/ListSubheader'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import FilterGenerator from 'APPSRC/helpers/FilterGenerator'
-import { plBranch, plTag, plCommit } from '@pgyer/icons'
-
+import plBranch from '@pgyer/icons/icons/plBranch'
+import plTag from '@pgyer/icons/icons/plTag'
+import plCommit from '@pgyer/icons/icons/plCommit'
 // style
 const styles = theme => ({
   select: {

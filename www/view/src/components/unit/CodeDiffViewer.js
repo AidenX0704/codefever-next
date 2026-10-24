@@ -9,7 +9,9 @@ import { injectIntl } from 'react-intl'
 // component
 // import hljs from 'highlight.js'
 import Prism from 'prismjs'
-import 'highlight.js/styles/atom-one-light.css'
+// 性能整改 E2：删掉 highlight.js 的主题样式表。
+// 这里的渲染全程使用 Prism（hljs 的 import 早已被注释掉），
+// 那份 CSS 只会白白进入 3.6 KB 的样式 chunk。
 import RepositoryData from 'APPSRC/data_providers/RepositoryData'
 import NetworkHelper from 'APPSRC/helpers/NetworkHelper'
 import { getCodeLanguageType } from 'APPSRC/helpers/VaribleHelper'
@@ -17,8 +19,7 @@ import EventGenerator from 'APPSRC/helpers/EventGenerator'
 import ValidatorGenerator from 'APPSRC/helpers/ValidatorGenerator'
 import CodeLine from 'APPSRC/components/unit/CodeLine'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
-import { psMore } from '@pgyer/icons'
-
+import psMore from '@pgyer/icons/icons/psMore'
 // style
 const styles = theme => ({
   table: {

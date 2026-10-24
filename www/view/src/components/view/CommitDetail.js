@@ -13,7 +13,7 @@ import Button from '@material-ui/core/Button'
 import Avatar from '@material-ui/core/Avatar'
 import Typography from '@material-ui/core/Typography'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { psCaretDown } from '@pgyer/icons'
+import psCaretDown from '@pgyer/icons/icons/psCaretDown'
 import CommitContainRef from 'APPSRC/components/view/unit/CommitContainRef'
 import FileDiffDetail from 'APPSRC/components/view/FileDiffDetail'
 import CommitHashChip from 'APPSRC/components/unit/CommitHashChip'
@@ -100,7 +100,7 @@ class CommitDetail extends React.Component {
       return false
     }
 
-    if (JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
+    if (this.props.currentRepositoryConfig !== nextProps.currentRepositoryConfig && JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
       this.getData(nextProps, nextState)
       return false
     }

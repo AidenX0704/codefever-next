@@ -14,12 +14,9 @@ import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import Button from '@material-ui/core/Button'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import {
-  plRepository,
-  plMerge,
-  plMember
-} from '@pgyer/icons'
-
+import plRepository from '@pgyer/icons/icons/plRepository'
+import plMerge from '@pgyer/icons/icons/plMerge'
+import plMember from '@pgyer/icons/icons/plMember'
 import FilterGenerator from 'APPSRC/helpers/FilterGenerator'
 import { makeLink } from 'APPSRC/helpers/VaribleHelper'
 import Constants from 'APPSRC/config/Constants'

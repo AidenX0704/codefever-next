@@ -111,7 +111,7 @@ class RepositorySettingGeneral extends React.Component {
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (JSON.stringify(nextProps.currentRepositoryConfig) !== JSON.stringify(this.props.currentRepositoryConfig) &&
+    if (nextProps.currentRepositoryConfig !== this.props.currentRepositoryConfig && JSON.stringify(nextProps.currentRepositoryConfig) !== JSON.stringify(this.props.currentRepositoryConfig) &&
       nextProps.currentRepositoryConfig.repository
     ) {
       this.setState({

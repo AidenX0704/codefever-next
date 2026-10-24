@@ -11,7 +11,7 @@ import Grid from '@material-ui/core/Grid'
 import Switch from '@material-ui/core/Switch'
 import Typography from '@material-ui/core/Typography'
 import CircularProgress from '@material-ui/core/CircularProgress'
-import { plAngleDown } from '@pgyer/icons'
+import plAngleDown from '@pgyer/icons/icons/plAngleDown'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 import InlineMarker from 'APPSRC/components/unit/InlineMarker'
 import TableList from 'APPSRC/components/unit/TableList'
@@ -173,10 +173,10 @@ class UserSettingNotification extends React.Component {
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (JSON.stringify(this.props.currentUserInfo) !== JSON.stringify(nextProps.currentUserInfo) ||
-        JSON.stringify(this.props.groupList) !== JSON.stringify(nextProps.groupList) ||
-        JSON.stringify(this.props.repositoryList) !== JSON.stringify(nextProps.repositoryList) ||
-        JSON.stringify(this.state.refusedList) !== JSON.stringify(nextState.refusedList)) {
+    if ((this.props.currentUserInfo !== nextProps.currentUserInfo && JSON.stringify(this.props.currentUserInfo) !== JSON.stringify(nextProps.currentUserInfo)) ||
+        (this.props.groupList !== nextProps.groupList && JSON.stringify(this.props.groupList) !== JSON.stringify(nextProps.groupList)) ||
+        (this.props.repositoryList !== nextProps.repositoryList && JSON.stringify(this.props.repositoryList) !== JSON.stringify(nextProps.repositoryList)) ||
+        (this.state.refusedList !== nextState.refusedList && JSON.stringify(this.state.refusedList) !== JSON.stringify(nextState.refusedList))) {
       this.changeOpenSet(nextProps, nextState)
       return false
     }

@@ -47,7 +47,11 @@ class EmptyListNotice extends Component {
       </Grid>}
       {!pending && <React.Fragment>
         <Grid item xs={12}>
+          {/* 性能整改 F19：空态插图属于非首屏资源，延迟加载。
+              Header 的 logo 是首屏元素，因此不加 lazy（会推迟 LCP）。 */}
           <img
+            loading='lazy'
+            decoding='async'
             className={[classes.img, classes.alignBlock].join(' ')}
             src={
               Constants.HOSTS.STATIC_HOST +

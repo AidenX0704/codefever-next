@@ -5,7 +5,7 @@ import PropTypes from 'prop-types'
 import ButtonGroup from '@material-ui/core/ButtonGroup'
 import Button from '@material-ui/core/Button'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
-import { plCopy } from '@pgyer/icons'
+import plCopy from '@pgyer/icons/icons/plCopy'
 import { withStyles } from '@material-ui/core/styles'
 import { injectIntl } from 'react-intl'
 

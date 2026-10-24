@@ -19,7 +19,8 @@ import DialogTitle from '@material-ui/core/DialogTitle'
 import ListItemText from '@material-ui/core/ListItemText'
 import DialogContent from '@material-ui/core/DialogContent'
 import CircularProgress from '@material-ui/core/CircularProgress'
-import { psSetting, plTrash } from '@pgyer/icons'
+import psSetting from '@pgyer/icons/icons/psSetting'
+import plTrash from '@pgyer/icons/icons/plTrash'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 import FormattedTime from 'APPSRC/components/unit/FormattedTime'
 import InlineMarker from 'APPSRC/components/unit/InlineMarker'
@@ -115,6 +116,13 @@ class Users extends React.Component {
 
   componentWillUnmount () {
     this.mountedFlag = false
+    // 性能整改 F12：卸载时必须清掉 200ms 防抖定时器。
+    // 原实现只在 shouldComponentUpdate 里 clearTimeout，组件卸载后定时器
+    // 仍会触发 getData -> setState（对已卸载组件）+ 一次多余请求。
+    if (this.timeout) {
+      clearTimeout(this.timeout)
+      this.timeout = null
+    }
   }
 
   shouldComponentUpdate (nextProps, nextState) {

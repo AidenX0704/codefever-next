@@ -54,7 +54,7 @@ class BranchList extends Component {
       this.getData(nextProps)
       return false
     }
-    if (JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
+    if (this.props.currentRepositoryConfig !== nextProps.currentRepositoryConfig && JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
       this.getData(nextProps)
       return false
     }

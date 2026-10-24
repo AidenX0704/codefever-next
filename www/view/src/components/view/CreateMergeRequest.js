@@ -13,7 +13,7 @@ import Button from '@material-ui/core/Button'
 import TextField from '@material-ui/core/TextField'
 import MenuItem from '@material-ui/core/MenuItem'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { plBranch } from '@pgyer/icons'
+import plBranch from '@pgyer/icons/icons/plBranch'
 import RepositoryData from 'APPSRC/data_providers/RepositoryData'
 import CommitItem from 'APPSRC/components/unit/CommitItem'
 import FilterGenerator from 'APPSRC/helpers/FilterGenerator'
@@ -87,7 +87,7 @@ class CreateMergeRequest extends React.Component {
       return false
     }
 
-    if (JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
+    if (this.props.currentRepositoryConfig !== nextProps.currentRepositoryConfig && JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
       this.getTargetRepository()
       return false
     }

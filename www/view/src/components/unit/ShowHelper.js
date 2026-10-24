@@ -9,7 +9,7 @@ import { withStyles, withTheme } from '@material-ui/core/styles'
 import Tooltip from '@material-ui/core/Tooltip'
 import Button from '@material-ui/core/Button'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { plHelp } from '@pgyer/icons'
+import plHelp from '@pgyer/icons/icons/plHelp'
 import { Typography } from '@material-ui/core'
 
 const styles = (theme) => ({

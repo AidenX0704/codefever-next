@@ -15,7 +15,9 @@ import Radio from '@material-ui/core/Radio'
 import RadioGroup from '@material-ui/core/RadioGroup'
 import FormControlLabel from '@material-ui/core/FormControlLabel'
 import Checkbox from '@material-ui/core/Checkbox'
-import { psLog, plEdit, plTrash } from '@pgyer/icons'
+import psLog from '@pgyer/icons/icons/psLog'
+import plEdit from '@pgyer/icons/icons/plEdit'
+import plTrash from '@pgyer/icons/icons/plTrash'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 import TableList from 'APPSRC/components/unit/TableList'
 import RepositoryData from 'APPSRC/data_providers/RepositoryData'
@@ -139,7 +141,7 @@ class RepositorySettingWebhook extends React.Component {
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (JSON.stringify(nextProps.currentRepositoryKey) !== JSON.stringify(this.props.currentRepositoryKey)) {
+    if (nextProps.currentRepositoryKey !== this.props.currentRepositoryKey && JSON.stringify(nextProps.currentRepositoryKey) !== JSON.stringify(this.props.currentRepositoryKey)) {
       this.getData(nextProps)
       return false
     }

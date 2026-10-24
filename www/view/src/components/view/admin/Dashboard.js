@@ -17,15 +17,12 @@ import NumbericDashboard from 'APPSRC/components/unit/NumbericDashboard'
 import NetworkHelper from 'APPSRC/helpers/NetworkHelper'
 
 // icons
-import {
-  psRepository,
-  psRepositoryGroup,
-  psMembers,
-  psFolder,
-  psNewFeature,
-  psMeter
-} from '@pgyer/icons'
-
+import psRepository from '@pgyer/icons/icons/psRepository'
+import psRepositoryGroup from '@pgyer/icons/icons/psRepositoryGroup'
+import psMembers from '@pgyer/icons/icons/psMembers'
+import psFolder from '@pgyer/icons/icons/psFolder'
+import psNewFeature from '@pgyer/icons/icons/psNewFeature'
+import psMeter from '@pgyer/icons/icons/psMeter'
 const styles = (theme) => ({})
 
 class Dashboard extends React.Component {
@@ -48,7 +45,7 @@ class Dashboard extends React.Component {
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (JSON.stringify(this.state) !== JSON.stringify(this.nextState)) {
+    if (this.state !== this.nextState && JSON.stringify(this.state) !== JSON.stringify(this.nextState)) {
       return true
     }
     return false

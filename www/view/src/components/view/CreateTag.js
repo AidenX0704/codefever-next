@@ -14,7 +14,8 @@ import TextField from '@material-ui/core/TextField'
 import MenuItem from '@material-ui/core/MenuItem'
 import CircularProgress from '@material-ui/core/CircularProgress'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { plBranch, plTag } from '@pgyer/icons'
+import plBranch from '@pgyer/icons/icons/plBranch'
+import plTag from '@pgyer/icons/icons/plTag'
 import RepositoryData from 'APPSRC/data_providers/RepositoryData'
 
 // helpers
@@ -143,7 +144,7 @@ class CreateTag extends React.Component {
 
     if (this.state.pending &&
       this.props.currentRepositoryKey &&
-      JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
+      (this.props.currentRepositoryConfig !== nextProps.currentRepositoryConfig && JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig))) {
       this.setState({ pending: false })
     }
 

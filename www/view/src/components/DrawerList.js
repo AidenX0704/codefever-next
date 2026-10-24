@@ -19,7 +19,7 @@ import ExpandLess from '@material-ui/icons/ExpandLess'
 import ExpandMore from '@material-ui/icons/ExpandMore'
 import ListItemText from '@material-ui/core/ListItemText'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { psHome } from '@pgyer/icons'
+import psHome from '@pgyer/icons/icons/psHome'
 import Constants from 'APPSRC/config/Constants'
 
 import FilterGenerator from 'APPSRC/helpers/FilterGenerator'

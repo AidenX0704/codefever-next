@@ -22,10 +22,14 @@ import Button from '@material-ui/core/Button'
 import EventGenerator from 'APPSRC/helpers/EventGenerator'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faAngleDown } from '@fortawesome/free-solid-svg-icons'
-import { plSearch } from '@pgyer/icons'
-
+import plSearch from '@pgyer/icons/icons/plSearch'
 import NetworkHelper from 'APPSRC/helpers/NetworkHelper'
 import { makeLink, getDefaultBranch } from 'APPSRC/helpers/VaribleHelper'
+
+// 性能整改 F18：DateFnsUtils 实例提到模块级复用。
+// 原实现在 result.map 里对每一条提交都 new DateFnsUtils()
+// （每行 1~3 次），实例化与 locale 绑定的开销被放大到每条提交上。
+const dateFns = new DateFnsUtils()
 
 // style
 const styles = theme => ({
@@ -65,7 +69,7 @@ class CommitList extends React.Component {
     if (
       this.props.currentRepositoryKey !== nextProps.currentRepositoryKey ||
       this.props.match.params.rev !== nextProps.match.params.rev ||
-      JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)
+      (this.props.currentRepositoryConfig !== nextProps.currentRepositoryConfig && JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig))
     ) {
       this.setState({ page: 1, listFinshed: false, commitList: [], searchInput: '', search: '' })
       if (nextState.page === 1 && nextState.search === '') {
@@ -119,17 +123,17 @@ class CommitList extends React.Component {
           if (result.length) {
             result.map((item, key) => {
               if (!currentDate) {
-                currentDate = new DateFnsUtils().format((Number(item.time) * 1000), 'yyyy-MM-dd')
+                currentDate = dateFns.format((Number(item.time) * 1000), 'yyyy-MM-dd')
                 list[index].date = currentDate
                 list[index].list.push(item)
               } else {
-                if (new DateFnsUtils().format((Number(item.time) * 1000), 'yyyy-MM-dd') === currentDate) {
+                if (dateFns.format((Number(item.time) * 1000), 'yyyy-MM-dd') === currentDate) {
                   list[index].date = currentDate
                   list[index].list.push(item)
                 } else {
                   index = index + 1
                   list[index] = { date: '', list: [] }
-                  currentDate = new DateFnsUtils().format((Number(item.time) * 1000), 'yyyy-MM-dd')
+                  currentDate = dateFns.format((Number(item.time) * 1000), 'yyyy-MM-dd')
                   list[index].date = currentDate
                   list[index].list.push(item)
                 }

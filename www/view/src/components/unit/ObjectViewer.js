@@ -14,19 +14,29 @@ import Button from '@material-ui/core/Button'
 import ButtonGroup from '@material-ui/core/ButtonGroup'
 import MenuItem from '@material-ui/core/MenuItem'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { plFile, plCodeFile, plCopy } from '@pgyer/icons'
+import plFile from '@pgyer/icons/icons/plFile'
+import plCodeFile from '@pgyer/icons/icons/plCodeFile'
+import plCopy from '@pgyer/icons/icons/plCopy'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 
-import ReactMarkdown from 'react-markdown'
-import remarkGfm from 'remark-gfm'
 import CodeViewer from 'APPSRC/components/unit/CodeViewer'
 import Constants from 'APPSRC/config/Constants'
 
 // helpers
 import { makeLink, formatNumber } from 'APPSRC/helpers/VaribleHelper'
 
+// 性能整改 E3：Markdown 渲染器改为按需加载。
+// react-markdown + remark-gfm 及其依赖约 172 KB，只有查看 Markdown 文件时才需要，
+// 不应该出现在登录页等首屏关键路径上。webpack 会把它切成独立异步 chunk。
+const MarkdownRenderer = React.lazy(() => import('APPSRC/helpers/MarkdownRenderer'))
+
 // style
 const styles = theme => ({
+  // 性能整改 E3：React.lazy 加载 Markdown 渲染器时的占位样式
+  // （给 Suspense fallback 一个稳定高度，避免 chunk 到达后页面跳动）。
+  mdLoading: {
+    minHeight: theme.spacing(20)
+  },
   icon: {
     color: theme.palette.text.lighter
   },
@@ -217,8 +227,15 @@ class ObjectViewer extends React.Component {
             <CodeViewer object={object} blame={blame} />
           </Grid>
           <Grid item xs={12} className={[mdSourceShow ? classes.height0 : classes.markdown, 'markdown-body'].join(' ')}>
-            <link rel='stylesheet' href='https://cdnjs.cloudflare.com/ajax/libs/github-markdown-css/4.0.0/github-markdown.min.css' />
-            <ReactMarkdown children={object.object.raw} remarkPlugins={[remarkGfm]} />
+            {/* 性能整改 E3：
+                * 不再在 render body 里插第三方 CDN 的 <link>（github-markdown-css
+                  已内置为本地样式，见 src/assets/styles/markdown-body.css）；
+                * remarkPlugins 已提升为 MarkdownRenderer 内的模块常量，
+                  不再每次渲染新建数组；
+                * MarkdownRenderer 是 React.lazy 组件，需有 Suspense 边界。 */}
+            <React.Suspense fallback={<div className={classes.mdLoading} />}>
+              <MarkdownRenderer raw={object.object.raw} />
+            </React.Suspense>
           </Grid>
         </Grid>
         }

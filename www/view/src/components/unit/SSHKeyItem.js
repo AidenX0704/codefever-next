@@ -10,8 +10,7 @@ import Typography from '@material-ui/core/Typography'
 import Grid from '@material-ui/core/Grid'
 import { injectIntl } from 'react-intl'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { plTrash } from '@pgyer/icons'
-
+import plTrash from '@pgyer/icons/icons/plTrash'
 import Button from '@material-ui/core/Button'
 
 // style

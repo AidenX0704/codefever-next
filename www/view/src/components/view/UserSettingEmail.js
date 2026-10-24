@@ -12,7 +12,10 @@ import Button from '@material-ui/core/Button'
 import TextField from '@material-ui/core/TextField'
 import Typography from '@material-ui/core/Typography'
 import CircularProgress from '@material-ui/core/CircularProgress'
-import { plTrash, plCheck, plEdit, plClose } from '@pgyer/icons'
+import plTrash from '@pgyer/icons/icons/plTrash'
+import plCheck from '@pgyer/icons/icons/plCheck'
+import plEdit from '@pgyer/icons/icons/plEdit'
+import plClose from '@pgyer/icons/icons/plClose'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 import ShowHelper from 'APPSRC/components/unit/ShowHelper'
 import TableList from 'APPSRC/components/unit/TableList'
@@ -161,7 +164,7 @@ class UserSettingEmail extends React.Component {
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (JSON.stringify(nextProps.currentUserInfo) !== JSON.stringify(this.props.currentUserInfo)) {
+    if (nextProps.currentUserInfo !== this.props.currentUserInfo && JSON.stringify(nextProps.currentUserInfo) !== JSON.stringify(this.props.currentUserInfo)) {
       this.setState({
         primaryEmail: nextProps.currentUserInfo.email,
         emails: nextProps.currentUserInfo.emails

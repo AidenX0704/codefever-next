@@ -21,7 +21,10 @@ import TableList from 'APPSRC/components/unit/TableList'
 import ObjectViewer from 'APPSRC/components/unit/ObjectViewer'
 import CommitItem from 'APPSRC/components/unit/CommitItem'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { plFile, psFolder, plSearch, psRepository } from '@pgyer/icons'
+import plFile from '@pgyer/icons/icons/plFile'
+import psFolder from '@pgyer/icons/icons/psFolder'
+import plSearch from '@pgyer/icons/icons/plSearch'
+import psRepository from '@pgyer/icons/icons/psRepository'
 import FormattedTime from 'APPSRC/components/unit/FormattedTime'
 import RepositoryEmpty from 'APPSRC/components/unit/RepositoryEmpty'
 import RepositoryData from 'APPSRC/data_providers/RepositoryData'
@@ -71,7 +74,7 @@ class FileTree extends React.Component {
 
   shouldComponentUpdate (nextProps, nextState) {
     // watch router change
-    if (JSON.stringify(this.props.match.params) !== JSON.stringify(nextProps.match.params)) {
+    if (this.props.match.params !== nextProps.match.params && JSON.stringify(this.props.match.params) !== JSON.stringify(nextProps.match.params)) {
       if (this.props.match.params.type !== nextProps.match.params.type &&
         this.props.match.params.rev === nextProps.match.params.rev &&
         this.props.match.params.path === nextProps.match.params.path) {
@@ -83,12 +86,12 @@ class FileTree extends React.Component {
     }
 
     // watch repository config
-    if (JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
+    if (this.props.currentRepositoryConfig !== nextProps.currentRepositoryConfig && JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
       this.getPathStack(nextProps, nextState)
       return false
     }
 
-    if (JSON.stringify(this.state.pathStack) !== JSON.stringify(nextState.pathStack)) {
+    if (this.state.pathStack !== nextState.pathStack && JSON.stringify(this.state.pathStack) !== JSON.stringify(nextState.pathStack)) {
       this.getObject(nextProps, nextState)
       return false
     }

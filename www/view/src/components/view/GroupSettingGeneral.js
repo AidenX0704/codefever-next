@@ -112,7 +112,7 @@ class GroupSettingGeneral extends React.Component {
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (JSON.stringify(nextProps.currentGroupConfig) !== JSON.stringify(this.props.currentGroupConfig) &&
+    if (nextProps.currentGroupConfig !== this.props.currentGroupConfig && JSON.stringify(nextProps.currentGroupConfig) !== JSON.stringify(this.props.currentGroupConfig) &&
       nextProps.currentGroupConfig.group
     ) {
       this.setState({

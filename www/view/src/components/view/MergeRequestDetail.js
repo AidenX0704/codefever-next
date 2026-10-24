@@ -19,7 +19,13 @@ import Typography from '@material-ui/core/Typography'
 import FormControlLabel from '@material-ui/core/FormControlLabel'
 import CircularProgress from '@material-ui/core/CircularProgress'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import { plMerge, plCheck, plMerged, plForbid, plConfirm, plAddAlt, plTrash } from '@pgyer/icons'
+import plMerge from '@pgyer/icons/icons/plMerge'
+import plCheck from '@pgyer/icons/icons/plCheck'
+import plMerged from '@pgyer/icons/icons/plMerged'
+import plForbid from '@pgyer/icons/icons/plForbid'
+import plConfirm from '@pgyer/icons/icons/plConfirm'
+import plAddAlt from '@pgyer/icons/icons/plAddAlt'
+import plTrash from '@pgyer/icons/icons/plTrash'
 import MergeRequestDiff from 'APPSRC/components/unit/MergeRequestDiff'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 import RepositoryData from 'APPSRC/data_providers/RepositoryData'
@@ -248,7 +254,7 @@ class MergeRequestDetail extends React.Component {
       return false
     }
 
-    if (JSON.stringify(this.state.mergeRequestInfo) !== JSON.stringify(nextState.mergeRequestInfo)) {
+    if (this.state.mergeRequestInfo !== nextState.mergeRequestInfo && JSON.stringify(this.state.mergeRequestInfo) !== JSON.stringify(nextState.mergeRequestInfo)) {
       if (this.state.updateReviewersPending) {
         this.getActivities(this.state.mergeRequestInfo.targetRepository, this.state.mergeRequestInfo.id)
         return false

@@ -13,7 +13,10 @@ import MenuItem from '@material-ui/core/MenuItem'
 import TextField from '@material-ui/core/TextField'
 import Typography from '@material-ui/core/Typography'
 import CircularProgress from '@material-ui/core/CircularProgress'
-import { plEdit, plTrash, plCheck, plClose } from '@pgyer/icons'
+import plEdit from '@pgyer/icons/icons/plEdit'
+import plTrash from '@pgyer/icons/icons/plTrash'
+import plCheck from '@pgyer/icons/icons/plCheck'
+import plClose from '@pgyer/icons/icons/plClose'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 import EmptyListNotice from 'APPSRC/components/unit/EmptyListNotice'
 import TableList from 'APPSRC/components/unit/TableList'
@@ -135,7 +138,7 @@ class RepositorySettingBranch extends React.Component {
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (JSON.stringify(nextProps.currentRepositoryConfig) !== JSON.stringify(this.props.currentRepositoryConfig) &&
+    if (nextProps.currentRepositoryConfig !== this.props.currentRepositoryConfig && JSON.stringify(nextProps.currentRepositoryConfig) !== JSON.stringify(this.props.currentRepositoryConfig) &&
       !this.props.currentRepositoryConfig.repository) {
       this.setState({ branch: nextProps.currentRepositoryConfig.repository.defaultBranch })
       this.getData(nextProps)

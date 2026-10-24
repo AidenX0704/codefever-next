@@ -14,7 +14,8 @@ import InputAdornment from '@material-ui/core/InputAdornment'
 import CircularProgress from '@material-ui/core/CircularProgress'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faAngleDown } from '@fortawesome/free-solid-svg-icons'
-import { plSearch, plSortDesc } from '@pgyer/icons'
+import plSearch from '@pgyer/icons/icons/plSearch'
+import plSortDesc from '@pgyer/icons/icons/plSortDesc'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 import EmptyListNotice from 'APPSRC/components/unit/EmptyListNotice'
 import TitleList from 'APPSRC/components/unit/TitleList'
@@ -83,12 +84,12 @@ class MergeRequest extends React.Component {
   }
 
   shouldComponentUpdate (nextProps, nextState) {
-    if (JSON.stringify(this.props.currentGroupConfig) !== JSON.stringify(nextProps.currentGroupConfig)) {
+    if (this.props.currentGroupConfig !== nextProps.currentGroupConfig && JSON.stringify(this.props.currentGroupConfig) !== JSON.stringify(nextProps.currentGroupConfig)) {
       this.getData(nextProps, nextState, false)
       return false
     }
 
-    if (JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
+    if (this.props.currentRepositoryConfig !== nextProps.currentRepositoryConfig && JSON.stringify(this.props.currentRepositoryConfig) !== JSON.stringify(nextProps.currentRepositoryConfig)) {
       this.getData(nextProps, nextState, false)
       return false
     }

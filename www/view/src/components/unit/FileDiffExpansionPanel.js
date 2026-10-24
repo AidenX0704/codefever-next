@@ -14,11 +14,9 @@ import Typography from '@material-ui/core/Typography'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
 import { faImage, faVideo, faCompress } from '@fortawesome/free-solid-svg-icons'
-import {
-  plFile,
-  plCopy,
-  plExpand
-} from '@pgyer/icons'
+import plFile from '@pgyer/icons/icons/plFile'
+import plCopy from '@pgyer/icons/icons/plCopy'
+import plExpand from '@pgyer/icons/icons/plExpand'
 import { withStyles } from '@material-ui/core/styles'
 import { injectIntl } from 'react-intl'
 import ObjectDiffViewer from 'APPSRC/components/unit/ObjectDiffViewer'
