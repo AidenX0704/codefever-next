@@ -843,7 +843,7 @@ login/register/reset_password/verify 正是访问量最高的四个页面，拆�
 
 ### 8.4 阶段 D —— 数据层（完成）
 
-- **9 个索引迁移**（`004`–`009`，一表一文件以便部分失败后安全重跑）：
+- **6 个索引迁移文件 / 共 12 项索引**（`004`–`009`，一表一文件以便部分失败后安全重跑）：
   `cc_users(u_tel)`、`cc_users(u_status)`、`cc_events(ev_status,ev_created)`、
   `cc_group_members(u_key,g_key)`、`cc_repository_members(u_key,r_key)`、
   `cc_repositories(g_key,r_status)`、`cc_repositories(u_key,r_status)`、

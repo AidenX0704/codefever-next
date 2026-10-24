@@ -54,6 +54,77 @@
   `ssh-gateway/`、`Dockerfile.local`、`docker-compose.local.yml`、`CODEFEVER_BACKEND`
   等旧路径/旧开关；英文安装文档与 Webhook 页面同步更新。
 
+### 新增
+
+- **Web 性能指标上报**：前端接入 `web-vitals`（CLS / FID / FCP / LCP / TTFB），
+  通过 `sendBeacon` 发到新增的 `POST /api/web-vitals`，只写日志不入库。
+  之所以要它：此前所有前端性能结论只能靠人工复测，无法在发布前后做同口径对比。
+- **追加表保留期清理**：新增每日任务，清理已处理事件（30 天）、死信事件（60 天）、
+  已读站内信及其孤儿内容行（90 天）、webhook 投递日志（90 天），全部按批 `LIMIT`，
+  天数可用 `CODEFEVER_RETENTION_*` 覆盖。**待处理与处理中事件永不删除**，
+  `cc_activities`（用户可见的仓库动态）默认不清理。
+  此前除 `cc_sessions` 外没有任何清理，这五张表会无限增长。
+
+### 性能
+
+- **首屏 JavaScript 减半**：`1,699,347 B → 871,055 B`（-48.7%），gzip
+  `454,176 B → 263,310 B`（-42%），前端产物目录 `7.9 MB → 1.8 MB`。三项来源：
+  1. 路由级代码分割：34 个页面全部改为 `React.lazy`，按业务域切成 7 个 chunk
+     （此前是 2 个文件、登录页也要下载后台与 Markdown 全家桶）；
+  2. 依赖裁剪：`@pgyer/icons` 引入方式收敛到项目内的 `src/config/icons.js`
+     （该包无 `sideEffects`，barrel 会把 154 个图标全部打进包，实际只用 59 个；
+     该注册表按路径引入后统一包装成 FontAwesome 图标定义，是**唯一**允许的
+     图标入口）；Prism 语言 56 → 36 种，
+     并补齐了原本静默回落 markdown 高亮的 8 种语言；
+  3. `react-markdown`（约 172 KB）改为按需加载，`github-markdown-css` 本地内置
+     （不再从第三方 CDN 取样式）。
+- **静态资源开启 gzip 与分级缓存**：此前全站无压缩、无 `Cache-Control`。
+  现在 gzip 使 vendor chunk 传输 `719,449 B → 227,452 B`；静态资源按是否带内容
+  哈希分档缓存（哈希产物一年 immutable，其余 7 天 + `stale-while-revalidate`，
+  SPA 壳 `no-cache`）。二次访问不再重复下载。
+- **SPA 脚本改为 `defer`**：此前两个 `<script>` 阻塞 HTML 解析直到 1.7 MB
+  下载并执行完毕。
+- **登录页关键路径瘦身**：`marked.min.js`（47.6 KB）改为仅文档页加载；
+  登录页 LCP 大图由 147.9 KB 的 PNG 改为 WebP（30.5 KB，-79%）。
+- **后端查询与连接池**：
+  - 列表接口 `pagesize` 增加全站上限（经 `domain.ClampPaging`，上限 100）。
+    此前只设下限，`?pagesize=20000` 会拼出无上限 `LIMIT`，而合并请求列表对每行
+    都要跑一次 `git log` 子进程 —— 单个请求可拉起两万个进程；
+  - 管理端用户列表由 `2 + 20×5 = 102` 条查询降为 **3** 条；
+  - 通知 worker 的拒收过滤由「每收件人 2 次 `COUNT(*)`」降为 **1** 条批量查询
+    （200 人群组事件：400 次 → 1 次）；
+  - 鉴权不再重复查库：每个已登录请求对 `cc_sessions` / `cc_users` 的查询
+    由各 2 次降为各 1 次；
+  - 6 个迁移文件补齐 12 项索引（覆盖 9 张表），其中 `cc_users.u_tel` / `u_status`
+    此前**完全没有索引**，手机号注册与按状态统计走全表扫描；
+  - `git clone` 移出数据库事务，事务内跨连接查询清零。此前 25 路并发 fork 即可
+    抽干连接池（`MaxOpenConns=25`），随后全站阻塞在等连接上。
+- **MySQL 慢查询可观测**：开启 `slow_query_log`、`long_query_time` 10s → 0.2s。
+  此前生产环境没有任何慢查询数据。
+
+### 修复
+
+- **admin 端点访问日志双写**：17 个管理端点此前被注册为 page route 并二次分发，
+  每个请求走两层中间件，同一 `request_id` 出现两条完全相同的日志
+  （请求体限制与 panic 恢复也各套两层）。根因（`contract.Parse` 先读完请求体
+  导致 multipart 字段丢失）早已修复，现直接删除该补丁。
+- **确认框队列「移除」从未生效**：`confirmation.remove` 分支用
+  `typeof id === 'number'` 判断，而取到的是对象，条件恒为 false，是死代码；
+  同时原实现用 `delete` 删除数组元素会留下空洞，后续 `shift()` 可能返回
+  `undefined` 并在读取 `.data.title` 时抛异常。现改为按 key 过滤的不可变更新。
+- **仓库头像更新事件里的 `from` 取值错误**：原先在事务内跨连接重读仓库行，
+  读不到未提交的 `UPDATE`，导致事件中 `from ≠ to`，与既有语义（同一连接
+  update 后重读，`from == to`）不符。
+- **检索关键字未转义**：活动流与合并请求搜索的两处 `LIKE` 未转义通配符，
+  `?keyword=%` 会退化为全表扫描。
+- **管理端分页排序不稳定**：`sort` 未命中白名单时不拼 `ORDER BY`，导致
+  `LIMIT/OFFSET` 无序扫描、翻页可能重复或漏行；现回落到创建时间并追加主键兜底。
+- **前端若干渲染期问题**：三个 Redux reducer 对无关 action 也返回新对象，
+  使每次 API 响应都触发全部 connected 组件重渲染；`Main.js` 在
+  `shouldComponentUpdate` 里 dispatch 且无 `groupName` 的路由每次渲染都触发；
+  `CodeViewer` 每次渲染都重新高亮整个文件；管理端列表的搜索防抖定时器
+  在卸载时未清理；滚动监听未声明 `passive`。
+
 ## 0.1.0 — 2026-10-23
 
 CodeFever Next 的首个公开版本。基于
