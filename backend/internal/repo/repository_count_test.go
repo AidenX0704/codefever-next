@@ -50,9 +50,9 @@ func TestCountJoinedByUsersMatchesListJoined(t *testing.T) {
 		key, owner string
 		status     int
 	}{
-		{p + "g1", users[0], 1},  // U1 拥有的正常组
-		{p + "g2", users[2], 1},  // U3 拥有的正常组
-		{p + "g3", users[0], 3},  // U1 拥有的已删除组 —— 其下仓库必须被排除
+		{p + "g1", users[0], 1}, // U1 拥有的正常组
+		{p + "g2", users[2], 1}, // U3 拥有的正常组
+		{p + "g3", users[0], 3}, // U1 拥有的已删除组 —— 其下仓库必须被排除
 	}
 	repos := []struct {
 		key, owner, group string

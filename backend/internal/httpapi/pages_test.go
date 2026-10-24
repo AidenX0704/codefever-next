@@ -424,13 +424,13 @@ func assertSameSet(t *testing.T, what string, got, want []string) {
 //
 // 已登记偏离（每条都要写清理由与影响范围）：
 //
-//	1. marked.min.js —— PHP 在 footer_include 里**全局**加载（每页 47.6 KB）；
-//	   整改后只有 doc_detail 加载（唯一调用 marked.marked() 的页面）。
-//	   login / register / reset_password / verify 是访问量最高的四个页面，
-//	   不再为它们下载这份 Markdown 渲染器。
-//	2. login_activity 的 LCP 图 —— PHP 是裸 <img src="....png">；整改后包成
-//	   <picture> + WebP <source> + alt/fetchpriority/decoding 三个属性
-//	   （PNG 147.9 KB → WebP 30.5 KB，且该图是登录页 LCP 元素）。
+//  1. marked.min.js —— PHP 在 footer_include 里**全局**加载（每页 47.6 KB）；
+//     整改后只有 doc_detail 加载（唯一调用 marked.marked() 的页面）。
+//     login / register / reset_password / verify 是访问量最高的四个页面，
+//     不再为它们下载这份 Markdown 渲染器。
+//  2. login_activity 的 LCP 图 —— PHP 是裸 <img src="....png">；整改后包成
+//     <picture> + WebP <source> + alt/fetchpriority/decoding 三个属性
+//     （PNG 147.9 KB → WebP 30.5 KB，且该图是登录页 LCP 元素）。
 //
 // 说明：intlTelInput.css / intlTelInput.js **不在**上表 —— 需要它们的
 // login / register / reset_password / verify 正是访问量最高的页面，
