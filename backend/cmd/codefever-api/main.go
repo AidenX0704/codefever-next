@@ -7,6 +7,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"flag"
 	"log/slog"
@@ -15,6 +16,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -104,6 +106,17 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	// 过期会话清理：旧实现只在"恰好有人拿过期 Cookie 访问"时才删，
 	// cc_sessions 会无限增长。这里每小时主动清一次。
 	go cleanupSessions(sessions, logger)
+
+	// 追加型表的保留期清理（性能整改 D2）。
+	//
+	// 整改前只有 cc_sessions 有清理任务，cc_events / cc_notification_* /
+	// cc_repository_webhook_logs 全部永久增长；其中 cc_events 会被事件 worker
+	// 每 2 秒按 ev_created 排序扫描，堆积后直接拖慢整个异步链路。
+	//
+	// 保留天数全部可用环境变量覆盖；配成 0 即关闭该项。
+	// cc_activities 默认**关闭**：它是用户可见的仓库动态，属于产品数据，
+	// 删除策略应由运维显式决定（见 repo/retention.go 的说明）。
+	go cleanupRetention(sqlDB, logger)
 
 	srv := httpapi.New(cfg, sessions, users, logger)
 
@@ -229,6 +242,13 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	login := handlers.NewLoginHandler(cfg, users, sessions)
 	srv.RegisterPage("/user/login", loginPageHandler(login, cfg))
 	srv.RegisterPage("/user/logout", logoutHandler(login))
+
+	// 前端 Core Web Vitals 上报（性能整改 B1）。
+	//
+	// 走字面量 page route，优先级高于 /api/{ctrl}/{action} 通配路由，
+	// 因此不会被 API 分发器截走；也就绕开了 contract.Parse 的
+	// Accept / Content-Type 校验（sendBeacon 发的是 text/plain + */*）。
+	handlers.NewWebVitalsHandler(logger).Register(srv)
 
 	handler := srv.Handler()
 
@@ -436,6 +456,62 @@ func cleanupSessions(store *session.Store, logger *slog.Logger) {
 			logger.Info("已清理过期会话", "count", n)
 		}
 	}
+}
+
+// cleanupRetention 每天执行一次追加型表的保留期清理。
+//
+// 启动后先等一个周期再跑（与 cleanupSessions 一致），避免和启动时的
+// 迁移 / 数据初始化抢锁。
+func cleanupRetention(sqlDB *sql.DB, logger *slog.Logger) {
+	cfg := repo.RetentionConfig{
+		// 事件队列：已处理 30 天即清；死信保留 60 天便于排障。
+		EventDoneDays:   envInt("CODEFEVER_RETENTION_EVENT_DONE_DAYS", 30),
+		EventFailedDays: envInt("CODEFEVER_RETENTION_EVENT_FAILED_DAYS", 60),
+		// 站内信：已读用户行 + 其孤儿内容行保留 90 天。
+		NotificationDays: envInt("CODEFEVER_RETENTION_NOTIFICATION_DAYS", 90),
+		// webhook 投递日志：纯运维日志，90 天。
+		WebhookLogDays: envInt("CODEFEVER_RETENTION_WEBHOOK_LOG_DAYS", 90),
+		// 仓库动态是用户可见的产品数据 —— 默认关闭（0），
+		// 由运维显式开启保留策略。
+		ActivityDays: envInt("CODEFEVER_RETENTION_ACTIVITY_DAYS", 0),
+	}
+	service := repo.NewRetentionService(sqlDB, cfg)
+
+	ticker := time.NewTicker(24 * time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		res, err := service.Run(ctx)
+		cancel()
+		if err != nil {
+			logger.Warn("保留期清理未完全成功", "error", err,
+				"events_done", res.EventsDone, "events_failed", res.EventsFailed,
+				"notification_users", res.NotificationUsers,
+				"notification_content", res.NotificationContent,
+				"webhook_logs", res.WebhookLogs, "activities", res.Activities)
+			continue
+		}
+		if !res.Empty() {
+			logger.Info("保留期清理完成",
+				"events_done", res.EventsDone, "events_failed", res.EventsFailed,
+				"notification_users", res.NotificationUsers,
+				"notification_content", res.NotificationContent,
+				"webhook_logs", res.WebhookLogs, "activities", res.Activities)
+		}
+	}
+}
+
+// envInt 读取整数环境变量，缺失或非法时返回默认值。
+func envInt(key string, def int) int {
+	v := os.Getenv(key)
+	if v == "" {
+		return def
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(v))
+	if err != nil {
+		return def
+	}
+	return n
 }
 
 // envOr 读取环境变量，没有则返回默认值。

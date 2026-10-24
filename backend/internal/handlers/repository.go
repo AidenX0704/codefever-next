@@ -122,8 +122,13 @@ func trimSlashes(s string) string { return strings.Trim(s, "/") }
 // PHP 侧的 Request::parse() 会把 query 中的 page / pagesize 强制改写为
 // page=1 / pagesize=20（因为 $_GET 的值恒为字符串，is_int 判定必然失败），
 // 这里照搬该行为。
+//
+// 性能整改 C1（2026-10）：额外收敛到 domain.ClampPaging 的口径 ——
+// 严格保留了 PHP 的"缺省 20"语义，同时补上**上限**。整改前这里完全不封顶，
+// 而下游的合并请求列表对每一行都要跑一次 `git log -1` 子进程，
+// 因此 `?pagesize=20000` 等价于让单个请求拉起两万个 git 进程。
 func paging(req *httpapi.Request) (int, int) {
-	return req.Parsed.QueryInt("page"), req.Parsed.QueryInt("pagesize")
+	return domain.ClampPaging(req.Parsed.QueryInt("page"), req.Parsed.QueryInt("pagesize"))
 }
 
 // ---------------------------------------------------------------------------

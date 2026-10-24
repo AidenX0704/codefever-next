@@ -535,14 +535,23 @@ func TestForkRollsBackOnCloneFailure(t *testing.T) {
 	if got := errorCodeOf(t, err); got != int(contract.CodeOperateFail) {
 		t.Fatalf("错误码 = 0x%04X, want 0x%04X", got, int(contract.CodeOperateFail))
 	}
-	if !store.rolledBack {
-		t.Error("事务应当被回滚")
+	// 性能整改 C5 之后的契约：git clone 在**事务之外**执行，
+	// 因此 clone 失败时根本不会开启事务（比"开了再回滚"更好：
+	// 不再让一条池连接陪着 git 子进程一起等）。
+	// 要保证的不变量有两条：
+	//   1. 不留下仓库行（没有 created 记录，也没有事件）；
+	//   2. 已经克隆出来的目录必须被清理，否则磁盘上会留下孤儿仓库。
+	if store.committed {
+		t.Error("clone 失败时不应提交事务")
+	}
+	if len(store.created) != 0 {
+		t.Errorf("clone 失败时不应写入仓库行，实际 %d 条", len(store.created))
 	}
 	if len(git.removedPaths) != 1 {
 		t.Fatalf("应当清理 1 次磁盘目录，实际 %d 次", len(git.removedPaths))
 	}
 	if len(bus.events) != 0 {
-		t.Errorf("回滚后不应留下事件，实际 %d 条", len(bus.events))
+		t.Errorf("clone 失败时不应留下事件，实际 %d 条", len(bus.events))
 	}
 }
 

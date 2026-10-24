@@ -22,7 +22,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -137,63 +136,40 @@ func (h *AdminHandler) Register(s *httpapi.Server) {
 		Actions: actions,
 	})
 
-	// multipart 表单预解析。
+	// 性能整改 C7（2026-10）：删除 multipart 预解析 + 二次分发的历史补丁。
 	//
-	// 背景：internal/contract 的 Parse() 先用 io.ReadAll 把整个请求体读完，
-	// 之后才调用 r.ParseMultipartForm —— 此时请求流已空，
-	// multipart 的表单字段与文件全部丢失，p.Body 恒为空
-	// （见 internal/contract/parse.go 的 Parse()）。
-	// admin 域的分页 / 排序 / 过滤参数全部走 body，因此必须先把这层补上。
+	// 这里原先有一段：
 	//
-	// 做法：在进入 API 分发器之前先调用一次 r.ParseMultipartForm。
-	// ParseMultipartForm 填充 r.MultipartForm 之后再调用会直接返回，
-	// 于是 contract.Parse 仍能正确填充 p.Body 与 p.Files，
-	// 鉴权、动作查找与响应信封仍由统一的分发器负责（行为与其它域完全一致）。
+	//	apiMux := s.Handler()                       // 又构建了一整条中间件链
+	//	for _, path := range adminBodyPaths {
+	//	    s.RegisterPage(path, adminMultipartPreParse(apiMux))
+	//	}
 	//
-	// 待 contract 层修复（Parse 解析 multipart 前复位请求流）后，本段即可删除。
-	apiMux := s.Handler()
-	for _, path := range adminBodyPaths {
-		s.RegisterPage(path, adminMultipartPreParse(apiMux))
-	}
-}
-
-// adminBodyPaths 是需要读取 multipart 表单字段的管理域端点路径。
-//
-// GET 端点（systemStatus / config）不需要表单字段，因此不在列表里。
-var adminBodyPaths = []string{
-	"/api/admin/userList",
-	"/api/admin/updateUserStatus",
-	"/api/admin/closeUserMFA",
-	"/api/admin/resetPassword",
-	"/api/admin/checkPassword",
-	"/api/admin/setAdministrator",
-	"/api/admin/addUser",
-	"/api/admin/groupList",
-	"/api/admin/groupMembers",
-	"/api/admin/groupAddMember",
-	"/api/admin/groupRemoveMember",
-	"/api/admin/setGroupOwner",
-	"/api/admin/repositoryList",
-	"/api/admin/repositoryMembers",
-	"/api/admin/repositoryAddMember",
-	"/api/admin/repositoryRemoveMember",
-	"/api/admin/config",
-}
-
-// adminMaxMemory 与 contract.Parse 使用同一个 multipart 内存上限。
-const adminMaxMemory = 32 << 20
-
-// adminMultipartPreParse 返回一个"先解析 multipart 表单、再把请求交回
-// API 分发器"的包装器。
-func adminMultipartPreParse(next http.Handler) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		contentType := strings.ToLower(strings.TrimSpace(r.Header.Get("Content-Type")))
-		if strings.HasPrefix(contentType, "multipart/form-data") {
-			// 解析失败时忽略：随后的 contract.Parse 会给出同样的失败结论。
-			_ = r.ParseMultipartForm(adminMaxMemory)
-		}
-		next.ServeHTTP(w, r)
-	}
+	// 它把 17 个 admin 端点注册成 **page route**，再在包装器里预先调用一次
+	// r.ParseMultipartForm，以绕过 contract.Parse 曾经的缺陷
+	// （先 io.ReadAll 读完请求流，再调 ParseMultipartForm 时流已空）。
+	// 代价是每个 admin 请求都要走两层 middleware：
+	//
+	//	外层 recover→log→limit→normalize → page route → 内层 apiMux
+	//	     → 内层 recover→log→limit→normalize → handleAPI
+	//
+	// 运行时后果（已在容器访问日志中实测）：同一 request_id 出现两条完全相同的
+	// 访问日志（/api/admin/userList、groupList、repositoryList、config 全部中招，
+	// 而 /api/admin/systemStatus 因为不在 adminBodyPaths 里只有一条）；
+	// http.MaxBytesReader 与 recoverMiddleware 各嵌套两层；路径归一化跑两遍。
+	// 另外 `apiMux := s.Handler()` 在注册前快照了 pageRoutes，
+	// 一旦将来在 admin.Register 之后再注册 page 路由，内外层行为就会分叉。
+	//
+	// 现在可以整段删除，因为**根因已经修好了**：
+	// internal/contract/parse.go 的 Parse() 在 io.ReadAll 之后会把请求流复位
+	// （r.Body = io.NopCloser(bytes.NewReader(body))），随后 ContentForm 分支
+	// 调用的 r.ParseMultipartForm 能正常解析出表单字段与文件。
+	// 旁证：handlers/user_profile.go、user_email.go、user_notify.go 都读 body
+	// 字段，且都不在上面的路径表里，而前端所有写操作都是 multipart，
+	// 它们一直正常工作 —— 说明 Parse 单独就能解析 multipart。
+	//
+	// 回归依据：cmd/smoke-write 以 multipart/form-data 驱动全部写端点
+	// （含管理端建用户 / 改配置），见 backend/cmd/smoke-write/main.go。
 }
 
 // ---------------------------------------------------------------------------
@@ -227,13 +203,27 @@ func (h *AdminHandler) userList(ctx context.Context, req *httpapi.Request) (any,
 		return nil, err
 	}
 
+	// 性能整改 C2（2026-10）：仓库数改为**一次批量查询**。
+	//
+	// 整改前这里是 `for i := range users { h.Repos.ListJoined(ctx, users[i].Key) }`，
+	// 而 ListJoined 展开成 5 条 SQL，且把每个用户可见的全部仓库行都物化回来
+	// —— 只为了取 len()。默认每页 20 个用户就是 2 + 20×5 = 102 条查询。
+	//
+	// CountJoinedByUsers 用一条 UNION ALL + COUNT(DISTINCT r_key) 复刻
+	// ListJoined 的并集口径（两者等价性见该函数注释），
+	// 因此单页查询数固定为 3：CountUsers + ListUsers + CountJoinedByUsers。
+	uKeys := make([]string, 0, len(users))
+	for i := range users {
+		uKeys = append(uKeys, users[i].Key)
+	}
+	projectCounts, err := h.Repos.CountJoinedByUsers(ctx, uKeys)
+	if err != nil {
+		return nil, err
+	}
+
 	list := make([]domain.AdminUserListItem, 0, len(users))
 	for i := range users {
 		u := &users[i]
-		projects, err := h.Repos.ListJoined(ctx, u.Key)
-		if err != nil {
-			return nil, err
-		}
 		list = append(list, domain.AdminUserListItem{
 			ID:         u.Key,
 			Email:      u.Email,
@@ -243,7 +233,7 @@ func (h *AdminHandler) userList(ctx context.Context, req *httpapi.Request) (any,
 			Created:    u.Created,
 			Status:     u.Status == domain.CommonStatusNormal,
 			Admin:      u.Admin,
-			Projects:   len(projects),
+			Projects:   projectCounts[u.Key],
 		})
 	}
 

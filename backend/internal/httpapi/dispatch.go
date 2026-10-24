@@ -108,12 +108,23 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	*r = *r.WithContext(ctx)
 
 	// 鉴权（PHP 侧在控制器构造函数中执行，先于 _remap 的动作查找）。
-	if err := s.authenticate(ctx, ctrl.Auth, p, r); err != nil {
+	//
+	// 性能整改 C6（2026-10）：鉴权与"取当前用户"合并为一次解析。
+	//
+	// 整改前这里是两次独立调用：
+	//
+	//	if err := s.authenticate(ctx, ctrl.Auth, p, r); err != nil { … }
+	//	if u, err := s.resolveUser(ctx, p, r); err == nil { req.User = u }
+	//
+	// 而 authenticate 对 AuthWebUser / AuthAdminWebUser 内部都会调 currentUser()，
+	// resolveUser 又只是 currentUser() 的别名 —— 于是每个已登录请求把
+	// cc_sessions + cc_users 各查两遍（通用日志实测确认：同一请求里
+	// 两条 SELECT cc_sessions、两条 SELECT cc_users）。
+	//
+	// 现在只在需要用户身份时解析一次，并把结果同时用于鉴权判定与 req.User。
+	if err := s.authenticateWithUser(ctx, ctrl.Auth, p, r, req); err != nil {
 		contract.WriteError(w, p.ID, err)
 		return
-	}
-	if u, err := s.resolveUser(ctx, p, r); err == nil {
-		req.User = u
 	}
 
 	// 动作查找：PHP 侧 method_exists 失败 → 0x0105。
@@ -166,7 +177,9 @@ func (s *Server) handleInternal(w http.ResponseWriter, r *http.Request) {
 	// 读到的仍是原始 ctx，日志里的 request_id 恒为空，排障断链。
 	*r = *r.WithContext(ctx)
 
-	if err := s.authenticate(ctx, ctrl.Auth, p, r); err != nil {
+	// /apiv1/internal/* 只接受网关 Token，不解析用户身份
+	// （req.User 保持 nil，与整改前一致）。
+	if err := s.authenticateWithUser(ctx, ctrl.Auth, p, r, req); err != nil {
 		contract.WriteError(w, p.ID, err)
 		return
 	}
@@ -190,13 +203,21 @@ func (s *Server) handleInternal(w http.ResponseWriter, r *http.Request) {
 	contract.WriteSuccess(w, p.ID, data)
 }
 
-// authenticate 执行鉴权。
+// authenticateWithUser 执行鉴权，并在需要用户身份时把解析结果写入 req.User。
 //
 // 对应 PHP 侧 APIAuth::auth() 的三类判定，顺序为
 // internal_gateway → web_user → admin_web_user，任一命中即通过。
-func (s *Server) authenticate(ctx context.Context, level AuthLevel, p *contract.Parsed, r *http.Request) error {
+//
+// 性能整改 C6（2026-10）：本函数取代了原先的 authenticate + resolveUser 两次调用。
+// 语义差异只有一处且是收敛的：整改前 resolveUser 的失败被**静默忽略**
+// （`if u, err := s.resolveUser(...); err == nil`），但 authenticate 对
+// web_user / admin_web_user 已经用同样的凭据做过一次判定，因此
+// "鉴权通过但解析失败"在原实现里不可能发生 —— 两次调用查的是同一份
+// Cookie、同一个 session 行。合并后不再有这个空窗。
+func (s *Server) authenticateWithUser(ctx context.Context, level AuthLevel, p *contract.Parsed, r *http.Request, req *Request) error {
 	switch level {
 	case AuthInternalGateway:
+		// 内部网关用独立 Token，不解析用户身份（req.User 保持 nil）。
 		if auth.CompareToken(p.Token, s.cfg.Env.Gateway.Token) {
 			return nil
 		}
@@ -210,11 +231,16 @@ func (s *Server) authenticate(ctx context.Context, level AuthLevel, p *contract.
 		if !user.Admin {
 			return contract.NewError(contract.CodeInvalidCredential)
 		}
+		req.User = user
 		return nil
 
 	case AuthWebUser:
-		_, err := s.currentUser(ctx, p, r)
-		return err
+		user, err := s.currentUser(ctx, p, r)
+		if err != nil {
+			return err
+		}
+		req.User = user
+		return nil
 
 	default:
 		return contract.NewError(contract.CodeInvalidCredential)
@@ -245,9 +271,4 @@ func (s *Server) currentUser(ctx context.Context, p *contract.Parsed, r *http.Re
 		_ = s.sessions.Touch(ctx, sess.Key)
 	}
 	return user, nil
-}
-
-// resolveUser 解析当前登录用户，失败时返回 nil（不视为错误）。
-func (s *Server) resolveUser(ctx context.Context, p *contract.Parsed, r *http.Request) (*domain.User, error) {
-	return s.currentUser(ctx, p, r)
 }

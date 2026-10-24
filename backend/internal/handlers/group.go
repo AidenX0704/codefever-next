@@ -150,6 +150,16 @@ type groupCount struct {
 	Member int `json:"member"`
 }
 
+// groupPaging 读取并列归一化 group 域的分页参数。
+//
+// 性能整改 C1（2026-10）：与 repository 域的 paging() 走同一口径
+// （domain.ClampPaging）。整改前这里直接把 p.QueryInt("pagesize") 透传给
+// repo 层，而 repo 只兜底下限、不封顶，`?pagesize=100000` 会原样变成
+// `LIMIT 100000`。
+func groupPaging(p *contract.Parsed) (int, int) {
+	return domain.ClampPaging(p.QueryInt("page"), p.QueryInt("pagesize"))
+}
+
 // list 实现 GET /api/group/list。
 //
 // 逐字对应 application/controllers/api/group.php:22-40：
@@ -346,8 +356,8 @@ func (h *GroupHandler) mergeRequests(ctx context.Context, req *httpapi.Request) 
 		return nil, phpFatalError()
 	}
 
-	mrs, err := h.Groups.MergeRequests(ctx, gKey, status, keyword, sort,
-		p.QueryInt("page"), p.QueryInt("pagesize"))
+	page, pagesize := groupPaging(p)
+	mrs, err := h.Groups.MergeRequests(ctx, gKey, status, keyword, sort, page, pagesize)
 	if err != nil {
 		return nil, err
 	}
@@ -436,8 +446,8 @@ func (h *GroupHandler) activities(ctx context.Context, req *httpapi.Request) (an
 		return nil, phpFatalError()
 	}
 
-	acts, err := h.Groups.Activities(ctx, gKey, category, keyword,
-		p.QueryInt("page"), p.QueryInt("pagesize"))
+	page, pagesize := groupPaging(p)
+	acts, err := h.Groups.Activities(ctx, gKey, category, keyword, page, pagesize)
 	if err != nil {
 		return nil, err
 	}

@@ -35,16 +35,41 @@ import (
 // defaultCommandTimeout 是单条 git 命令的兜底超时。
 //
 // HTTP 层没有给请求 ctx 设置 deadline；损坏仓库上的 log/blame/rev-list 或
-// 临时 clone 可能挂住几十分钟，占满 goroutine 与 DB 连接。10 分钟足够覆盖
-// 大仓库的正常操作，同时保证异常时一定会被取消。
-const defaultCommandTimeout = 10 * time.Minute
+// 临时 clone 可能挂住几十分钟，占满 goroutine 与 DB 连接。
+//
+// 性能整改 C5（2026-10）把这里从 10 分钟收紧到 60 秒：
+//
+//   - 上游 HTTP 服务器是 ReadTimeout 60s / WriteTimeout 120s
+//     （cmd/codefever-api/main.go）。原先 10 分钟的 git 兜底超时**远长于**
+//     服务端写超时：客户端早已被断开，服务端还在等一条 git 命令，
+//     期间 goroutine 与（若在事务内）池连接都被白占。
+//     60 秒留出了向客户端返回错误的时间窗，也让异常命令快速失败。
+//   - 绝大多数命令是本地只读短操作（log / rev-parse / for-each-ref /
+//     cat-file / count-objects），正常在毫秒级；60 秒只是异常兜底。
+//
+// 真正可能耗时的重命令（裸仓库克隆）用 longCommandTimeout 单独放宽，
+// 见 runWithTimeout 与 CloneBare。
+const defaultCommandTimeout = 60 * time.Second
+
+// longCommandTimeout 是"可能真的要跑很久"的 git 命令的超时。
+//
+// 目前只有裸仓库克隆使用它（git clone --bare 是磁盘级全量复制，
+// 多 GB 仓库可达分钟级）。放宽的前提是：自性能整改 C5 起，clone 不再在
+// 数据库事务内执行，因此长时间运行不会再占着连接池
+// （见 handlers/repository_write.go 的 fork）。
+const longCommandTimeout = 10 * time.Minute
 
 // commandContext 在调用方没有设置 deadline 时补一个兜底超时。
 func commandContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	return commandContextWith(ctx, defaultCommandTimeout)
+}
+
+// commandContextWith 在调用方没有设置 deadline 时补上指定兜底超时。
+func commandContextWith(ctx context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
 	if _, ok := ctx.Deadline(); ok {
 		return ctx, func() {}
 	}
-	return context.WithTimeout(ctx, defaultCommandTimeout)
+	return context.WithTimeout(ctx, timeout)
 }
 
 // ExitError 表示 git 以非零退出码结束。
@@ -155,7 +180,15 @@ func (s *Service) RepoPath(rPath string) (string, error) {
 // 关键点：argv 数组直传，**不经过 shell**；用户输入即使含有
 // `; rm -rf / #` 也只是一个普通参数。
 func (s *Service) run(ctx context.Context, repoPath string, args ...string) (string, error) {
-	ctx, cancel := commandContext(ctx)
+	return s.runWithTimeout(ctx, defaultCommandTimeout, repoPath, args...)
+}
+
+// runWithTimeout 与 run 相同，但使用调用方指定的兜底超时。
+//
+// 仅用于确实需要放宽的命令（当前只有裸仓库克隆）；其余命令一律走 run，
+// 以保证默认 60 秒的异常兜底不被绕过。
+func (s *Service) runWithTimeout(ctx context.Context, timeout time.Duration, repoPath string, args ...string) (string, error) {
+	ctx, cancel := commandContextWith(ctx, timeout)
 	defer cancel()
 
 	env, err := s.buildEnv()

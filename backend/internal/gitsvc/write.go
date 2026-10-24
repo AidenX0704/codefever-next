@@ -172,7 +172,9 @@ func (s *Service) CloneBare(ctx context.Context, repoPath, sourcePath string) er
 	if err := os.MkdirAll(repoPath, 0o777); err != nil {
 		return err
 	}
-	if _, err := s.run(ctx, repoPath, "clone", "--bare", sourcePath, "."); err != nil {
+	// 性能整改 C5：裸仓库克隆是磁盘级全量复制，多 GB 仓库可达分钟级，
+	// 因此用 longCommandTimeout 单独放宽（默认 60 秒的异常兜底不够用）。
+	if _, err := s.runWithTimeout(ctx, longCommandTimeout, repoPath, "clone", "--bare", sourcePath, "."); err != nil {
 		return err
 	}
 	if _, err := s.run(ctx, repoPath, "remote", "remove", "origin"); err != nil {

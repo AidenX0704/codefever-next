@@ -200,14 +200,13 @@ func AdminRepositorySortColumn(sort string) string {
 //
 // 注意 admin 域的分页参数走 body（multipart），
 // 因此 PHP 的 (int) 转换有效 —— 与 repository 域"query 分页被强制归一化"不同。
+//
+// 性能整改 C1（2026-10）：在 PHP 语义之上**补了上限**。
+// 原先这里不封顶，而 AdminPageSizeMax 声明后全仓库无人引用，
+// 导致 `pagesize=1000000` 会变成 `LIMIT 1000000`。
+// 上限口径统一收敛到 domain.ClampPaging（见 paging.go）。
 func AdminPaging(page, pagesize int) (int, int) {
-	if page == 0 {
-		page = 1
-	}
-	if pagesize == 0 {
-		pagesize = AdminPageSizeDefault
-	}
-	return page, pagesize
+	return ClampPaging(page, pagesize)
 }
 
 // AdminPagingOffset 计算 SQL LIMIT 的偏移量。

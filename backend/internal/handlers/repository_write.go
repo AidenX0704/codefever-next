@@ -565,11 +565,26 @@ func (h *RepositoryWriteHandler) fork(ctx context.Context, req *httpapi.Request)
 		Avatar: source.Avatar,
 	}
 
+	// 性能整改 C5（2026-10）：把 git clone 移出数据库事务。
+	//
+	// 整改前：CloneBare 在 WithTx 回调内执行。CloneBare 会拉起真实 git 子进程，
+	// 多 GB 仓库可能持续数分钟（gitsvc 侧的兜底超时是 10 分钟），
+	// 而 WithTx 会**独占 25 个池连接之一**直到回调返回
+	// （internal/db/db.go: SetMaxOpenConns(25)）。
+	// 25 路并发 fork 就能把连接池抽干，随后登录、会话读取、任何列表接口
+	// 全部阻塞在 database/sql 等连接上 —— 这是"tx 跨 I/O"的典型雪崩形态。
+	//
+	// 现在：先建裸仓库（不持任何事务），再用**短事务**写库 + 发事件。
+	// 原有"无仓无行"的语义保持不变，靠两个方向的补偿保证：
+	//   - git 失败：不写库，清理目录后返回；
+	//   - 写库/提交失败：清理已克隆的目录后返回。
+	if err := h.Git.CloneBare(ctx, absPath, sourcePath); err != nil {
+		_ = h.Git.RemoveRepo(ctx, absPath)
+		return nil, contract.NewError(contract.CodeOperateFail)
+	}
+
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if err := tx.Create(ctx, newRepo); err != nil {
-			return err
-		}
-		if err := h.Git.CloneBare(ctx, absPath, sourcePath); err != nil {
 			return err
 		}
 		return h.emit(ctx, raw, domain.EventTypeREPO_FORK, domain.EventDataDescREPO_FORK_D, map[string]any{
@@ -580,7 +595,7 @@ func (h *RepositoryWriteHandler) fork(ctx context.Context, req *httpapi.Request)
 			"sourceName": sourceGroupName + "/" + source.DisplayName,
 		}, uKey)
 	}); err != nil {
-		// 派生失败：回滚事务并清理克隆出来的目录。
+		// 派生失败：事务已回滚，清理克隆出来的目录，避免留下无行的孤儿仓库。
 		_ = h.Git.RemoveRepo(ctx, absPath)
 		return nil, contract.NewError(contract.CodeOperateFail)
 	}
@@ -822,26 +837,31 @@ func (h *RepositoryWriteHandler) uploadAvatar(ctx context.Context, req *httpapi.
 		return nil, contract.NewError(contract.CodeOperateFail)
 	}
 
+	// 性能整改 C5：仓库行提前到事务外读取。
+	//
+	// 整改前 h.repository() 在事务内调用，它走 h.Repos.Get() → r.db，
+	// 即**另开一条池连接**（事务绑定仓储的 tx 为 nil 时 runner() 回落到 r.db）。
+	//
+	// 顺带修掉一个语义缺陷：PHP 侧是"update 之后在**同一连接**读仓库行"，
+	// 因此读到的是刚写入的新头像，事件里 from 与 to 相同。而整改前这里跨连接读，
+	// 读不到未提交的 UPDATE，拿到的仍是旧头像 —— from 与 to 反而不相等，
+	// 与注释和 PHP 行为都不符。现在直接按 PHP 语义给出 from = to = 新 key。
+	repoRow, err := h.repository(ctx, rKey)
+	if err != nil {
+		return nil, err
+	}
+	if repoRow == nil {
+		return nil, contract.NewError(contract.CodeActionNotAllowed)
+	}
+
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if err := tx.Update(ctx, rKey, map[string]any{"r_avatar": key}); err != nil {
 			return err
 		}
-		current, err := h.repository(ctx, rKey)
-		if err != nil {
-			return err
-		}
-		if current == nil {
-			return contract.NewError(contract.CodeActionNotAllowed)
-		}
-		// PHP 侧在 update 之后才读仓库行 → from 与 to 相同（逐字保留）。
-		from := ""
-		if current.Avatar != nil {
-			from = *current.Avatar
-		}
 		return h.emit(ctx, raw, domain.EventTypeREPO_UPDATE_AVATAR, domain.EventDataDescREPO_UPDATE_AVATAR_D, map[string]any{
 			"rKey": rKey,
-			"gKey": current.GroupKey,
-			"from": from,
+			"gKey": repoRow.GroupKey,
+			"from": key,
 			"to":   key,
 		}, uKey)
 	}); err != nil {
@@ -1477,19 +1497,22 @@ func (h *RepositoryWriteHandler) defaultBranch(ctx context.Context, req *httpapi
 		return nil, err
 	}
 
+	// 性能整改 C5：仓库行提前到事务外读取，避免事务内另开一条池连接
+	// （h.repository → h.Repos.Get() → r.db）。
+	repoRow, err := h.repository(ctx, rKey)
+	if err != nil {
+		return nil, err
+	}
+	if repoRow == nil {
+		return nil, contract.NewError(contract.CodeActionNotAllowed)
+	}
+
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if err := tx.Update(ctx, rKey, map[string]any{"r_default_branch_name": branch}); err != nil {
 			return err
 		}
-		current, err := h.repository(ctx, rKey)
-		if err != nil {
-			return err
-		}
-		if current == nil {
-			return contract.NewError(contract.CodeActionNotAllowed)
-		}
 		return h.emit(ctx, raw, domain.EventTypeDEFAULT_BRANCH_CHANGE, domain.EventDataDescDEFAULT_BRANCH_CHANGE_D, map[string]any{
-			"gKey": current.GroupKey,
+			"gKey": repoRow.GroupKey,
 			"rKey": rKey,
 			"from": old,
 			"to":   branch,
@@ -1588,19 +1611,21 @@ func (h *RepositoryWriteHandler) createProtectedBranchRule(ctx context.Context, 
 	rolePush := atoiOrZero(rolePushRaw)
 	roleMerge := atoiOrZero(roleMergeRaw)
 
+	// 性能整改 C5：仓库行提前到事务外读取，避免事务内另开一条池连接。
+	repoRow, err := h.repository(ctx, rKey)
+	if err != nil {
+		return nil, err
+	}
+	if repoRow == nil {
+		return nil, contract.NewError(contract.CodeActionNotAllowed)
+	}
+
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if err := tx.CreateProtectedBranchRule(ctx, rKey, rule, rolePush, roleMerge); err != nil {
 			return err
 		}
-		current, err := h.repository(ctx, rKey)
-		if err != nil {
-			return err
-		}
-		if current == nil {
-			return contract.NewError(contract.CodeActionNotAllowed)
-		}
 		return h.emit(ctx, raw, domain.EventTypePROTECTED_BRANCH_RULE_CREATE, domain.EventDataDescPROTECTED_BRANCH_RULE_CREATE_D, map[string]any{
-			"gKey": current.GroupKey,
+			"gKey": repoRow.GroupKey,
 			"rKey": rKey,
 			"name": rule,
 		}, uKey)
@@ -1869,6 +1894,14 @@ func (h *RepositoryWriteHandler) editWebhook(ctx context.Context, req *httpapi.R
 	}
 
 	resultKey := rwKey
+	// 性能整改 C5：仓库行提前到事务外读取，避免事务内另开一条池连接。
+	repoRow, err := h.repository(ctx, rKey)
+	if err != nil {
+		return nil, err
+	}
+	if repoRow == nil {
+		return nil, contract.NewError(contract.CodeActionNotAllowed)
+	}
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if domain.PHPTruthy(rwKey) {
 			if _, err := tx.UpdateWebhook(ctx, rwKey, fields); err != nil {
@@ -1888,15 +1921,8 @@ func (h *RepositoryWriteHandler) editWebhook(ctx context.Context, req *httpapi.R
 			}
 			resultKey = created
 		}
-		current, err := h.repository(ctx, rKey)
-		if err != nil {
-			return err
-		}
-		if current == nil {
-			return contract.NewError(contract.CodeActionNotAllowed)
-		}
 		return h.emit(ctx, raw, eventType, eventDesc, map[string]any{
-			"gKey":  current.GroupKey,
+			"gKey":  repoRow.GroupKey,
 			"rKey":  rKey,
 			"rwKey": resultKey,
 		}, uKey)
@@ -1941,6 +1967,15 @@ func (h *RepositoryWriteHandler) deleteWebhook(ctx context.Context, req *httpapi
 		return nil, contract.NewError(contract.CodeOperateFail)
 	}
 
+	// 性能整改 C5：仓库行提前到事务外读取，避免事务内另开一条池连接。
+	repoRow, err := h.repository(ctx, rKey)
+	if err != nil {
+		return nil, err
+	}
+	if repoRow == nil {
+		return nil, contract.NewError(contract.CodeActionNotAllowed)
+	}
+
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if _, err := tx.DeleteWebhook(ctx, rwKey); err != nil {
 			return err
@@ -1951,15 +1986,8 @@ func (h *RepositoryWriteHandler) deleteWebhook(ctx context.Context, req *httpapi
 		if err := tx.DeleteWebhookLogsByRwKey(ctx, rwKey); err != nil {
 			return err
 		}
-		current, err := h.repository(ctx, rKey)
-		if err != nil {
-			return err
-		}
-		if current == nil {
-			return contract.NewError(contract.CodeActionNotAllowed)
-		}
 		return h.emit(ctx, raw, domain.EventTypeWEBHOOK_DELETE, domain.EventDataDescWEBHOOK_DELETE_D, map[string]any{
-			"gKey":  current.GroupKey,
+			"gKey":  repoRow.GroupKey,
 			"rKey":  rKey,
 			"rwKey": rwKey,
 		}, uKey)
@@ -2305,12 +2333,17 @@ func (h *RepositoryWriteHandler) mergeRequestReview(ctx context.Context, req *ht
 		return nil, err
 	}
 
+	// 性能整改 C5：事务内不得再取第二条池连接。
+	// groupKeyOf 走 h.Repos.Get()，事务绑定仓储的 tx 为 nil 时会回落到 r.db
+	// （repo/repository_write.go 的 runner()），即另开一条连接。
+	// 事件数据是纯读，提前求值不影响语义（事务内不会改写仓库归属）。
+	targetGKey := h.groupKeyOf(ctx, targetKey)
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if err := tx.MergeRequestReview(ctx, mrKey, uKey); err != nil {
 			return err
 		}
 		return h.emit(ctx, raw, domain.EventTypeMERGE_REQUEST_REVIEWER_REVIEW, domain.EventDataDescMERGE_REQUEST_REVIEWER_REVIEW_D, map[string]any{
-			"gKey":     h.groupKeyOf(ctx, targetKey),
+			"gKey":     targetGKey,
 			"rKey":     targetKey,
 			"id":       mrID,
 			"mrKey":    mrKey,
@@ -2358,6 +2391,8 @@ func (h *RepositoryWriteHandler) assignReviewer(ctx context.Context, req *httpap
 	}
 
 	var mrrKey string
+	// 性能整改 C5：groupKeyOf 提前到事务外求值，避免事务内另开一条池连接。
+	targetGKey := h.groupKeyOf(ctx, targetKey)
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		created, err := tx.AssignReviewer(ctx, mrKey, reviewer)
 		if err != nil {
@@ -2369,7 +2404,7 @@ func (h *RepositoryWriteHandler) assignReviewer(ctx context.Context, req *httpap
 		}
 		mrrKey = created
 		return h.emit(ctx, raw, domain.EventTypeMERGE_REQUEST_REVIEWER_CREATE, domain.EventDataDescMERGE_REQUEST_REVIEWER_CREATE_D, map[string]any{
-			"gKey":     h.groupKeyOf(ctx, targetKey),
+			"gKey":     targetGKey,
 			"rKey":     targetKey,
 			"id":       mrID,
 			"mrKey":    mrKey,
@@ -2417,12 +2452,14 @@ func (h *RepositoryWriteHandler) deleteReviewer(ctx context.Context, req *httpap
 		return nil, err
 	}
 
+	// 性能整改 C5：groupKeyOf 提前到事务外求值，避免事务内另开一条池连接。
+	targetGKey := h.groupKeyOf(ctx, targetKey)
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if err := tx.DeleteReviewer(ctx, mrKey, reviewer); err != nil {
 			return err
 		}
 		return h.emit(ctx, raw, domain.EventTypeMERGE_REQUEST_REVIEWER_DELETE, domain.EventDataDescMERGE_REQUEST_REVIEWER_DELETE_D, map[string]any{
-			"gKey":     h.groupKeyOf(ctx, targetKey),
+			"gKey":     targetGKey,
 			"rKey":     targetKey,
 			"id":       mrID,
 			"mrKey":    mrKey,
@@ -2470,13 +2507,16 @@ func (h *RepositoryWriteHandler) mergeRequestClose(ctx context.Context, req *htt
 		return nil, contract.NewError(contract.CodeMissingParameter)
 	}
 
+	// 性能整改 C5：两次 groupKeyOf 都提前到事务外求值
+	// （整改前这两次调用在事务内各占一条额外池连接）。
+	targetGKey := h.groupKeyOf(ctx, mr.TargetRKey)
+	sourceGroup := h.groupKeyOf(ctx, mr.SourceRKey)
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if err := tx.MergeRequestClose(ctx, uKey, mrKey, sourceSHA, targetSHA); err != nil {
 			return err
 		}
-		sourceGroup := h.groupKeyOf(ctx, mr.SourceRKey)
 		return h.emit(ctx, raw, domain.EventTypeMERGE_REQUEST_CLOSE, domain.EventDataDescMERGE_REQUEST_CLOSE_D, map[string]any{
-			"gKey":         h.groupKeyOf(ctx, mr.TargetRKey),
+			"gKey":         targetGKey,
 			"rKey":         mr.TargetRKey,
 			"id":           mr.ID,
 			"mrKey":        mrKey,
@@ -2639,16 +2679,21 @@ func (h *RepositoryWriteHandler) mergeBranchLocked(ctx context.Context, uKey, mr
 		return map[string]any{"conflict": true}, nil
 	}
 
+	// 性能整改 C5：merge 是最坏的一个 —— 整改前事务内取 2 次 groupKeyOf，
+	// 一次 merge 占用 1(事务) + 2(跨连接) = 3 条池连接，13 个并发即抽干。
+	// 两次求值都提前到事务外。
+	targetGKey := h.groupKeyOf(ctx, mr.TargetRKey)
+	sourceGKey := h.groupKeyOf(ctx, mr.SourceRKey)
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if err := tx.MergeRequestMerge(ctx, uKey, mrKey, sourceSHA, targetSHA); err != nil {
 			return err
 		}
 		return h.emit(ctx, raw, domain.EventTypeMERGE_REQUEST_MERGE, domain.EventDataDescMERGE_REQUEST_MERGE_D, map[string]any{
-			"gKey":         h.groupKeyOf(ctx, mr.TargetRKey),
+			"gKey":         targetGKey,
 			"rKey":         mr.TargetRKey,
 			"id":           mr.ID,
 			"mrKey":        mrKey,
-			"sourceGKey":   h.groupKeyOf(ctx, mr.SourceRKey),
+			"sourceGKey":   sourceGKey,
 			"sourceRKey":   mr.SourceRKey,
 			"sourceBranch": mr.SourceBranch,
 			"targetBranch": mr.TargetBranch,

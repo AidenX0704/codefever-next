@@ -51,6 +51,28 @@ func (f *fakeRefuse) HasRefused(_ context.Context, uKey string, typ int, target 
 	return false, nil
 }
 
+// RefusedFor 实现 refuseChecker 的批量入口（性能整改 C3）。
+//
+// 必须与 HasRefused 的判定**逐条等价**：这个测试替身存在的意义，正是让
+// 批量改造后的过滤结果与原逐条查询版完全一致。
+func (f *fakeRefuse) RefusedFor(ctx context.Context, uKeys []string, gKey, rKey string) (map[string]repo.RefuseFlags, error) {
+	out := make(map[string]repo.RefuseFlags, len(uKeys))
+	for _, uKey := range uKeys {
+		g, err := f.HasRefused(ctx, uKey, repo.NotificationRefuseGroup, gKey)
+		if err != nil {
+			return nil, err
+		}
+		r, err := f.HasRefused(ctx, uKey, repo.NotificationRefuseRepository, rKey)
+		if err != nil {
+			return nil, err
+		}
+		if g || r {
+			out[uKey] = repo.RefuseFlags{Group: g, Repository: r}
+		}
+	}
+	return out, nil
+}
+
 // refuseHandler 造一个只带拒收过滤器的通知处理器。
 func refuseHandler(refuse refuseChecker) *notificationHandler {
 	return &notificationHandler{refuse: refuse, log: discardLogger()}

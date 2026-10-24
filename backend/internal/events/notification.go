@@ -179,9 +179,13 @@ func notificationEventTypes() []domain.EventType {
 
 // refuseChecker 判断用户是否拒收了某个对象（仓库组 / 仓库）的通知。
 //
-// repo.NotificationRepo.HasRefused 满足该接口。
+// repo.NotificationRepo.HasRefused / RefusedFor 满足该接口。
+//
+// RefusedFor 是性能整改 C3 新增的批量入口：一次查询取回整批用户的拒收状态。
+// 保留 HasRefused 是因为它仍是"单用户单目标"最直观的表达，接口变宽不影响实现。
 type refuseChecker interface {
 	HasRefused(ctx context.Context, uKey string, typ int, target string) (bool, error)
+	RefusedFor(ctx context.Context, uKeys []string, gKey, rKey string) (map[string]repo.RefuseFlags, error)
 }
 
 // notifyUser 是一个"受影响用户"。
@@ -601,28 +605,32 @@ func hasReviewers(data map[string]any) bool {
 // 级联语义：PHP 侧写入拒收配置时（notification_model.php:180-206）会把组下
 // 所有仓库一并写入拒收记录，因此"拒收某个组"等价于"该组下所有仓库都拒收"。
 // 本实现同时检查组与仓库两条记录，语义等价且不依赖写入端的级联是否执行过。
+//
+// 性能整改 C3（2026-10）：整改前这里对每个收件人各查两次（组级 + 仓库级
+// COUNT(*)），200 人的仓库事件就是 400 条查询。改为一次批量查询
+// （repo.NotificationRepo.RefusedFor），查询数固定为 1，与人数无关。
 func (h *notificationHandler) filterProjectNotificationSetting(ctx context.Context, affected []notifyUser, ev domain.EventPayload) ([]notifyUser, error) {
-	result := []notifyUser{}
+	if len(affected) == 0 {
+		return []notifyUser{}, nil
+	}
 	gKey := eventDataString(ev.Data, "gKey")
 	rKey := eventDataString(ev.Data, "rKey")
 
+	uKeys := make([]string, 0, len(affected))
 	for _, u := range affected {
-		refused, err := h.refuse.HasRefused(ctx, u.key, repo.NotificationRefuseGroup, gKey)
-		if err != nil {
-			return nil, fmt.Errorf("查询组通知拒收配置失败: %w", err)
-		}
-		if refused {
+		uKeys = append(uKeys, u.key)
+	}
+	refused, err := h.refuse.RefusedFor(ctx, uKeys, gKey, rKey)
+	if err != nil {
+		return nil, fmt.Errorf("查询通知拒收配置失败: %w", err)
+	}
+
+	result := []notifyUser{}
+	for _, u := range affected {
+		// map 里没有该用户 = 组级与仓库级都未拒收。
+		if flags, ok := refused[u.key]; ok && (flags.Group || flags.Repository) {
 			continue
 		}
-
-		refused, err = h.refuse.HasRefused(ctx, u.key, repo.NotificationRefuseRepository, rKey)
-		if err != nil {
-			return nil, fmt.Errorf("查询仓库通知拒收配置失败: %w", err)
-		}
-		if refused {
-			continue
-		}
-
 		result = append(result, u)
 	}
 	return result, nil
@@ -786,27 +794,58 @@ func (h *notificationHandler) addWebSiteMessage(ctx context.Context, ev domain.E
 	rKey := eventDataString(ev.Data, "rKey")
 	now := nowString()
 
-	for _, u := range users {
+	// 性能整改 B16（2026-10）：多行 INSERT 批量化。
+	//
+	// 整改前是"每个收件人 2 条独立 INSERT"（内容 + 用户行），各自 autocommit：
+	// 200 人的仓库通知 = 400 条语句，每条都是一次独立往返 + 一次隐式事务提交。
+	//
+	// 现在按批拼成多行 VALUES：仍然保持"每人一行内容 + 一人一行用户关系"的
+	// 数据形态（不改数据模型，因此所有读取路径无需改动），只是把 N 次发送
+	// 压缩成 ceil(N/批大小) 次。
+	//
+	// 每批都是一条语句，因此天然原子：要么这批全写入，要么全不写。
+	// 中途失败时整批回滚由数据库保证，已写入的批次保留 —— 这与原实现在
+	// "部分成功后失败" 时的行为一致（原实现同样是前面的人已写入）。
+	const batchSize = 100
+
+	for start := 0; start < len(users); start += batchSize {
 		if handlerContextIsDone(ctx) {
 			return ctx.Err()
 		}
+		end := start + batchSize
+		if end > len(users) {
+			end = len(users)
+		}
+		batch := users[start:end]
 
-		ncKey := contract.NewKey()
-		if _, err := h.db.ExecContext(ctx, `
-			INSERT INTO cc_notification_content
-				(nc_key, nc_type, g_key, r_key, nc_data, nc_scope, nc_created, nc_updated, nc_deleted, nc_status)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			ncKey, ev.Type, gKey, rKey, payload, repo.NotifyForUser,
-			now, zeroDateTime, zeroDateTime, domain.CommonStatusNormal); err != nil {
-			return fmt.Errorf("写入通知内容失败: %w", err)
+		contentSQL := "INSERT INTO cc_notification_content " +
+			"(nc_key, nc_type, g_key, r_key, nc_data, nc_scope, nc_created, nc_updated, nc_deleted, nc_status) VALUES "
+		userSQL := "INSERT INTO cc_notification_users " +
+			"(nu_key, u_key, nc_key, nu_is_read, nu_created, nu_updated, nu_deleted, nu_status) VALUES "
+
+		contentArgs := make([]any, 0, len(batch)*10)
+		userArgs := make([]any, 0, len(batch)*8)
+		for i, u := range batch {
+			if i > 0 {
+				contentSQL += ", "
+				userSQL += ", "
+			}
+			ncKey := contract.NewKey()
+			contentSQL += "(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+			contentArgs = append(contentArgs,
+				ncKey, ev.Type, gKey, rKey, payload, repo.NotifyForUser,
+				now, zeroDateTime, zeroDateTime, domain.CommonStatusNormal)
+
+			userSQL += "(?, ?, ?, ?, ?, ?, ?, ?)"
+			userArgs = append(userArgs,
+				contract.NewKey(), u.key, ncKey, repo.NotifyUnread,
+				now, zeroDateTime, zeroDateTime, domain.CommonStatusNormal)
 		}
 
-		if _, err := h.db.ExecContext(ctx, `
-			INSERT INTO cc_notification_users
-				(nu_key, u_key, nc_key, nu_is_read, nu_created, nu_updated, nu_deleted, nu_status)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-			contract.NewKey(), u.key, ncKey, repo.NotifyUnread,
-			now, zeroDateTime, zeroDateTime, domain.CommonStatusNormal); err != nil {
+		if _, err := h.db.ExecContext(ctx, contentSQL, contentArgs...); err != nil {
+			return fmt.Errorf("写入通知内容失败: %w", err)
+		}
+		if _, err := h.db.ExecContext(ctx, userSQL, userArgs...); err != nil {
 			return fmt.Errorf("写入用户通知失败: %w", err)
 		}
 	}

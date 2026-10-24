@@ -115,8 +115,11 @@ func TestPagesMatchPHPSnapshots(t *testing.T) {
 			// script 里的 JS 字符串含有 "<div>"、markdown 里的 "<repository url>" 这类
 			// 伪标签，PHP 侧不转义、Go 侧会被上下文转义器编码成 \uXXXX，
 			// 直接扫描整篇文档会把它们误当成真实标签。
-			gotMarkup := stripScriptBodies(got)
-			wantMarkup := stripScriptBodies(want)
+			//
+			// normalizePerfDeviations 见其自身文档：2026-10 性能整改引入的**有意**
+			// 偏离在这里集中抹平，以免破坏"与 PHP 渲染保真"这一回归保证。
+			gotMarkup := normalizePerfDeviations(stripScriptBodies(got))
+			wantMarkup := normalizePerfDeviations(stripScriptBodies(want))
 
 			// 1) 标签序列必须完全一致（含顺序、属性名与属性值）。
 			gotTags, wantTags := extractTags(gotMarkup), extractTags(wantMarkup)
@@ -346,6 +349,12 @@ var (
 	jsCommentRe  = regexp.MustCompile(`//[^\n\r]*`)
 	jsUniEscRe   = regexp.MustCompile(`\\u([0-9a-fA-F]{4})`)
 	spaceRe      = regexp.MustCompile(`\s+`)
+
+	// 性能整改（2026-10）的已登记偏离，见 normalizePerfDeviations。
+	markedScriptRe     = regexp.MustCompile(`(?i)<script\b[^>]*marked\.min\.js[^>]*>\s*</script>`)
+	pictureSourceRe    = regexp.MustCompile(`(?i)<source\b[^>]*>`)
+	pictureTagRe       = regexp.MustCompile(`(?i)</?picture\b[^>]*>`)
+	perfImgExtraAttrRe = regexp.MustCompile(`\s+(?:alt|fetchpriority|decoding)="[^"]*"`)
 )
 
 // extractTags 抽取页面里的标签序列（保留顺序）。
@@ -398,6 +407,44 @@ func assertSameSet(t *testing.T, what string, got, want []string) {
 		return
 	}
 	t.Errorf("%s 集合不一致\n go : %v\n php: %v", what, got, want)
+}
+
+// ---------------------------------------------------------------------------
+// 性能整改（2026-10）的有意偏离
+// ---------------------------------------------------------------------------
+
+// normalizePerfDeviations 抹平性能整改**有意**引入的、与 PHP 产物不同的渲染差异。
+//
+// 设计原则：
+//
+//	php-*.html 快照是 PHP → Go 迁移的保真基线（逐标签、逐属性、逐字符），
+//	必须继续生效。性能整改确实改变了若干页面的外壳（这正是整改目的），
+//	因此**不修改快照**，而是在比较前把已登记的偏离从两侧同时抹掉 ——
+//	这样"其余一切仍与 PHP 一致"这一保证不会被削弱，新增偏离也必须显式登记。
+//
+// 已登记偏离（每条都要写清理由与影响范围）：
+//
+//	1. marked.min.js —— PHP 在 footer_include 里**全局**加载（每页 47.6 KB）；
+//	   整改后只有 doc_detail 加载（唯一调用 marked.marked() 的页面）。
+//	   login / register / reset_password / verify 是访问量最高的四个页面，
+//	   不再为它们下载这份 Markdown 渲染器。
+//	2. login_activity 的 LCP 图 —— PHP 是裸 <img src="....png">；整改后包成
+//	   <picture> + WebP <source> + alt/fetchpriority/decoding 三个属性
+//	   （PNG 147.9 KB → WebP 30.5 KB，且该图是登录页 LCP 元素）。
+//
+// 说明：intlTelInput.css / intlTelInput.js **不在**上表 —— 需要它们的
+// login / register / reset_password / verify 正是访问量最高的页面，
+// 按页拆分没有收益，因此保持与 PHP 完全一致（全局加载、原位置）。
+//
+// 未登记的新偏离会让本测试失败——这是有意设计，请勿直接把偏离加进快照。
+func normalizePerfDeviations(s string) string {
+	// 偏离 1：全局加载 → 按页加载的脚本（外链脚本，不含内联代码）。
+	s = markedScriptRe.ReplaceAllString(s, "")
+	// 偏离 2：<picture> 包装与新增属性还原成 PHP 的裸 <img>。
+	s = pictureSourceRe.ReplaceAllString(s, "")
+	s = pictureTagRe.ReplaceAllString(s, "")
+	s = perfImgExtraAttrRe.ReplaceAllString(s, "")
+	return s
 }
 
 // equalStrings 比较两个字符串切片。
