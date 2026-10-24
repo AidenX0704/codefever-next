@@ -101,9 +101,17 @@ func (r *AdminRepo) ListUsers(ctx context.Context, category int, keyword, sort s
 		}
 		args = append(args, params...)
 	}
-	if column := domain.AdminUserSortColumn(sort); column != "" {
-		query += " ORDER BY " + column + " DESC"
+	// 性能整改 D4：始终追加稳定排序 + 主键兜底。
+	//
+	// 整改前只有在 sort 命中白名单时才拼 ORDER BY（domain.AdminUserSortColumn
+	// 对未知值返回空串），否则直接 `LIMIT ? OFFSET ?` —— MySQL 可以按任意顺序
+	// 返回行，同一页在两次请求之间可能重复或漏行，深翻页尤其明显。
+	column := domain.AdminUserSortColumn(sort)
+	if column == "" {
+		column = "u_created"
 	}
+	// 追加主键破除同值歧义（例如同一秒注册的多个用户），让分页稳定可复现。
+	query += " ORDER BY " + column + " DESC, u_key DESC"
 	query += " LIMIT ? OFFSET ?"
 	args = append(args, pagesize, domain.AdminPagingOffset(page, pagesize))
 
@@ -211,9 +219,12 @@ func (r *AdminRepo) ListGroups(ctx context.Context, keyword, sort string, page, 
 	where, args := adminListWhere("g_display_name", keyword, "g_status", domain.CommonStatusNormal)
 
 	query := "SELECT " + groupColumns + " FROM cc_groups WHERE " + where
-	if column := domain.AdminGroupSortColumn(sort); column != "" {
-		query += " ORDER BY " + column + " DESC"
+	// 性能整改 D4：始终稳定排序，未知 sort 回落到创建时间，并追加主键兜底。
+	column := domain.AdminGroupSortColumn(sort)
+	if column == "" {
+		column = "g_created"
 	}
+	query += " ORDER BY " + column + " DESC, g_key DESC"
 	query += " LIMIT ? OFFSET ?"
 	args = append(args, pagesize, domain.AdminPagingOffset(page, pagesize))
 
@@ -248,9 +259,12 @@ func (r *AdminRepo) ListRepositories(ctx context.Context, keyword, sort string, 
 	where, args := adminListWhere("r_display_name", keyword, "r_status", domain.CommonStatusNormal)
 
 	query := "SELECT " + repoCols(repositoryColumnsTpl, "") + " FROM cc_repositories WHERE " + where
-	if column := domain.AdminRepositorySortColumn(sort); column != "" {
-		query += " ORDER BY " + column + " DESC"
+	// 性能整改 D4：始终稳定排序，未知 sort 回落到创建时间，并追加主键兜底。
+	column := domain.AdminRepositorySortColumn(sort)
+	if column == "" {
+		column = "r_created"
 	}
+	query += " ORDER BY " + column + " DESC, r_key DESC"
 	query += " LIMIT ? OFFSET ?"
 	args = append(args, pagesize, domain.AdminPagingOffset(page, pagesize))
 

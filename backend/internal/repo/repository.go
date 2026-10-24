@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 
 	"codefever-next/backend/internal/domain"
@@ -145,28 +146,29 @@ func (r *RepositoryRepo) ListJoined(ctx context.Context, uKey string) ([]domain.
 
 	// (1)(2) 组下的仓库：按组顺序、组内按 r_key 排序，
 	// 与 PHP 逐个 listInGroup() 的自然扫描顺序一致。
+	//
+	// 性能整改 D4/B15：排序改在 Go 侧做，SQL 里不再用 ORDER BY FIELD(...)。
+	//
+	// 原先的 `ORDER BY FIELD(g_key, ?,?,…), r_key` 有两个问题：
+	//   1. FIELD() 是逐行函数，优化器无法用索引满足排序，必走 filesort；
+	//   2. 它需要**第二份**与 IN 列表等长的占位符与参数（同一组 key 传两遍）。
+	// 而这里的行数很小（一个用户可见的仓库数），在内存里排序更划算，
+	// 也顺带让占位符只出现一次。
 	if len(groups) > 0 {
 		keys := make([]string, 0, len(groups))
-		for _, g := range groups {
+		groupOrder := make(map[string]int, len(groups))
+		for i, g := range groups {
+			if _, ok := groupOrder[g.Key]; !ok {
+				groupOrder[g.Key] = i
+			}
 			keys = append(keys, g.Key)
 		}
 		placeholders, args := inPlaceholders(keys)
-
-		// FIELD() 的占位符要单独一份 —— 它不是过滤条件，只是排序权重。
-		orderPlaceholders := make([]string, len(keys))
-		orderArgs := make([]any, len(keys))
-		for i, k := range keys {
-			orderPlaceholders[i] = "?"
-			orderArgs[i] = k
-		}
-		order := "FIELD(g_key, " + strings.Join(orderPlaceholders, ", ") + "), r_key"
-
 		args = append(args, domain.CommonStatusNormal)
-		args = append(args, orderArgs...)
 
 		rows, qerr := r.db.QueryContext(ctx,
 			"SELECT "+repoCols(repositoryColumnsTpl, "")+" FROM cc_repositories WHERE g_key IN ("+
-				strings.Join(placeholders, ", ")+") AND r_status = ? ORDER BY "+order, args...)
+				strings.Join(placeholders, ", ")+") AND r_status = ?", args...)
 		if qerr != nil {
 			return nil, qerr
 		}
@@ -174,6 +176,15 @@ func (r *RepositoryRepo) ListJoined(ctx context.Context, uKey string) ([]domain.
 		if serr != nil {
 			return nil, serr
 		}
+		// 复刻原 ORDER BY FIELD(g_key, …), r_key 的顺序：
+		// 先按"组在 groups 中首次出现的位置"，再按仓库主键。
+		sort.SliceStable(list, func(a, b int) bool {
+			ga, gb := groupOrder[list[a].GroupKey], groupOrder[list[b].GroupKey]
+			if ga != gb {
+				return ga < gb
+			}
+			return list[a].Key < list[b].Key
+		})
 		collected = append(collected, list...)
 	}
 
@@ -225,6 +236,110 @@ func uniqueRepositories(list []domain.Repository) []domain.Repository {
 		out = append(out, item)
 	}
 	return out
+}
+
+// CountJoinedByUsers 批量统计每个用户"可见仓库"的数量。
+//
+// 性能整改 C2（2026-10）。
+//
+// ## 为什么需要它
+//
+// 管理端用户列表（POST /api/admin/userList）原先对**每个用户**调用一次
+// ListJoined，而 ListJoined 展开成 5 条 SQL（自有组、加入组、组下仓库、
+// 成员仓库、自有仓库）。默认每页 20 个用户 ⇒ 2 + 20×5 = 102 条查询，
+// 且被查询的行数随用户仓库数线性增长。
+//
+// 更关键的是：userList 只用到 `len(projects)`（一个数字），
+// 却把每个用户可见的**全部仓库行**都物化回进程并去重 —— 纯粹浪费。
+//
+// ## 口径必须与 ListJoined 完全一致
+//
+// ListJoined 取四个来源的并集，再按 r_key 去重后计数（见其函数注释）：
+//
+//	(1) 我拥有的正常组(g_status=1)下的正常仓库(r_status=1)
+//	(2) 我作为成员(gm_status=1)加入的正常组下的正常仓库
+//	(3) 我作为成员(rm_status=1)直接加入的正常仓库
+//	(4) 我拥有的正常仓库
+//
+// 这里用一条 UNION ALL + COUNT(DISTINCT r_key) 复刻该并集，
+// 因此等价于 len(ListJoined(uKey))。
+//
+// ## 复杂度
+//
+// 无论一页有多少用户，都只有 **1 条 SQL**（原先 5×N 条）。
+func (r *RepositoryRepo) CountJoinedByUsers(ctx context.Context, uKeys []string) (map[string]int, error) {
+	out := make(map[string]int, len(uKeys))
+	if len(uKeys) == 0 {
+		return out, nil
+	}
+
+	placeholders, keyArgs := inPlaceholders(uKeys)
+	in := strings.Join(placeholders, ", ")
+
+	// 参数必须严格按 SQL 中 ? 的出现顺序拼接，因此逐段累加而不是先拼 SQL 再补参。
+	args := make([]any, 0, len(uKeys)*4+7)
+	normal := domain.CommonStatusNormal
+
+	args = append(args, normal, normal)
+	args = append(args, keyArgs...)
+
+	args = append(args, normal, normal, normal)
+	args = append(args, keyArgs...)
+
+	args = append(args, normal, normal)
+	args = append(args, keyArgs...)
+
+	args = append(args, normal)
+	args = append(args, keyArgs...)
+
+	query := `
+		SELECT t.u_key, COUNT(DISTINCT t.r_key) FROM (
+			SELECT g.u_key AS u_key, r.r_key AS r_key
+			  FROM cc_repositories r
+			  JOIN cc_groups g ON g.g_key = r.g_key
+			 WHERE r.r_status = ? AND g.g_status = ? AND g.u_key IN (` + in + `)
+			UNION ALL
+			SELECT gm.u_key, r.r_key
+			  FROM cc_repositories r
+			  JOIN cc_groups g ON g.g_key = r.g_key
+			  JOIN cc_group_members gm ON gm.g_key = g.g_key
+			 WHERE r.r_status = ? AND g.g_status = ? AND gm.gm_status = ? AND gm.u_key IN (` + in + `)
+			UNION ALL
+			SELECT rm.u_key, r.r_key
+			  FROM cc_repositories r
+			  JOIN cc_repository_members rm ON rm.r_key = r.r_key
+			 WHERE r.r_status = ? AND rm.rm_status = ? AND rm.u_key IN (` + in + `)
+			UNION ALL
+			SELECT r.u_key, r.r_key
+			  FROM cc_repositories r
+			 WHERE r.r_status = ? AND r.u_key IN (` + in + `)
+		) t
+		GROUP BY t.u_key`
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var uKey string
+		var n int
+		if err := rows.Scan(&uKey, &n); err != nil {
+			return nil, err
+		}
+		out[uKey] = n
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	// 没有任何可见仓库的用户不会出现在结果集中，补 0 以免调用方区分「不存在」与「0」。
+	for _, k := range uKeys {
+		if _, ok := out[k]; !ok {
+			out[k] = 0
+		}
+	}
+	return out, nil
 }
 
 // groupsOfUser 返回用户自己拥有的组 + 用户加入的组。
@@ -619,15 +734,17 @@ func (r *RepositoryRepo) ListActivities(ctx context.Context, rKey string, catego
 			" AND a_type != 0x0501 AND a_type != 0x0502)"
 	}
 	if keyword != "" {
+		// 性能整改 D3：转义 LIKE 通配符。
+		// 整改前直接把用户输入拼进 "%…%"，`?keyword=%` 会变成裸通配符，
+		// 把本来已经按 a_relative_r_key 收窄的查询重新退化成全表扫描；
+		// `_` 同理。同包的其它检索（repo/group.go、repo/admin.go）一直用
+		// escapeLike，这两处是漏网。
 		where += " AND a_data LIKE ?"
-		args = append(args, "%"+keyword+"%")
+		args = append(args, "%"+escapeLike(keyword)+"%")
 	}
-	if page < 1 {
-		page = 1
-	}
-	if pagesize < 1 {
-		pagesize = 20
-	}
+	// 性能整改 C1：此处是最后一道防线。handler 侧已用 domain.ClampPaging 收敛，
+	// 这里再封一次顶，避免将来新增调用方绕过 handler 直接把用户输入透传进来。
+	page, pagesize = domain.ClampPaging(page, pagesize)
 	args = append(args, pagesize, (page-1)*pagesize)
 
 	rows, err := r.db.QueryContext(ctx,
@@ -677,15 +794,14 @@ func (r *RepositoryRepo) MergeRequests(ctx context.Context, targetRKeys []string
 		args = append(args, status)
 	}
 	if keyword != "" {
+		// 性能整改 D3：转义 LIKE 通配符（理由同上，见本文件活动流分支的注释）。
 		where += " AND (mr_title LIKE ? OR mr_description LIKE ?)"
-		args = append(args, "%"+keyword+"%", "%"+keyword+"%")
+		kw := "%" + escapeLike(keyword) + "%"
+		args = append(args, kw, kw)
 	}
-	if page < 1 {
-		page = 1
-	}
-	if pagesize < 1 {
-		pagesize = 20
-	}
+	// 性能整改 C1：此处是最后一道防线。handler 侧已用 domain.ClampPaging 收敛，
+	// 这里再封一次顶，避免将来新增调用方绕过 handler 直接把用户输入透传进来。
+	page, pagesize = domain.ClampPaging(page, pagesize)
 	if sort != "asc" {
 		sort = "desc"
 	}
@@ -897,10 +1013,33 @@ func scanMergeRequests(rows *sql.Rows) ([]domain.RepositoryMergeRequest, error) 
 }
 
 // inPlaceholders 生成 IN (?, ?, ...) 的占位符与参数。
+//
+// 性能整改 C4（2026-10）：对入参去重后再生成占位符。
+//
+// 原因：调用方普遍是这样攒 keys 的 ——
+//
+//	keys = append(keys, repo.OwnerKey)          // 仓库 owner
+//	keys = append(keys, group.OwnerKey)         // 组 owner
+//	for _, m := range members { keys = append(keys, m.UserKey) }   // 全部成员
+//
+// 同一个用户既可能是仓库 owner、又出现在组 owner、还出现在多个仓库的成员列表里，
+// 于是同一个 u_key 会被重复压入多次。仓库列表接口（handlers/repository.go 的
+// normalize）在 200 个仓库的规模下能攒出数百个重复占位符：
+// 既让 SQL 文本变长、也白白多传参数。
+//
+// 去重发生在**占位符与参数同步**的位置，因此对所有调用方都是安全的：
+// IN 语义与重复值无关。注意本函数不保证顺序稳定之外的任何语义 ——
+// 需要依赖位置（如 ORDER BY FIELD(...)）的调用方必须自己构建另一份占位符，
+// 不能复用本函数的返回值（ListJoined 就是这么做的）。
 func inPlaceholders(keys []string) ([]string, []any) {
 	placeholders := make([]string, 0, len(keys))
 	args := make([]any, 0, len(keys))
+	seen := make(map[string]struct{}, len(keys))
 	for _, k := range keys {
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
 		placeholders = append(placeholders, "?")
 		args = append(args, k)
 	}

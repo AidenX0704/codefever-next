@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
 
 	"codefever-next/backend/internal/contract"
@@ -225,26 +226,146 @@ func (r *NotificationRepo) ListRefused(ctx context.Context, uKey string) ([]Noti
 
 // AddRefused 新增一条拒收配置。
 func (r *NotificationRepo) AddRefused(ctx context.Context, uKey string, typ int, target string) error {
+	return addRefusedOn(ctx, r.db, uKey, typ, target)
+}
+
+// execer 是 *sql.DB 与 *sql.Tx 的公共子集。
+//
+// 性能整改 B17（2026-10）：拒收配置的级联写入原先逐条 autocommit，
+// 中途失败会留下"组已关、部分仓库没关"的半成品状态，而且读取端
+// （ListRefused → 循环 AddRefused）存在读后写竞态。引入 execer 后，
+// 同一段逻辑可以在事务里复用。
+type execer interface {
+	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
+	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
+	QueryRowContext(ctx context.Context, query string, args ...any) *sql.Row
+}
+
+func addRefusedOn(ctx context.Context, db execer, uKey string, typ int, target string) error {
 	col := "r_key"
 	if typ == NotificationRefuseGroup {
 		col = "g_key"
 	}
-	_, err := r.db.ExecContext(ctx, `
+	_, err := db.ExecContext(ctx, `
 		INSERT INTO cc_notification_refuse (nr_key, nr_type, u_key, `+col+`)
 		VALUES (?, ?, ?, ?)`, contract.NewKey(), typ, uKey, target)
 	return err
 }
 
-// DeleteRefused 删除一条拒收配置。
-func (r *NotificationRepo) DeleteRefused(ctx context.Context, uKey string, typ int, target string) error {
+// refusedTargetsOn 返回某用户已拒收的全部目标（按类型），用于级联时判重。
+func refusedTargetsOn(ctx context.Context, db execer, uKey string, typ int) (map[string]bool, error) {
 	col := "r_key"
 	if typ == NotificationRefuseGroup {
 		col = "g_key"
 	}
-	_, err := r.db.ExecContext(ctx, `
+	rows, err := db.QueryContext(ctx, `
+		SELECT `+col+` FROM cc_notification_refuse
+		WHERE u_key = ? AND nr_type = ? AND `+col+` IS NOT NULL AND nr_status = ?`,
+		uKey, typ, domain.CommonStatusNormal)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := map[string]bool{}
+	for rows.Next() {
+		var t string
+		if err := rows.Scan(&t); err != nil {
+			return nil, err
+		}
+		if t != "" {
+			out[t] = true
+		}
+	}
+	return out, rows.Err()
+}
+
+// DeleteRefused 删除一条拒收配置。
+func (r *NotificationRepo) DeleteRefused(ctx context.Context, uKey string, typ int, target string) error {
+	return deleteRefusedOn(ctx, r.db, uKey, typ, target)
+}
+
+func deleteRefusedOn(ctx context.Context, db execer, uKey string, typ int, target string) error {
+	col := "r_key"
+	if typ == NotificationRefuseGroup {
+		col = "g_key"
+	}
+	_, err := db.ExecContext(ctx, `
 		DELETE FROM cc_notification_refuse
 		WHERE u_key = ? AND nr_type = ? AND `+col+` = ?`, uKey, typ, target)
 	return err
+}
+
+// RefuseFlags 表示某个用户对某个组 / 仓库的拒收状态。
+//
+// Group 对应 nr_type = NotificationRefuseGroup，
+// Repository 对应 nr_type = NotificationRefuseRepository。
+type RefuseFlags struct {
+	Group      bool
+	Repository bool
+}
+
+// RefusedFor 批量查询一组用户对指定组 / 仓库的拒收状态。
+//
+// 性能整改 C3（2026-10）。
+//
+// ## 为什么需要它
+//
+// 通知 worker 的 filterProjectNotificationSetting 原先对**每个收件人**调用
+// 两次 HasRefused（组级一次、仓库级一次），每次都是一条 COUNT(*)。
+// 一个 200 人的仓库/组通知事件就是 400 条查询，而 worker 是单点消费，
+// 这类事件会把 worker 的消费速率直接拖垮。
+//
+// ## 语义必须与逐条 HasRefused 完全一致
+//
+// 逐条版本的谓词是：
+//
+//	u_key = ? AND nr_type = ? AND <g_key|r_key> = ? AND nr_status = 1
+//
+// 这里用一条 IN 列表查询复刻同样的谓词，因此：
+//   - gKey / rKey 为空串时行为不变（空串会正常匹配 g_key = ” 的记录，
+//     与原先一样；不额外短路，避免改变已上线语义）；
+//   - nr_type 与目标列必须成对匹配（组级只看 g_key，仓库级只看 r_key），
+//     与 col 的选取规则一致。
+//
+// 返回的 map 只包含**至少命中一类拒收**的用户；调用方按
+// 「map 里没有 = 未拒收」处理即可。
+func (r *NotificationRepo) RefusedFor(ctx context.Context, uKeys []string, gKey, rKey string) (map[string]RefuseFlags, error) {
+	out := make(map[string]RefuseFlags, len(uKeys))
+	if len(uKeys) == 0 {
+		return out, nil
+	}
+
+	placeholders, args := inPlaceholders(uKeys)
+	args = append(args, domain.CommonStatusNormal, NotificationRefuseGroup, gKey,
+		NotificationRefuseRepository, rKey)
+
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT u_key, nr_type FROM cc_notification_refuse
+		WHERE u_key IN (`+strings.Join(placeholders, ", ")+`)
+		  AND nr_status = ?
+		  AND ((nr_type = ? AND g_key = ?) OR (nr_type = ? AND r_key = ?))`,
+		args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var uKey string
+		var typ int
+		if err := rows.Scan(&uKey, &typ); err != nil {
+			return nil, err
+		}
+		flags := out[uKey]
+		switch typ {
+		case NotificationRefuseGroup:
+			flags.Group = true
+		case NotificationRefuseRepository:
+			flags.Repository = true
+		}
+		out[uKey] = flags
+	}
+	return out, rows.Err()
 }
 
 // HasRefused 判断某条拒收配置是否存在。
@@ -275,37 +396,46 @@ func (r *NotificationRepo) SetRefused(ctx context.Context, uKey string, typ int,
 	if uKey == "" || typ == 0 || target == "" {
 		return ErrNotFound
 	}
-	if err := r.AddRefused(ctx, uKey, typ, target); err != nil {
+
+	// 性能整改 B17（2026-10）：整段级联放进**一个事务**。
+	//
+	// 整改前：先 AddRefused（autocommit），再逐条 AddRefused 级联到组内仓库，
+	// 每条都是独立提交。中途失败会留下"组已关闭、部分仓库没关闭"的不一致状态，
+	// 而通知过滤同时看组与仓库两级记录（见 events/notification.go 的
+	// filterProjectNotificationSetting），半成品状态会让部分成员继续收到通知。
+	//
+	// 现在：组记录 + 所有级联记录要么全写入，要么全不写；"已单独关闭"的判重
+	// 也在同一事务内完成，消除读后写竞态。
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
 		return err
 	}
-	if typ != NotificationRefuseGroup {
-		return nil
+	defer func() { _ = tx.Rollback() }()
+
+	if err := addRefusedOn(ctx, tx, uKey, typ, target); err != nil {
+		return err
 	}
 
-	// 级联：组内尚未单独关闭的仓库一并关闭。
-	repos, err := r.RepositoriesInGroup(ctx, target)
-	if err != nil {
-		return err
-	}
-	refused, err := r.ListRefused(ctx, uKey)
-	if err != nil {
-		return err
-	}
-	already := map[string]bool{}
-	for _, item := range refused {
-		if item.Type == NotificationRefuseRepository && item.Target != "" {
-			already[item.Target] = true
-		}
-	}
-	for _, rKey := range repos {
-		if already[rKey] {
-			continue
-		}
-		if err := r.AddRefused(ctx, uKey, NotificationRefuseRepository, rKey); err != nil {
+	if typ == NotificationRefuseGroup {
+		repos, err := repositoriesInGroupOn(ctx, tx, target)
+		if err != nil {
 			return err
 		}
+		already, err := refusedTargetsOn(ctx, tx, uKey, NotificationRefuseRepository)
+		if err != nil {
+			return err
+		}
+		for _, rKey := range repos {
+			if already[rKey] {
+				continue
+			}
+			if err := addRefusedOn(ctx, tx, uKey, NotificationRefuseRepository, rKey); err != nil {
+				return err
+			}
+		}
 	}
-	return nil
+
+	return tx.Commit()
 }
 
 // SetReceive 恢复通知接收。
@@ -317,26 +447,34 @@ func (r *NotificationRepo) SetReceive(ctx context.Context, uKey string, typ int,
 	if uKey == "" || typ == 0 || target == "" {
 		return ErrNotFound
 	}
-	if err := r.DeleteRefused(ctx, uKey, typ, target); err != nil {
+	// 性能整改 B17：与 SetRefused 对称，整段恢复动作放进同一个事务，
+	// 避免"组已恢复、部分仓库仍被拒收"的中间状态。
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if err := deleteRefusedOn(ctx, tx, uKey, typ, target); err != nil {
 		return err
 	}
 
 	if typ == NotificationRefuseGroup {
-		repos, err := r.RepositoriesInGroup(ctx, target)
+		repos, err := repositoriesInGroupOn(ctx, tx, target)
 		if err != nil {
 			return err
 		}
 		for _, rKey := range repos {
-			if err := r.DeleteRefused(ctx, uKey, NotificationRefuseRepository, rKey); err != nil {
+			if err := deleteRefusedOn(ctx, tx, uKey, NotificationRefuseRepository, rKey); err != nil {
 				return err
 			}
 		}
-		return nil
+		return tx.Commit()
 	}
 
 	// 恢复仓库通知时，同时恢复它所属组的关闭记录。
 	var gKey sql.NullString
-	err := r.db.QueryRowContext(ctx,
+	err = tx.QueryRowContext(ctx,
 		"SELECT g_key FROM cc_repositories WHERE r_key = ?", target).Scan(&gKey)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound
@@ -347,12 +485,19 @@ func (r *NotificationRepo) SetReceive(ctx context.Context, uKey string, typ int,
 	if !gKey.Valid {
 		return ErrNotFound
 	}
-	return r.DeleteRefused(ctx, uKey, NotificationRefuseGroup, gKey.String)
+	if err := deleteRefusedOn(ctx, tx, uKey, NotificationRefuseGroup, gKey.String); err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // RepositoriesInGroup 列出组内的仓库主键。
 func (r *NotificationRepo) RepositoriesInGroup(ctx context.Context, gKey string) ([]string, error) {
-	rows, err := r.db.QueryContext(ctx,
+	return repositoriesInGroupOn(ctx, r.db, gKey)
+}
+
+func repositoriesInGroupOn(ctx context.Context, db execer, gKey string) ([]string, error) {
+	rows, err := db.QueryContext(ctx,
 		"SELECT r_key FROM cc_repositories WHERE g_key = ? AND r_status = ?",
 		gKey, domain.CommonStatusNormal)
 	if err != nil {

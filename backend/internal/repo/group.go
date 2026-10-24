@@ -309,6 +309,8 @@ func (r *GroupRepo) MergeRequests(ctx context.Context, gKey string, status int, 
 		       mr.mr_proceed_status, mr.mr_created, mr.mr_updated
 		FROM cc_merge_requests mr
 		LEFT JOIN cc_repositories rp ON mr.mr_target_r_key = rp.r_key`
+	// 性能整改 C1：分页参数的最终收敛点（见 domain.ClampPaging）。
+	page, pagesize = domain.ClampPaging(page, pagesize)
 	args := []any{}
 	if status != 0 {
 		query += " WHERE mr.mr_proceed_status = ?"
@@ -384,6 +386,8 @@ func (r *GroupRepo) Activities(ctx context.Context, gKey string, category int, k
 		SELECT a_key, a_type, u_key, a_relative_g_key, a_relative_r_key, a_relative_mr_key,
 		       a_data, a_created, a_status
 		FROM cc_activities`
+	// 性能整改 C1：分页参数的最终收敛点（见 domain.ClampPaging）。
+	page, pagesize = domain.ClampPaging(page, pagesize)
 	args := []any{}
 	if where, params := domain.GroupActivityCategoryWhere(category); where != "" {
 		query += " WHERE " + where
