@@ -235,7 +235,10 @@ func (s *Service) LastCommit(ctx context.Context, repoPath, ref, path string, la
 		target = lastSHA[0]
 	}
 
-	args := []string{"log", "-1", "--left-only", "--format=" + fmtCommit, target}
+	// 不要加 --left-only：它只对 `<rev>...<rev>` 这种对称差有意义。
+	// 单独跟一个引用时，旧版 git 会忽略该选项，新版 git 则直接输出空结果，
+	// 于是这里会误报“引用没有提交”。PHP 原始实现也没有这个选项。
+	args := []string{"log", "-1", "--format=" + fmtCommit, target}
 	if path != "" {
 		args = append(args, "--", path)
 	}
