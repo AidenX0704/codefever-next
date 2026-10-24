@@ -9,7 +9,7 @@ import { injectIntl } from 'react-intl'
 import Grid from '@material-ui/core/Grid'
 import Typography from '@material-ui/core/Typography'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
-import plCopy from '@pgyer/icons/icons/plCopy'
+import { plCopy } from 'APPSRC/config/icons'
 // helpers
 import { copyToClipboard } from 'APPSRC/helpers/VaribleHelper'
 

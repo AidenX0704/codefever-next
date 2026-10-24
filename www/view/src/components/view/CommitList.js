@@ -22,7 +22,7 @@ import Button from '@material-ui/core/Button'
 import EventGenerator from 'APPSRC/helpers/EventGenerator'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
 import { faAngleDown } from '@fortawesome/free-solid-svg-icons'
-import plSearch from '@pgyer/icons/icons/plSearch'
+import { plSearch } from 'APPSRC/config/icons'
 import NetworkHelper from 'APPSRC/helpers/NetworkHelper'
 import { makeLink, getDefaultBranch } from 'APPSRC/helpers/VaribleHelper'
 

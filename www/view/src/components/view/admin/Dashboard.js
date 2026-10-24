@@ -17,12 +17,7 @@ import NumbericDashboard from 'APPSRC/components/unit/NumbericDashboard'
 import NetworkHelper from 'APPSRC/helpers/NetworkHelper'
 
 // icons
-import psRepository from '@pgyer/icons/icons/psRepository'
-import psRepositoryGroup from '@pgyer/icons/icons/psRepositoryGroup'
-import psMembers from '@pgyer/icons/icons/psMembers'
-import psFolder from '@pgyer/icons/icons/psFolder'
-import psNewFeature from '@pgyer/icons/icons/psNewFeature'
-import psMeter from '@pgyer/icons/icons/psMeter'
+import { psRepository, psRepositoryGroup, psMembers, psFolder, psNewFeature, psMeter } from 'APPSRC/config/icons'
 const styles = (theme) => ({})
 
 class Dashboard extends React.Component {

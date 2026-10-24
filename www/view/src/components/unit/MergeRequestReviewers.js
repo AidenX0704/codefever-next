@@ -8,8 +8,7 @@ import { withStyles } from '@material-ui/core/styles'
 import Grid from '@material-ui/core/Grid'
 import Avatar from '@material-ui/core/Avatar'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import psConfirm from '@pgyer/icons/icons/psConfirm'
-import psClock from '@pgyer/icons/icons/psClock'
+import { psConfirm, psClock } from 'APPSRC/config/icons'
 import Constants from 'APPSRC/config/Constants'
 
 // helper

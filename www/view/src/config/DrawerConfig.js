@@ -1,18 +1,5 @@
 // component
-import psRepository from '@pgyer/icons/icons/psRepository'
-import psRepositoryGroup from '@pgyer/icons/icons/psRepositoryGroup'
-import psBranch from '@pgyer/icons/icons/psBranch'
-import psCommit from '@pgyer/icons/icons/psCommit'
-import psMerge from '@pgyer/icons/icons/psMerge'
-import psLog from '@pgyer/icons/icons/psLog'
-import psMembers from '@pgyer/icons/icons/psMembers'
-import psMemberAlt from '@pgyer/icons/icons/psMemberAlt'
-import psFile from '@pgyer/icons/icons/psFile'
-import psSetting from '@pgyer/icons/icons/psSetting'
-import psTag from '@pgyer/icons/icons/psTag'
-import psEmail from '@pgyer/icons/icons/psEmail'
-import psKey from '@pgyer/icons/icons/psKey'
-import psBell from '@pgyer/icons/icons/psBell'
+import { psRepository, psRepositoryGroup, psBranch, psCommit, psMerge, psLog, psMembers, psMemberAlt, psFile, psSetting, psTag, psEmail, psKey, psBell } from 'APPSRC/config/icons'
 import FilterGenerator from 'APPSRC/helpers/FilterGenerator'
 
 function makeDrawerConfig () {

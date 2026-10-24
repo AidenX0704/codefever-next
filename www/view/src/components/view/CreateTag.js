@@ -14,8 +14,7 @@ import TextField from '@material-ui/core/TextField'
 import MenuItem from '@material-ui/core/MenuItem'
 import CircularProgress from '@material-ui/core/CircularProgress'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import plBranch from '@pgyer/icons/icons/plBranch'
-import plTag from '@pgyer/icons/icons/plTag'
+import { plBranch, plTag } from 'APPSRC/config/icons'
 import RepositoryData from 'APPSRC/data_providers/RepositoryData'
 
 // helpers

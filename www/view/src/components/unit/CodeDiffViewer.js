@@ -19,7 +19,7 @@ import EventGenerator from 'APPSRC/helpers/EventGenerator'
 import ValidatorGenerator from 'APPSRC/helpers/ValidatorGenerator'
 import CodeLine from 'APPSRC/components/unit/CodeLine'
 import SquareIconButton from 'APPSRC/components/unit/SquareIconButton'
-import psMore from '@pgyer/icons/icons/psMore'
+import { psMore } from 'APPSRC/config/icons'
 // style
 const styles = theme => ({
   table: {

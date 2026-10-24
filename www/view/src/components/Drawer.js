@@ -5,7 +5,7 @@ import { connect } from 'react-redux'
 import { withStyles } from '@material-ui/core/styles'
 import { Switch, Route, withRouter } from 'react-router-dom'
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome'
-import plMenuCollapse from '@pgyer/icons/icons/plMenuCollapse'
+import { plMenuCollapse } from 'APPSRC/config/icons'
 // component
 import Drawer from '@material-ui/core/Drawer'
 import DrawerList from 'APPSRC/components/DrawerList'
