@@ -22,6 +22,39 @@ server {
     index index.html index.htm;
     root /data/www/codefever-community/www/;
 
+    # ---------------------------------------------------------------------
+    # 压缩（2026-10 性能整改 A1）
+    #
+    # 基础镜像 webdevops/php-nginx 的主 nginx.conf 里 gzip 是**注释状态**
+    # （容器内 `nginx -T` 可见 `#gzip  on;`），因此必须在本 vhost 显式开启，
+    # 否则全站 JS/CSS/JSON 均以原文传输。
+    #
+    # 实测（www/view/build 产物，gzip -6）：
+    #   vendor 1,131,004 B -> 353,609 B
+    #   main     568,343 B ->  99,160 B
+    #   css        3,628 B ->   1,407 B
+    #   合计 1,702,975 B -> 454,176 B（-73.3%）
+    #
+    # 注意：
+    #   * text/html 默认总会被压缩，无需列入 gzip_types。
+    #   * 不要加入 image/png、image/jpeg、font/woff —— 这些格式本身已压缩，
+    #     二次压缩反而变大。
+    #   * 本镜像未编译 ngx_brotli（`nginx -V` 只带 gzip_static），而 brotli 相对
+    #     gzip 仅再省约 42 KB，故不引入。
+    #   * gzip_static 由 --with-http_gzip_static_module 提供：若构建期预压 .gz，
+    #     nginx 直接下发，可省掉每请求的压缩 CPU。
+    # ---------------------------------------------------------------------
+    gzip              on;
+    gzip_vary         on;
+    gzip_comp_level   6;
+    gzip_min_length   1024;
+    gzip_proxied      any;
+    gzip_types        text/plain text/css text/xml
+                      application/javascript application/json application/xml
+                      image/svg+xml application/font-woff application/font-woff2
+                      application/vnd.ms-fontobject;
+    gzip_static       on;
+
     # Git over HTTP —— 转发给 codefever-http-gateway（127.0.0.1:27555）。
     #
     # 大仓库 push 的 pack 可能远超 nginx 默认的 1MB 请求体上限，
@@ -43,10 +76,42 @@ server {
         proxy_send_timeout 3600s;
     }
 
-    # 静态资源。
+    # ---------------------------------------------------------------------
+    # 静态资源缓存策略（2026-10 性能整改 A2）
+    #
+    # 三类路径，缓存强度不同：
+    #   1. /static/js/、/static/css/ —— webpack 产物，文件名带内容哈希
+    #      （main.3a8cdea3.js），内容变则 URL 变，可放心 immutable 一年。
+    #   2. 其它 /static/ —— 含登录页的 vendor 目录与 /static/{ReleaseNumber}/
+    #      版本目录。版本目录本身带发布号，但 vendor 目录不带，故 7 天 +
+    #      stale-while-revalidate，兼顾更新时效与二次访问。
+    #   3. 其余（SPA 回退）—— index.html 必须每次校验，否则发布后用户
+    #      会一直加载旧壳（旧壳引用的哈希文件已被删除 → 白屏）。
+    #
+    # 注意两个 nginx 语义坑：
+    #   * 不要同时写 `expires` 与 `add_header Cache-Control` —— 会输出两条
+    #     Cache-Control 头。这里统一只用 add_header。
+    #   * add_header 不继承：某 location 内一旦出现 add_header，server 级的
+    #     add_header 全部失效。若将来新增安全响应头，必须逐 location 补齐。
+    # ---------------------------------------------------------------------
+
+    # 带内容哈希的构建产物 —— 永久缓存。
+    location ^~ /static/js/ {
+        rewrite "(.*)\.map(.*)" "/static/not/found" last;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri /app$uri 404;
+    }
+    location ^~ /static/css/ {
+        rewrite "(.*)\.map(.*)" "/static/not/found" last;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri /app$uri 404;
+    }
+
+    # 其余静态资源（vendor、按发布号分版本的自有静态）。
     location ^~ /static/ {
         rewrite "(.*)\.map(.*)" "/static/not/found" last;
         rewrite "^/static/\d{14}/(.*)$" "/static/$1" last;
+        add_header Cache-Control "public, max-age=604800, stale-while-revalidate=86400" always;
         try_files $uri /app$uri 404;
     }
 
@@ -65,7 +130,11 @@ server {
     }
 
     # SPA history 路由回退。
+    #
+    # index.html 必须每次回源校验（no-cache = 可缓存但每次协商），
+    # 否则前端发布后用户会长期持有旧壳，而旧壳引用的哈希文件已不存在。
     location / {
+        add_header Cache-Control "no-cache" always;
         try_files $uri /app/index.html;
     }
 }

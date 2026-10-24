@@ -30,6 +30,8 @@
     {{ safeHTML "<!-- CSS Global Compulsory START -->" }}
     <link href="/static/vendor/bootstrap-4.4.1/css/bootstrap.min.css" rel="stylesheet" type="text/css"/>
     <link href="/static/vendor/fontawesome-free-5.13.0/css/all.css" rel="stylesheet" type="text/css"/>
+    {{- /* intlTelInput.css 保持全局加载：需要它的 4 个页面（login/register/
+           reset_password/verify）正是访问量最高的页面，按页拆分无收益。 */}}
     <link href="/static/vendor/intltel/css/intlTelInput.css" rel="stylesheet" type="text/css"/>
     <link href="/static/vendor/toastr/toastr.css" rel="stylesheet" type="text/css"/>
     {{ safeHTML "<!-- CSS Global Compulsory END -->" }}

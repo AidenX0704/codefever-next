@@ -40,7 +40,22 @@ services:
     command:
       - "--character-set-server=utf8mb4"
       - "--collation-server=utf8mb4_general_ci"
+      # 连接数上限。
+      #
+      # 注意：Go 侧的池子是 MaxOpenConns=25（internal/db/db.go），
+      # 3000 对单客户端没有实际意义，但它并不造成额外开销（MySQL 按需分配），
+      # 因此保留原值以保证与既有部署的行为一致；真正的连接瓶颈在应用侧，
+      # 不要用调大这个数字去"解决"连接池问题。
       - "--max_connections=3000"
+      # 慢查询可观测性（性能整改 B2）。
+      #
+      # 原配置是 MySQL 默认值：slow_query_log=0 + long_query_time=10s，
+      # 等于生产环境完全没有慢查询数据。阈值取 0.2s：当前所有 API 的
+      # 服务端耗时在 2–16 ms（实测），一旦出现 200 ms 以上的查询就是
+      # 明确的异常信号，而不会像 10s 那样永远不触发。
+      - "--slow_query_log=1"
+      - "--long_query_time=0.2"
+      - "--slow_query_log_file=/var/lib/mysql/slow.log"
       # MySQL 8.0 默认认证插件是 caching_sha2_password，而应用容器里带的是
       # MariaDB 客户端（deploy/sql/create_db.sh 用它建库），该客户端没有
       # caching_sha2_password 插件 → 建库直接失败。改用 mysql_native_password。
