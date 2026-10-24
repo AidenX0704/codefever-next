@@ -6,15 +6,19 @@
 > **二次开源补充（2026-10-23 晚）**：本文档记录的是 PHP→Go 迁移**收尾阶段**的状态。
 > 此后已完成的收尾动作：① 切流完成（PHP 后端下线，镜像内无 PHP）；
 > ② 仓库内 PHP 源码（`application/`、`system/`、`tests/`、`www/index.php` 等）**已彻底删除**；
-> ③ 镜像改为**全部从本地源码构建**（`Dockerfile`），不再依赖任何上游预构建镜像；
+> ③ **应用镜像**改为从本地源码构建（`Dockerfile`），但仍需两个基础镜像；
 > ④ `docker-compose.local.yml` 已合并进 `docker-compose.yml`。
-> 下文凡涉及"PHP 栈仍在 `localhost:9080`""默认仍走 PHP"等描述，均为收尾阶段的历史状态。
+> ⑤ **当前结构已再次收敛**：`http-gateway/`、`ssh-gateway/` 已并入
+> `backend/cmd/codefever-http-gateway`、`codefever-ssh-gateway`；`misc/` 已迁移到
+> `backend/deploy/{sql,docker}`；`CODEFEVER_BACKEND` 开关与 PHP 回滚路径已移除。
+> 下文出现的 `misc/`、`http-gateway/`、`ssh-gateway/`、`docker-compose.local.yml`、
+> `CODEFEVER_BACKEND` 等，均为**收尾阶段的历史记录**，不是当前可执行命令。
 
 ---
 
 ## 0. 当前状态一句话
 
-**全部 123 个 API 端点 + 43 条 web 控制器路由已移植完成；Go 后端在真实切流下（`http://localhost:9080` → nginx upstream 127.0.0.1:9001）契约回归 123/123 符合 manifest 期望、页面路由与 PHP 逐字节一致 43/43、3 视口 × 7 页面的 21 张截图逐像素一致；PHP 运行时已从镜像中彻底移除（无 php / php-fpm / crond，`application/`、`system/`、`www/index.php` 均不再进镜像），git push 与 SSH clone 两条链路端到端验证通过。**
+**历史验收记录（2026-10-23，当时环境）**：全部 123 个 API 端点 + 43 条 web 控制器路由已移植完成；Go 后端在真实切流下（`http://localhost:9080` → nginx upstream 127.0.0.1:9001）契约回归 123/123 符合 manifest 期望、页面路由与 PHP 逐字节一致 43/43、3 视口 × 7 页面的 21 张截图逐像素一致；PHP 运行时已从镜像中彻底移除（无 php / php-fpm / crond，`application/`、`system/`、`www/index.php` 均不再进镜像），git push 与 SSH clone 两条链路端到端验证通过。**当前环境复跑需要可用的实例与数据库，数字不作为持续保证。**
 
 **PHP 侧仅剩 2 项与 Go 不一致，且都是有意的**：
 - `repository.fileContent` —— PHP 因方法名拼写错误恒 500（已在新后端修复为正确行为）；
@@ -28,7 +32,8 @@
 
 ### 蓝绿并存结构
 
-新镜像 `codefever-community:local` 中，**php-fpm 与 Go 后端同时运行**：
+历史切流镜像（当时名为 `codefever-community:local`，现为 `codefever-next:local`）中，
+**php-fpm 与 Go 后端同时运行**：
 
 ```
 codefever-api            RUNNING   ← Go 后端 (:9001)
@@ -41,19 +46,18 @@ ssh:sshd / cron:crond    RUNNING
 
 两套后端读**同一份 `env.yaml`**（因此共享同一个 `gateway.token` 与同一个数据库），nginx 同一时刻只把流量指向其中一侧，不会出现双写。
 
-### 切流与回滚
+### 切流与回滚（历史）
+
+> **这段是历史记录，当前不可执行。** `CODEFEVER_BACKEND` 已移除，PHP 回滚路径在
+> PHP 运行时删除后不可逆。当前只有一个 Go 后端：
 
 ```powershell
-# 切流到 Go 后端
-$env:CODEFEVER_BACKEND='go'
-docker compose -f docker-compose.local.yml up -d --force-recreate codefever
-
-# 秒级回滚到 PHP（无需重建容器，nginx reload 即可）
-$env:CODEFEVER_BACKEND='php'
-docker compose -f docker-compose.local.yml up -d --force-recreate codefever
+# 当前唯一的“重启应用”方式
+docker compose -f docker-compose.yml up -d --force-recreate codefever
 ```
 
-开关由 `misc/docker/docker-entrypoint.sh` 读取，把 `vhost-go.conf-template` 复制为 nginx 的 `vhost.conf`。
+历史开关由 `misc/docker/docker-entrypoint.sh`（现为
+`backend/deploy/docker/docker-entrypoint.sh`）读取。
 
 ### 切流后的验收
 
@@ -157,12 +161,13 @@ Go : 所有用例均与 manifest 期望一致        ← 123/123
 | `backend/cmd/pagediff/main.go` | 页面响应体的字节级差异定位（定位模板空白差异用） | ✅ |
 | `scripts/shot.mjs` | CDP 直驱的多视口截图采集（浏览器内走真实登录表单） | ✅ 21 张 |
 | `scripts/shotcmp.py` | 截图逐像素比对 + 差异区域裁切 | ✅ |
-| `scripts/verify.ps1` | 一键复验流水线（编译 → 镜像 → 切流 → 契约 → 冒烟 → 截图比对 → 打包） | ✅ |
+| `scripts/verify.ps1` | 维护者最小门禁（gofmt → build → Linux 交叉编译 → vet → 单测 → compose config；可选 `-BuildImage`）；契约/截图/冒烟需单独运行 | ✅ |
 
 ### 1.3 数据库侧
 
 - **MySQL 8.0.46 隔离实例**（`cf-mysql8`，宿主 `:3307`），已从线上 5.7 全量 `mysqldump` 导入，数据一致（3 用户 / 2 组 / 3 仓库 / 1 SSH key）。
-- **迁移路径简化为 1 处改动**（详见 `BACKEND_REWRITE_PLAN.md` §6.2）：只改 `misc/docker/docker-entrypoint.sh` 的 sql_mode，DDL 与种子数据**零改动**。
+- **迁移路径简化为 1 处改动**（详见 `BACKEND_REWRITE_PLAN.md` §6.2）：只改
+  `backend/deploy/docker/docker-entrypoint.sh` 的 sql_mode，DDL 与种子数据**零改动**。
 
 ---
 
@@ -204,7 +209,7 @@ Go : 所有用例均与 manifest 期望一致        ← 123/123
 
 | 用例 | 差异 | 根因 |
 |---|---|---|
-| `internal.authHTTP` / `internal.authSSH` | `data.path` 分别为 `/data/www/codefever-community/git-storage/...` 与 `E:\WorkSpace\codefever\git-storage/...` | 绝对路径随部署根目录变化；采集器只归一化了 `/data/www/...` 形态 |
+| `internal.authHTTP` / `internal.authSSH` | `data.path` 分别为 `/data/www/codefever-community/git-storage/...` 与 `<repo>/git-storage/...` | 绝对路径随部署根目录变化；采集器只归一化了 `/data/www/...` 形态 |
 | `repository.config` | `count.file` 为 `24576`（Linux）与 `0`（Windows） | `git count-objects -v` 的 `size` 在 Linux 按 4K 块统计、Windows 按字节统计 |
 
 **实测三方对照（同一仓库）**：
@@ -223,7 +228,7 @@ Go   (Linux 容器)   count = {"commit":2,"branch":1,"tag":0,"file":24576,...}  
 |---|---|---|
 | PHP 栈（对照组） | `http://localhost:9080` | 现有实现，契约基线来源 |
 | Go 后端（Windows 开发） | `http://127.0.0.1:9001` | 日常开发 |
-| **Go 后端（Linux 容器，生产同构）** | `http://localhost:9003` | 交叉编译产物，运行于 `codefever-community:local` 镜像内 |
+| **Go 后端（Linux 容器，生产同构）** | `http://localhost:9003` | 交叉编译产物，运行于 `codefever-next:local` 镜像内 |
 | 同构 nginx | `http://localhost:9081` | nginx 静态 + SPA → Go 应用层，与生产拓扑一致 |
 | MySQL 8.0.46 | `cf-mysql8`，宿主 `:3307` | Go 后端专用库（数据从线上 5.7 全量导入） |
 | MySQL 5.7.31 | `codefever-db` | PHP 栈原库，未被改动 |
@@ -283,7 +288,7 @@ Go   (Linux 容器)   count = {"commit":2,"branch":1,"tag":0,"file":24576,...}  
 cd backend
 go run ./cmd/smoke-write -base http://127.0.0.1:9004 `
   -dsn "root:123456@tcp(127.0.0.1:3307)/codefever_smoke?parseTime=true" `
-  -gitstorage E:\WorkSpace\codefever\.tmp-smoke\git-storage
+  -gitstorage <repo>/.tmp-smoke/git-storage
 ```
 
 > 该工具还暴露并修掉了一处兼容面差异：PHP 的 `$this->input->post()` 对 **multipart/form-data 同样生效**，而 Go 的 `r.ParseForm()` 只认 urlencoded。登录处理原先因此不接受 multipart。已改为两者都支持（新增 `formValue` 辅助函数）。
@@ -487,7 +492,7 @@ test2@pgyer.com        32     ← 仍是 legacy
 
 **修复**：
 1. 新增 `auth.HashFormat`（`legacy` / `argon2id`）与 `auth.HashPasswordForFormat()`；`auth.ParseHashFormat()` 对空值/未知值**一律回落到 legacy**（更安全的一侧）。
-2. 写入格式由 `auth.hash_format`（env.yaml，可选）或环境变量 `CODEFEVER_PASSWORD_HASH` 决定，**默认 legacy**；`docker-compose.local.yml` 已把该开关显式化（默认 `legacy`）。
+2. 写入格式由 `auth.hash_format`（env.yaml，可选）或环境变量 `CODEFEVER_PASSWORD_HASH` 决定，**默认 legacy**；`docker-compose.yml` 已把该开关显式化（默认 `legacy`）。
 3. **登录时的自动升级只在显式配置为 `argon2id` 时才发生** —— legacy 模式下绝不改写库里的哈希。
 4. 校验侧保持双轨：`auth.VerifyPassword` 两种格式都能校验，因此**已经被升级过的账号**在 Go 侧仍能正常登录（不需要回滚数据）。
 5. 存量修复：把本次被升级的 `root@codefever.cn` 的哈希改回 `14e1b600b1fd579f47433b88e8d85291`，PHP 登录随即恢复。
@@ -529,7 +534,7 @@ test2@pgyer.com        32     ← 仍是 legacy
 | 2 | **webhook 投递器** | ✅ 已完成：`md5(body . secret)` 签名、`X-CodeFever-Id/Event/Signature` 三头、指数退避、超过上限进死信；已实测事件 → 投递 → 日志全链路 |
 | 3 | **邮件投递** | 走系统 `mail` 命令（与 PHP 一致）；未引入 SMTP 配置；容器内无 `mail` 命令时仅记日志 |
 | 4 | **切流实战** | ✅ 已完成且 **PHP 已下线**：`http://localhost:9080` 由 Go 后端承载；镜像内已无 php / php-fpm / crond，`application/`、`system/`、`www/index.php` 不再进镜像。契约回归 123/123 |
-| 5 | **镜像产物** | ✅ 已构建并 `docker save` 打包（`dist/codefever-community-local-20261023-171253.tar`，**398.2 MB**），含 Go 后端 / worker / git 钩子三件套 + 两个 Go 网关；**无 PHP 运行时** |
+| 5 | **镜像产物** | ✅ 历史构建并 `docker save` 打包（当时文件名 `dist/codefever-community-local-*.tar`，**398.2 MB**），含 Go 后端 / worker / git 钩子 + 两个 Go 网关；**无 PHP 运行时**。当前 5 个二进制统一在 `bin/`，打包名见 `LOCAL_DEPLOY.md` |
 | 6 | **窄屏 / 响应式验收** | ✅ 已完成：3 种视口（390×844 / 768×1024 / 1440×900）× 7 个页面的 **21 张截图逐像素比对**（见 §2.1.7） |
 | 7 | **admin 域的写端点回归** | 契约比对覆盖的是"缺参/资源不存在"路径；成功路径由 `cmd/smoke-write` 在**隔离库 + 隔离 git-storage** 上覆盖（**20 项断言全绿**，含 2 条回滚安全断言），**不纳入契约基线**（基线采集器按设计不写业务数据） |
 | 8 | **repository 写端点的成功路径** | 同上：建仓/分支/标签/MR/成员/webhook/配置 已由冒烟回归覆盖并自动清理 |
@@ -558,10 +563,10 @@ test2@pgyer.com        32     ← 仍是 legacy
 # 1) MySQL 8 隔离实例（已运行）
 docker exec cf-mysql8 mysql -uroot -p123456 -e "SELECT @@version;"
 
-# 2) 构建并启动 Go 后端
-cd E:\WorkSpace\codefever\backend
+# 2) 构建并启动 Go 后端（<repo> 为仓库根目录）
+cd <repo>/backend
 go build -o bin/codefever-api.exe ./cmd/codefever-api
-$env:CODEFEVER_BASE_DIR='E:\WorkSpace\codefever'
+$env:CODEFEVER_BASE_DIR='<repo>'
 $env:CODEFEVER_ADDR='127.0.0.1:9001'
 .\bin\codefever-api.exe
 
@@ -590,17 +595,18 @@ go test ./internal/...
 | MySQL 5.7.31 | `codefever-db` | PHP 栈原库，未被改动 |
 
 同构 nginx 的配置在 `.tmp-nginx-go/`（已被 `.gitignore` 的 `/.tmp-*` 覆盖）。
-生产用的正式模板是 `misc/docker/vhost-go.conf-template`，由容器环境变量 `CODEFEVER_BACKEND=go` 启用（默认仍走 PHP，零风险）。
+当前生产模板是 `backend/deploy/docker/vhost-go.conf-template`；已没有
+`CODEFEVER_BACKEND` 切流开关，nginx 只代理 Go 后端。
 
 ```powershell
 # 重建同构 nginx（Windows 目录联接无法挂进容器，需 docker cp）
 docker rm -f cf-nginx-go
 docker run -d --name cf-nginx-go -p 9081:80 `
-  -v "E:\WorkSpace\codefever\.tmp-nginx-go\nginx.conf:/etc/nginx/nginx.conf:ro" `
-  -v "E:\WorkSpace\codefever\.tmp-nginx-go\www:/usr/share/nginx/html" `
+  -v "<repo>/.tmp-nginx-go/nginx.conf:/etc/nginx/nginx.conf:ro" `
+  -v "<repo>/.tmp-nginx-go/www:/usr/share/nginx/html" `
   --add-host "host.docker.internal:host-gateway" `
   docker.1ms.run/library/nginx:alpine
 docker exec cf-nginx-go sh -c "rm -rf /usr/share/nginx/html/static /usr/share/nginx/html/app"
-docker cp "E:\WorkSpace\codefever\www\static"      cf-nginx-go:/usr/share/nginx/html/static
-docker cp "E:\WorkSpace\codefever\www\view\build"  cf-nginx-go:/usr/share/nginx/html/app
+docker cp "<repo>/www/static"      cf-nginx-go:/usr/share/nginx/html/static
+docker cp "<repo>/www/view/build"  cf-nginx-go:/usr/share/nginx/html/app
 ```

@@ -44,41 +44,51 @@ management — with a Chinese and English interface.
 
 **The biggest difference compared to the upstream version is that the backend has been
 completely rewritten from PHP in Go** — the runtime image no longer contains any PHP
-process, PHP executable or PHP configuration.
+process, PHP executable or PHP configuration. `http-gateway` and `ssh-gateway` have also
+been merged into the same Go module (`backend/`).
 
 | Area | Status |
 | --- | --- |
 | Backend | Go (`backend/`), replacing the former CodeIgniter 2.1.1 + PHP 7.4 implementation |
-| API contract | 108 `/api/*` endpoints + 4 `/apiv1/internal` callbacks, **contract regression 123/123 as expected** |
-| Web routes | 43 server-rendered routes + 5 pages, **byte-for-byte identical to the PHP version (43/43)** (one brand string is a deliberate change; the baseline was synced) |
-| Front-end | React 17 + MUI v4; the bundle `www/view/build` is committed; **dependencies were not reinstalled**, only the brand strings changed for the second release |
+| API contract | 108 `/api/*` endpoints + 4 `/apiv1/internal` callbacks; **123/123 is a historical acceptance record**, see [implementation notes](docs/IMPLEMENTATION_STATUS.md) for how to re-run |
+| Web routes | 43 server-rendered routes + 5 pages; **43/43 is a historical comparison record** (one brand string is a deliberate change) |
+| Front-end | React 17 + MUI v4; the bundle `www/view/build` is committed, so the build does not need Node.js |
 | Runtime | **No PHP, no php-fpm, no crond** in the image |
-| Images | **Built entirely from local source**, no upstream pre-built image involved |
-| Size | The front-end vendor tree shrank from 23.2 MB / 2072 files to 3.5 MB / 27 files (only provably unreferenced files were removed) |
+| Images | The application image is built from local source; two base images still have to be pulled (see *Quick start*) |
+| Front-end size | `www/static/vendor` is about 3.7 MB / 27 files (historical comparison: 23.2 MB / 2072 files) |
 
-> The full dependency surface, the stability gate and the verification data of the migration
-> are documented in [`docs/PHP_REMOVAL.md`](docs/PHP_REMOVAL.md).
+> The full dependency surface, stability gate and historical verification data are
+> documented in [`docs/PHP_REMOVAL.md`](docs/PHP_REMOVAL.md). The image contains `doc/` (the
+> in-app documentation centre) and `LICENSE`; `docs/` is rewrite history and is not shipped.
+> The contract numbers above are a snapshot of one acceptance run, not a guarantee for the
+> current environment; re-running them requires a working instance and database.
 
 ## Features
 
 - 🆓 **Free:** No paywall, no crippled features
 - ❤️ **Open source:** MIT licensed, no compiled or encrypted code
-- 🥬 **Lightweight:** One `docker compose up -d --build` and you are done
-- ⚡️ **Efficient:** Runs on 1 vCPU / 1 GB RAM; measured p99 ≈ 178 ms at 64 concurrent clients with a 0 % error rate
+- 🥬 **Lightweight:** `docker compose up -d --build` is enough to deploy
+- ⚡️ **Efficient:** Runs on 1 vCPU / 1 GB RAM; historical benchmark p99 ≈ 178 ms at 64 concurrent clients
 - ♾️ **Unlimited:** No limit on the number of repositories
 - ⌨️ **Code review:** Highlighted diff between versions
 - 🛤️ **Branches:** Full support for native Git branches and tags
-- 🙋️ **Merge requests:** Team collaboration and review
+- 🙋 **Merge requests:** Team collaboration and review
 - 🙅 **Branch protection:** Keeps commits safe and reviewable
 - 👥 **Collaboration:** Roles and permissions per member
 - 🔌 **Webhook:** Integrates with Jenkins / Jira and friends
 - 🖥️ **Admin portal:** Super administrators manage all projects and users
-- 💬 **Bilingual:** Native Chinese and English
+- 💬 **Bilingual UI:** Chinese and English UI (English translations of some user docs are still in progress)
 - 🔑 **SSH push:** Clone / pull / push over SSH public-key authentication
 
 ## Quick start
 
-Requirements: Docker 20.10+ and Docker Compose v2.
+Requirements:
+
+- Docker 20.10+ and Docker Compose v2;
+- **Network access for the first build**: pull `webdevops/php-nginx:7.4`,
+  `golang:1.25-bookworm` and `mysql:8.0`, and reach the Debian buster archive and a Go
+  module proxy;
+- About 10 GB of free disk space for images, database and repositories.
 
 ```shell
 git clone https://github.com/AidenX0704/codefever-next.git codefever-next
@@ -86,6 +96,13 @@ cd codefever-next
 
 docker compose up -d --build
 ```
+
+> **First build stuck on `load metadata ... docker.io` / `auth.docker.io`?**
+> The base images are not on this machine yet and Docker is reaching Docker Hub.
+> On restricted networks run `pwsh -File scripts/build-local.ps1 -SkipPackage`
+> (pulls through a mirror and tags locally), or set `CODEFEVER_BASE_*` as described
+> in *Image sources* below. When the images are present locally, Compose reuses them
+> and does not contact Docker Hub.
 
 Once it is up:
 
@@ -95,119 +112,60 @@ Once it is up:
 | Default account | `root@codefever.cn` |
 | Default password | `123456` |
 | Git over HTTP | `http://<user>@localhost:9080/<group>/<repo>.git` |
-| Git over SSH | `ssh -p 2222 git@localhost` |
+| Git over SSH | `ssh://git@localhost:2222/<group>/<repo>.git` |
 
-> **Change the password and bind an MFA device right after the first login.**
+> **Change the password, bind an MFA device and disable open registration right after the
+> first login.** `allowRegister` defaults to `true`; turn it off on any public instance.
 
-Common commands:
+Common commands (the Compose service is `codefever`; `codefever-next-app` is the container
+name and is only used with `docker exec`):
 
 ```shell
-docker compose ps                         # status
-docker compose logs -f codefever-next-app # follow the logs
-docker compose restart codefever-next-app # restart the app
-docker compose down                       # stop (keep the volumes)
-docker compose down -v                    # stop and delete the volumes (all data is lost)
+docker compose ps                          # status
+docker compose logs -f codefever           # follow application logs
+docker compose restart codefever           # restart the app
+docker compose down                        # stop (keep codefever-data)
+docker compose down -v                     # remove containers/networks (codefever-data stays)
+docker exec -it codefever-next-app sh     # open a shell in the app container
 ```
 
-The image is **built from the current source**, so there is no pre-built image to pull.
-Ports, the database image and the base image registries are configurable via environment
-variables:
+### Ports and public URLs
+
+The container's `80/22` are mapped to the host's `9080/2222` by default:
 
 ```shell
 CODEFEVER_HTTP_PORT=18080 CODEFEVER_SSH_PORT=18022 docker compose up -d
 ```
 
-See [Install with docker-compose](doc/en-us/installation/install_via_docker_compose.md).
-For offline distribution (`docker save` / `docker load`), switching registry mirrors or the
-one-shot PowerShell scripts, see [Local image build and deployment](LOCAL_DEPLOY.md).
-
-<details>
-<summary><b>Installing without Docker (from source)</b></summary>
-
-You need `nginx`, `git`, `Go 1.25+` and `MySQL 8.0+`. The core steps:
+The container entrypoint writes `host`/`ssh` from these ports, so the clone panel shows the
+correct URLs. Behind a reverse proxy, on a domain or on non-default ports, override them:
 
 ```shell
-# 1. Prepare the configuration
-cp config.template.yaml config.yaml
-cp env.template.yaml env.yaml
-
-# 2. Build the Go services
-cd backend && go build -o ../bin/codefever-api    ./cmd/codefever-api \
-                 && go build -o ../bin/codefever-worker ./cmd/codefever-worker \
-                 && go build -o ../bin/codefever-hook   ./cmd/codefever-hook
-
-# 3. Initialise the database
-cd ../misc && sh ./create_db.sh
+CODEFEVER_SITE_HOST=https://git.example.com \
+CODEFEVER_SITE_SSH=ssh://git@git.example.com:2222/ \
+docker compose up -d
 ```
 
-The full 15-step guide lives in [Install From Scratch](doc/en-us/installation/install_from_scratch.md).
+> The `ssh` value must use `ssh://git@host:port/` to carry a port; the scp-like
+> `git@host:path` form cannot express a non-22 port. You can also change both values in
+> *Admin → Settings → Host*; they are persisted in `codefever-data/config/config.yaml`.
 
-</details>
+### China / mirror setup
 
-## Project status
+Compose defaults to Docker Hub, `proxy.golang.org` and the official Debian archive. For
+networks in China, override them:
 
-### Done
-
-- ✅ **PHP runtime removed** — the backend is 100 % Go; no PHP / php-fpm / crond in the image
-- ✅ **Built from local source** — a single recipe, `Dockerfile`; no upstream pre-built image
-- ✅ **Contract regression** — API 123/123, SSR routes 43/43 byte-for-byte identical to PHP
-- ✅ **Front-end slimmed down** — vendor tree trimmed from 23.2 MB / 2072 files to 3.5 MB / 27 files
-- ✅ **Governance in place** — CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / Issue & PR templates
-- ✅ **Documentation rewritten** — installation, configuration and usage docs rewritten for the Go backend in both languages
-
-### Planned
-
-- ⬜ Lift the hyphen restriction on repository names (extend the nginx vhost rule)
-- ⬜ Support ed25519 / ECDSA SSH public keys
-- ⬜ Move password hashes from `legacy` to `argon2id` without a flag day
-- ⬜ Re-introduce a CI pipeline (build / contract regression / image build)
-
-> Pick up any of the above, or just open an Issue / PR — see [CONTRIBUTING.md](CONTRIBUTING.md).
-
-## Architecture
-
-```
-                        ┌───────────────────────────────┐
-   Browser  ──HTTP──▶   │  nginx                        │
-   git client ──SSH──▶  │   ├── /api /user /doc …  ──▶  │ 127.0.0.1:9001
-                        │   ├── /*.git              ──▶  │ 127.0.0.1:27555
-                        │   └── /static /app        ──▶  │ static bundle
-                        └───────────────────────────────┘
-                                          │
-      ┌───────────────────────────────────┴────────────────────────────────┐
-      │                                                                │
-┌─────▼──────────────────┐                              ┌──────────────────▼─────┐
-│ codefever-api  (Go)    │                              │ http-gateway   (Go)   │
-│  /api/*  /apiv1/*      │                              │  Git over HTTP        │
-│  43 web routes         │                              └────────────────────────┘
-│  5 server-rendered     │
-└─────┬──────────────────┘                              ┌────────────────────────┐
-      │                                                 │ ssh-gateway/shell (Go) │
-┌─────▼──────────────────┐                              │  Git over SSH forced  │
-│ codefever-worker (Go)  │                              │  command              │
-│  events / inbox / mail │                              └────────────────────────┘
-│  webhook delivery      │
-└────────────────────────┘
-      │
-┌─────▼──────────────────┐   ┌──────────────┐   ┌───────────────┐
-│ codefever-hook  (Go)   │──▶│  git-storage │   │  MySQL 8.0    │
-│  pre-receive / update  │   │  bare repos  │   │  cc_* tables  │
-│  post-receive          │   └──────────────┘   └───────────────┘
-└────────────────────────┘
+```shell
+CODEFEVER_BASE_RUNTIME=docker.1ms.run/webdevops/php-nginx:7.4 \
+CODEFEVER_BASE_GO=docker.1ms.run/library/golang:1.25-bookworm \
+CODEFEVER_MYSQL_IMAGE=docker.1ms.run/library/mysql:8.0 \
+CODEFEVER_GOPROXY=https://mirrors.aliyun.com/goproxy,direct \
+CODEFEVER_APT_MIRROR=https://mirrors.aliyun.com/debian-archive \
+docker compose up -d --build
 ```
 
-| Directory | Description |
-| --- | --- |
-| `backend/` | The Go backend (API / worker / git hook / contract tooling), module `codefever-next/backend` |
-| `http-gateway/` | Git over HTTP gateway |
-| `ssh-gateway/shell/` | Git over SSH forced command |
-| `www/` | Front-end sources `www/view/src`, the built bundle `www/view/build`, static assets |
-| `misc/` | nginx / supervisor templates, database schema and bootstrap scripts, git hooks |
-| `git-storage/` | Where the bare repositories live (a Docker volume mount point; only an empty skeleton is kept in the repo) |
-| `doc/` | User documentation (`zh-cn` / `en-us`) |
-| `docs/` | Analysis, plan and implementation records of the backend rewrite |
-| `scripts/` | Local build, run, verification and screenshot comparison scripts |
-| `.github/` | Issue templates, PR template |
+> A fully offline installation needs `docker save` on a connected machine and
+> `docker load` on the target; see [LOCAL_DEPLOY.md](LOCAL_DEPLOY.md).
 
 ## Configuration
 
@@ -217,64 +175,192 @@ The full 15-step guide lives in [Install From Scratch](doc/en-us/installation/in
 | --- | --- | --- |
 | `CODEFEVER_HTTP_PORT` | `9080` | Host port for HTTP |
 | `CODEFEVER_SSH_PORT` | `2222` | Host port for Git SSH |
-| `CODEFEVER_DB_PASS` | `123456` | Database root password |
+| `CODEFEVER_SITE_HOST` | derived from HTTP port | Host URL shown in the clone panel, e.g. `https://git.example.com` |
+| `CODEFEVER_SITE_SSH` | derived from SSH port | SSH URL shown in the clone panel, e.g. `ssh://git@host:2222/` |
+| `CODEFEVER_DB_PASS` | `123456` | Database root password; `/`, `&` and `\` are supported |
+| `CODEFEVER_DATA_DIR` | `./codefever-data` | Data directory (MySQL / bare repos / attachments / config) |
 | `CODEFEVER_IMAGE` | `codefever-next:local` | Application image name |
-| `CODEFEVER_MYSQL_IMAGE` | `mysql:8.0` | Database image (**8.0+ is required**, see below) |
-| `CODEFEVER_BASE_RUNTIME` | `docker.1ms.run/webdevops/php-nginx:7.4` | Runtime base image used at build time |
-| `CODEFEVER_BASE_GO` | `docker.1ms.run/library/golang:1.25-bookworm` | Go base image used at build time |
+| `CODEFEVER_MYSQL_IMAGE` | `mysql:8.0` | Database image (**8.0.x**; 8.4+ removed the old auth flag used by compose) |
+| `CODEFEVER_BASE_RUNTIME` | `webdevops/php-nginx:7.4` | Runtime base image used at build time |
+| `CODEFEVER_BASE_GO` | `golang:1.25-bookworm` | Go base image used at build time |
+| `CODEFEVER_GOPROXY` | `https://proxy.golang.org,direct` | Go module proxy used at build time |
+| `CODEFEVER_APT_MIRROR` | `https://archive.debian.org` | Debian buster archive mirror |
 | `CODEFEVER_PASSWORD_HASH` | `legacy` | Password hash format for new accounts: `legacy` (`md5(md5(x))`) or `argon2id` |
 
 > Existing accounts still carry the historical `legacy` hashes, so `legacy` is the default —
 > **existing accounts keep working without any password reset**. Switch to `argon2id` once
 > every account has had its password reset.
 
-> ⚠️ **The database must be MySQL 8.0+.** The event worker and the webhook deliverer claim
-> their work with `FOR UPDATE SKIP LOCKED`, which only exists since MySQL 8.0.1. On 5.7
-> those two queries fail with a syntax error, which silently kills the activity feed,
-> in-app notifications, e-mail notifications and webhooks — the symptom is a `SKIP LOCKED`
-> error in the logs every two seconds.
+> ⚠️ **Use MySQL 8.0.x.** The event worker and webhook deliverer use
+> `FOR UPDATE SKIP LOCKED` (MySQL 8.0.1+). The compose authentication flag was removed in
+> MySQL 8.4, so do not use 8.4/9.x with the provided compose file.
 
-### Application configuration
+### E-mail (SMTP)
 
-`env.yaml` (database, mail, gateway token, site info) and `config.yaml` (site title,
-registration number, …) are derived from `env.template.yaml` / `config.template.yaml`.
-On container start-up a random `session_key` and `totp_salt` are generated into `env.yaml`.
+The image does **not** install an MTA, so the system `mail` fallback is normally unavailable.
+Configure SMTP explicitly:
+
+```shell
+CODEFEVER_SMTP_HOST=smtp.example.com
+CODEFEVER_SMTP_PORT=587
+CODEFEVER_SMTP_USER=git@example.com
+CODEFEVER_SMTP_PASSWORD='<password>'
+CODEFEVER_SMTP_FROM='CodeFever <git@example.com>'
+CODEFEVER_SMTP_TLS=starttls     # port 465 is treated as implicit TLS
+```
+
+Without SMTP, e-mail notifications fail and are only logged by the worker; Git operations
+are not affected.
+
+### Application configuration and persistence
+
+All persistent data lives under **`codefever-data/`** in the repository root (ignored by
+`.gitignore`):
+
+```text
+codefever-data/
+├── mysql/          # MySQL data files
+├── git-storage/    # bare repositories + hooks symlinks
+├── file-storage/   # uploaded files and attachments
+└── config/         # config.yaml + env.yaml (host/ssh, SMTP, token, …)
+```
+
+`env.yaml` and `config.yaml` inside the container are symlinks to `<base>/config/`, so
+admin UI changes land directly in `codefever-data/config/` and survive container/image
+upgrades. Set `CODEFEVER_DATA_DIR=/absolute/path` to move the directory.
+
+Back up with the service stopped (consistent MySQL files):
+
+```shell
+docker compose stop
+tar czf codefever-data-$(date +%Y%m%d).tar.gz codefever-data
+docker compose start
+```
+
+> Windows PowerShell: `Compress-Archive -Path codefever-data -DestinationPath codefever-data.zip`.
+> **Migrating from the old named volumes on Windows** requires `mysqldump` + restore:
+> the Windows bind mount is case-insensitive, so MySQL changes
+> `lower_case_table_names` from 0 to 2 and cannot reuse the old data directory directly.
+
+- The image generates random `session.key`, `totp.salt` and `gateway.token` values at build time.
+- A source installation must fill in `gateway.token` (a random string); otherwise the
+  internal gateway callbacks cannot authenticate.
+- Never commit `gateway.token` or reuse it across instances.
+
+## Installing without Docker (from source)
+
+You need `nginx`, `git`, `Go 1.23+` and `MySQL 8.0.x` (`backend/go.mod` declares
+`go 1.23.0`; the Docker build uses a Go 1.25 base image, which is fine). The full guide is
+[Install From Scratch](doc/en-us/installation/install_from_scratch.md); the core steps:
+
+```shell
+# 0. Source path convention: /data/www/codefever-next
+#    The in-container path is /data/www/codefever-community; do not mix them.
+mkdir -p /data/www
+cd /data/www
+git clone https://github.com/AidenX0704/codefever-next.git codefever-next
+cd codefever-next
+
+# 1. Configuration: a source install uses the repository root
+cp config.template.yaml config.yaml
+cp env.template.yaml env.yaml
+chmod 0660 config.yaml env.yaml
+
+# 2. Fill in random session key / TOTP salt / gateway token
+KEY="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' | cut -c1-32)"
+TOKEN="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' | cut -c1-32)"
+sed -i "s|key: <session_key>|key: ${KEY}|" env.yaml
+sed -i "s|salt: <totp_salt_for_codefever>|salt: ${KEY}|" env.yaml
+sed -i "s|token: <codefever_community_api_token>|token: ${TOKEN}|" env.yaml
+
+# 2.1 Set config.yaml host / ssh (source install defaults to 80/22)
+#     host: http://<server-ip>
+#     ssh:  git@<server-ip>:        # use ssh://git@<server-ip>:<port>/ for non-22
+
+# 3. Build the five binaries
+cd backend
+mkdir -p ../bin
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-api          ./cmd/codefever-api
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-worker       ./cmd/codefever-worker
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-hook         ./cmd/codefever-hook
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-http-gateway ./cmd/codefever-http-gateway
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-ssh-gateway  ./cmd/codefever-ssh-gateway
+cd ..
+
+# 4. Initialise the database (reads the repository-root env.yaml)
+cd backend/deploy/sql
+sh ./create_db.sh
+```
+
+The source installation also needs:
+
+- A `git` system user and home directory:
+  ```shell
+  useradd -rm -d /home/git -s /bin/bash git
+  mkdir -p /home/git/.ssh && chown -R git:git /home/git/.ssh
+  chown root:git config.yaml env.yaml
+  chmod 0660 config.yaml env.yaml
+  ```
+- Runtime hook symlinks (the Dockerfile does this automatically; a source install must do
+  it once):
+  ```shell
+  mkdir -p deploy/hooks misc/hooks git-storage/hooks ssh-gateway/shell
+  for d in deploy/hooks misc/hooks git-storage/hooks; do
+    ln -sfn ../../bin/codefever-hook "$d/main"
+    ln -sfn main "$d/pre-receive"; ln -sfn main "$d/post-receive"; ln -sfn main "$d/update"
+  done
+  ln -sfn ../../bin/codefever-ssh-gateway ssh-gateway/shell/main
+  ln -sfn view/build www/app
+  ```
+- nginx configured from `backend/deploy/docker/vhost-go.conf-template`, replacing
+  `/data/www/codefever-community` with `/data/www/codefever-next`;
+- SSH `ForceCommand` pointing at `<source>/bin/codefever-ssh-gateway`;
+- systemd units for `bin/codefever-api`, `bin/codefever-worker` and
+  `bin/codefever-http-gateway`, with the source root as working directory.
 
 ## Development and testing
 
 ```shell
 cd backend
 
-go build ./...          # build
+go build ./...          # build all packages (including the five commands)
 go vet ./...            # static analysis
 gofmt -l .              # formatting
 go test ./internal/...  # unit tests
 ```
 
+> **CI is back**: `.github/workflows/ci.yml` runs gofmt / build / Linux cross-build /
+> vet / test on Go 1.23, plus `docker compose config`.
+>
 > ⚠️ **On Windows, prefer running the tests inside a Linux container** — some environments
-> block file names such as `config.test.exe` and fail with `Access is denied`
-> (a local policy issue, unrelated to the code). See
+> block file names such as `config.test.exe` and fail with `Access is denied` (a local
+> policy issue, unrelated to the code). See
 > [CONTRIBUTING.md · Testing](CONTRIBUTING.md#单元测试) for the containerised command.
 
-One-shot verification pipeline (build + unit tests + contract comparison + screenshot
-comparison + image packaging):
+Maintainer local quality gate (gofmt → build → Linux cross-build → vet → unit tests →
+compose config; add `-BuildImage` to build the image):
 
 ```powershell
 pwsh -File scripts/verify.ps1
 ```
 
-Rebuilding the front-end bundle (**do not** reinstall the dependencies —
+> This gate does not start a database or application, and does not run contract, screenshot
+> or write-path smoke tests. Those deeper checks have extra prerequisites; see
+> [CONTRIBUTING.md](CONTRIBUTING.md#测试与验证). Normal deployments only need Compose.
+
+Rebuilding the front-end bundle (do not reinstall dependencies during a normal deployment —
 `@pgyer/mui-theme-preset` is declared as `latest` and would drift):
 
 ```shell
-cd www/view && yarn install && yarn build
+cd www/view && NODE_OPTIONS=--openssl-legacy-provider yarn build
 ```
 
-The contract baseline lives in `backend/testdata/contract/`; the Go side compares the
-response shape of all 123 endpoints against it.
+The contract baseline lives in `backend/testdata/contract/`; collection and comparison are
+historical acceptance tools, not runtime requirements. See
+[CONTRIBUTING.md](CONTRIBUTING.md#契约回归).
 
-> Line endings are normalised to LF by `.gitattributes`; editor conventions are
-> declared in `.editorconfig`.
+> Line endings are normalised to LF by `.gitattributes`; editor conventions are declared in
+> `.editorconfig`.
 
 ## Migrating from the PHP version
 
@@ -288,24 +374,31 @@ If you are running the old upstream PHP version:
 - The `admin.systemStatus` endpoint lost the `php` and `crond` keys (they are meaningless
   once PHP is gone).
 - `repository.fileContent` was fixed from the PHP-era "always 500" to 200.
+- The old `misc/hooks` and `ssh-gateway/shell/main` paths are kept as compatibility symlinks
+  in the image; new repositories use `deploy/hooks`.
 
 ## Known limitations
 
-The following limitations are inherited from the upstream implementation and have not been
-lifted in this second release:
-
 | Limitation | Impact | Workaround |
 | --- | --- | --- |
-| Repository names cannot contain hyphens (over HTTP) | The nginx vhost rule is `^/[0-9a-z_]+/[0-9a-z_]+\.git`, which excludes `-` | Avoid `-` in names (e.g. `demorepo`); **SSH access is not affected** |
-| Only RSA SSH public keys are recognised | The key type is matched by a regex on the base64-decoded line, so ed25519 is misdetected as `ssh-rsa` | Generate keys with `ssh-keygen -t rsa` |
+| SSH key type detection follows the upstream regex | Some non-RSA keys (e.g. certain ed25519 variants) may be misdetected | Prefer `ssh-keygen -t rsa` |
 | The `key` field for adding an SSH public key takes the base64 body only | Without the `ssh-rsa` prefix and the trailing comment | Matches how the front-end `UserSettingSSHKey.js` parses it |
+| The 404 page references a missing image | `/static/assets/images/404_pic.png` renders as a broken image | Add the image yourself if desired; no functional impact |
+| English user docs are not complete yet | Some pages under `doc/en-us/` are still in Chinese | See the note below; translation contributions welcome |
 
-> The full list of limitations, and the item-by-item differences against the upstream build
-> recipe, live in [Local image build and deployment](LOCAL_DEPLOY.md).
+> Repository names **may** contain hyphens: both the nginx vhost and the Go backend use the
+> `[0-9a-z_.-]+` rule. See [LOCAL_DEPLOY.md](LOCAL_DEPLOY.md) for build differences.
+
+## Documentation languages
+
+The Chinese documentation under `doc/zh-cn/` is the primary and most complete set. The
+English documentation under `doc/en-us/` is being translated incrementally; installation,
+compose and upgrade pages are kept in sync, while some admin/repository pages may still be
+in Chinese. If a page matters to you, please open an Issue or send a translation PR.
 
 ## User guide
 
-- [Repository](doc/en-us/repo) · [Repository group](doc/en-us/repo_group) · [Administrator](doc/en-us/admin) · [Git](doc/en-us/git) · [FAQ](doc/en-us/common)
+- [Repository](doc/en-us/repo) · [Repository group](doc/en-us/repo_group) · [Administrator](doc/en-us/admin) · [Git](doc/en-us/git) · [Webhook](doc/en-us/repo/webhooks.md) · [FAQ](doc/en-us/common)
 
 ## Feedback
 
@@ -347,8 +440,8 @@ version is called `CodeFever Community`.
 
 `CodeFever Next` is a **second open-source release** built on top of that version: the
 backend has been completely rewritten in Go, the runtime image no longer contains PHP, and
-all images are now built from local source. It retains most of the upstream features and
-is optimised for standalone deployment.
+the application image is built from local source. It retains most of the upstream features
+and is optimised for standalone deployment.
 
 ### Maintainer
 

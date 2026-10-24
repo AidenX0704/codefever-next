@@ -1,8 +1,8 @@
 # =============================================================================
 #  CodeFever Next —— Docker Compose 编排
 # =============================================================================
-#  镜像**从本地源码构建**（Dockerfile），不依赖任何上游预构建镜像，
-#  构建期也不需要访问 GitHub。
+#  镜像**从当前源码构建**（Dockerfile），不依赖上游应用镜像；
+#  但需要拉取两个基础镜像（运行时 nginx/sshd 基底与 Go 编译镜像）。
 #
 #  用法 / Usage:
 #      docker compose up -d --build     # 构建并启动
@@ -19,8 +19,11 @@
 #      CODEFEVER_DB_PASS    数据库 root 口令 (默认 123456)
 #      CODEFEVER_IMAGE      应用镜像名 (默认 codefever-next:local)
 #      CODEFEVER_MYSQL_IMAGE 数据库镜像 (默认 mysql:8.0)
+#      CODEFEVER_DATA_DIR   数据目录 (默认 ./codefever-data)
 #      CODEFEVER_BASE_RUNTIME  运行时基础镜像
 #      CODEFEVER_BASE_GO       Go 编译基础镜像
+#      CODEFEVER_GOPROXY       Go module 代理（国内可设 goproxy.cn）
+#      CODEFEVER_APT_MIRROR    Debian buster 归档源（国内可设 aliyun）
 # =============================================================================
 
 name: codefever-next
@@ -35,19 +38,28 @@ services:
     container_name: codefever-next-db
     restart: unless-stopped
     command:
-      - '--character-set-server=utf8mb4'
-      - '--collation-server=utf8mb4_general_ci'
-      - '--max_connections=3000'
+      - "--character-set-server=utf8mb4"
+      - "--collation-server=utf8mb4_general_ci"
+      - "--max_connections=3000"
       # MySQL 8.0 默认认证插件是 caching_sha2_password，而应用容器里带的是
-      # MariaDB 客户端（misc/create_db.sh 用它建库），该客户端没有
+      # MariaDB 客户端（deploy/sql/create_db.sh 用它建库），该客户端没有
       # caching_sha2_password 插件 → 建库直接失败。改用 mysql_native_password。
-      - '--default-authentication-plugin=mysql_native_password'
+      - "--default-authentication-plugin=mysql_native_password"
     environment:
       MYSQL_ROOT_PASSWORD: "${CODEFEVER_DB_PASS:-123456}"
     volumes:
-      - db-data:/var/lib/mysql
+      - "${CODEFEVER_DATA_DIR:-./codefever-data}/mysql:/var/lib/mysql"
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${CODEFEVER_DB_PASS:-123456}"]
+      test:
+        [
+          "CMD",
+          "mysqladmin",
+          "ping",
+          "-h",
+          "127.0.0.1",
+          "-uroot",
+          "-p${CODEFEVER_DB_PASS:-123456}",
+        ]
       interval: 5s
       timeout: 5s
       retries: 40
@@ -66,8 +78,10 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        BASE_RUNTIME: "${CODEFEVER_BASE_RUNTIME:-docker.1ms.run/webdevops/php-nginx:7.4}"
-        BASE_GO: "${CODEFEVER_BASE_GO:-docker.1ms.run/library/golang:1.25-bookworm}"
+        BASE_RUNTIME: "${CODEFEVER_BASE_RUNTIME:-webdevops/php-nginx:7.4}"
+        BASE_GO: "${CODEFEVER_BASE_GO:-golang:1.25-bookworm}"
+        GOPROXY: "${CODEFEVER_GOPROXY:-https://proxy.golang.org,direct}"
+        APT_MIRROR: "${CODEFEVER_APT_MIRROR:-https://archive.debian.org}"
     ports:
       # 宿主机:容器 —— 80/22/8080 常被占用, 默认改用 9080 / 2222。
       # 需要换端口时设置环境变量即可:
@@ -75,33 +89,56 @@ services:
       - "${CODEFEVER_HTTP_PORT:-9080}:80"
       - "${CODEFEVER_SSH_PORT:-2222}:22"
     environment:
+      # 数据库参数（entrypoint 优先读 CODEFEVER_MYSQL_*，DB_* 为兼容旧配置）
       DB_HOST: "db"
       DB_PORT: "3306"
       DB_USER: "root"
       DB_PASS: "${CODEFEVER_DB_PASS:-123456}" # 需与 MYSQL_ROOT_PASSWORD 一致
       DB_NAME: "codefever_community"
-      # 让服务以 git 用户运行 (webdevops 镜像的 CONTAINER_UID 机制):
-      #   1) 与 env.yaml 的 users.www: git 保持一致 (上游完整版即如此)
-      #   2) 应用进程需要能写 /home/git/.ssh/authorized_keys,
-      #      否则 SSH 公钥同步不到该文件, SSH 方式 clone/pull 不可用
-      # 注: PHP 时代的 modify_authorized_keys 守护进程已下线, 现在由 Go 后端
-      # (以 root 运行) 直接写 authorized_keys, PHP-FPM 的运行用户与之无关。
+      CODEFEVER_MYSQL_HOST: "db"
+      CODEFEVER_MYSQL_PORT: "3306"
+      CODEFEVER_MYSQL_USER: "root"
+      CODEFEVER_MYSQL_PASSWORD: "${CODEFEVER_DB_PASS:-123456}"
+      CODEFEVER_MYSQL_DB: "codefever_community"
+      # 站点地址：前端 clone 面板直接展示这两个值。
+      # 默认按 compose 暴露到宿主机的端口生成；放到反向代理/域名后面时覆盖它们。
+      CODEFEVER_HTTP_PORT: "${CODEFEVER_HTTP_PORT:-9080}"
+      CODEFEVER_SSH_PORT: "${CODEFEVER_SSH_PORT:-2222}"
+      # 可选：反向代理/域名部署时显式覆盖 clone 面板里的地址。
+      # 留空时 entrypoint 按上面两个端口自动生成。
+      CODEFEVER_SITE_HOST: "${CODEFEVER_SITE_HOST:-}"
+      CODEFEVER_SITE_SSH: "${CODEFEVER_SITE_SSH:-}"
+      # 基础镜像的属主/UID 映射（webdevops 的 CONTAINER_UID）。
+      # 它不改变 supervisor 子进程的启动用户：Go 进程实际以容器默认用户运行，
+      # git 钩子/SSH forced command 由 git 用户执行。保留该变量以维持基础镜像
+      # 对挂载目录的属主处理。
       CONTAINER_UID: "git"
       # 口令哈希的写入格式:
-      #   legacy (默认) —— md5(md5(x)), 与历史 PHP 后端逐字一致
-      #   argon2id      —— OWASP 推荐的内存硬函数
+      #   legacy (默认) —— md5(md5(x)), 与历史数据逐字一致
+      #   argon2id      —— OWASP 推荐的内存硬函数（新写入）
       #
-      # PHP 后端已下线, 库里的历史口令哈希仍是 legacy 格式, 因此默认保持 legacy,
-      # **存量账号无需重置口令即可登录**。待全部账号重置过口令之后,
-      # 再把它切成 argon2id。
+      # 存量口令哈希是 legacy，保持 legacy 可让所有历史账号直接登录；
+      # 登录校验同时支持两种格式。确认不再需要兼容历史数据后可切 argon2id。
       CODEFEVER_PASSWORD_HASH: "${CODEFEVER_PASSWORD_HASH:-legacy}"
+      # 邮件：不配置 SMTP 时回退到系统 mail 命令（镜像未装 MTA，通常不可用）。
+      # 设置 CODEFEVER_SMTP_HOST 即启用 SMTP；端口 465 自动按 implicit TLS 处理。
+      CODEFEVER_SMTP_HOST: "${CODEFEVER_SMTP_HOST:-}"
+      CODEFEVER_SMTP_PORT: "${CODEFEVER_SMTP_PORT:-587}"
+      CODEFEVER_SMTP_USER: "${CODEFEVER_SMTP_USER:-}"
+      CODEFEVER_SMTP_PASSWORD: "${CODEFEVER_SMTP_PASSWORD:-}"
+      CODEFEVER_SMTP_FROM: "${CODEFEVER_SMTP_FROM:-}"
+      CODEFEVER_SMTP_TLS: "${CODEFEVER_SMTP_TLS:-starttls}"
     volumes:
-      # 使用命名卷而非绑定挂载: 命名卷首次创建时会从镜像内容初始化,
-      # 因此 git-storage/hooks/* 的符号链接得以保留。
-      - git-storage:/data/www/codefever-community/git-storage
-      - file-storage:/data/www/codefever-community/file-storage
-
-volumes:
-  db-data:
-  git-storage:
-  file-storage:
+      # 默认把数据持久化到仓库根目录的 codefever-data/ 下，方便用户直接备份/迁移。
+      # 可以用 CODEFEVER_DATA_DIR 改成绝对路径或其它目录（必须可写）。
+      #
+      #   codefever-data/
+      #     mysql/          MySQL 数据文件
+      #     git-storage/    裸仓库 + hooks 软链
+      #     file-storage/   上传文件与附件
+      #     config/         config.yaml + env.yaml（主机名、SMTP、token）
+      - "${CODEFEVER_DATA_DIR:-./codefever-data}/git-storage:/data/www/codefever-community/git-storage"
+      - "${CODEFEVER_DATA_DIR:-./codefever-data}/file-storage:/data/www/codefever-community/file-storage"
+      # config.yaml / env.yaml 是指向该目录的软链；管理后台修改的
+      # 主机名、邮件设置、数据库口令在容器重建后不会丢失。
+      - "${CODEFEVER_DATA_DIR:-./codefever-data}/config:/data/www/codefever-community/config"

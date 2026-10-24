@@ -26,6 +26,7 @@ $sshHint = "ssh -p $sshPort git@localhost"
 
 function Write-Step($msg) { Write-Host "==> $msg" -ForegroundColor Cyan }
 function Write-Ok($msg)   { Write-Host "    [OK] $msg" -ForegroundColor Green }
+function Write-Warn2($msg){ Write-Host "    [!!] $msg" -ForegroundColor Yellow }
 
 switch ($Action) {
     'up' {
@@ -33,13 +34,14 @@ switch ($Action) {
         docker @compose up -d
         if ($LASTEXITCODE -ne 0) { throw '启动失败' }
 
-        Write-Step '等待数据库与应用就绪'
+        Write-Step '等待应用就绪'
         $ready = $false
         for ($i = 0; $i -lt 60; $i++) {
             Start-Sleep -Seconds 3
-            $code = (docker @compose ps --format '{{.Name}} {{.Status}}' 2>$null) -join "`n"
-            if ($code -match 'codefever-next-app.*\(healthy\)') { $ready = $true; break }
-            if ($code -match 'codefever-next-app.*Up') { $ready = $true; break }
+            try {
+                $r = Invoke-WebRequest -Uri "$httpUrl/user/login" -UseBasicParsing -TimeoutSec 5
+                if ($r.StatusCode -eq 200) { $ready = $true; break }
+            } catch { }
         }
 
         docker @compose ps

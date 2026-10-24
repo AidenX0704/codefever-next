@@ -193,7 +193,7 @@ func main() {
 	var (
 		baseFlag     = flag.String("base", "", "覆盖 manifest 里的 base_url")
 		manifestFlag = flag.String("manifest", "contract/manifest.yaml", "manifest 路径")
-		outFlag      = flag.String("out", "testdata/contract", "输出目录")
+		outFlag      = flag.String("out", "testdata/contract-verify", "输出目录（默认不覆盖生效基线）")
 		onlyFlag     = flag.String("only", "", "只跑指定 id 的用例")
 		verbose      = flag.Bool("verbose", false, "打印每条用例的细节")
 	)

@@ -90,6 +90,38 @@ func (r *RepositoryRepo) RepositoryPath(ctx context.Context, rKey string) (strin
 	return p.String, nil
 }
 
+// ListDefaultBranches 列出全部正常仓库的默认分支与裸仓库相对路径。
+//
+// 启动时用它修复"HEAD 指向 master、但实际分支是 main"的历史仓库。
+type RepositoryDefaultBranch struct {
+	Key    string
+	Path   string
+	Branch string
+}
+
+// ListDefaultBranches 返回默认分支修复任务清单。
+func (r *RepositoryRepo) ListDefaultBranches(ctx context.Context) ([]RepositoryDefaultBranch, error) {
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT r_key, r_path, COALESCE(r_default_branch_name, '')
+		FROM cc_repositories
+		WHERE r_status = ? AND r_path IS NOT NULL AND r_path <> ''`,
+		domain.CommonStatusNormal)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	out := []RepositoryDefaultBranch{}
+	for rows.Next() {
+		var item RepositoryDefaultBranch
+		if err := rows.Scan(&item.Key, &item.Path, &item.Branch); err != nil {
+			return nil, err
+		}
+		out = append(out, item)
+	}
+	return out, rows.Err()
+}
+
 // ListJoined 列出用户可见的全部仓库。
 //
 // 逐字对应 application/models/repository_model.php:462-491 的 listJoined()：

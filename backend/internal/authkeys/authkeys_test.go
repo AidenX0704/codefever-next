@@ -31,7 +31,7 @@ func TestFormatLineMatchesPHPByteForByte(t *testing.T) {
 		name   = "my key"
 	)
 
-	want := `command="PATH=$PATH:/usr/bin && /data/www/codefever-community/ssh-gateway/shell/main $SSH_ORIGINAL_COMMAND UKEY123",` +
+	want := `command="PATH=$PATH:/usr/bin && /data/www/codefever-community/bin/codefever-ssh-gateway $SSH_ORIGINAL_COMMAND UKEY123",` +
 		`no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQC my key` + "\n"
 
 	got := w.formatLine(uKey, keyTyp, key, name)
@@ -133,7 +133,7 @@ func TestAddAppendsLine(t *testing.T) {
 	if err != nil {
 		t.Fatalf("读文件失败: %v", err)
 	}
-	want := legacy + `command="PATH=$PATH:/usr/bin && /data/www/codefever-community/ssh-gateway/shell/main $SSH_ORIGINAL_COMMAND UKEY1",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ssh-rsa AAAKEY1 first` + "\n"
+	want := legacy + `command="PATH=$PATH:/usr/bin && /data/www/codefever-community/bin/codefever-ssh-gateway $SSH_ORIGINAL_COMMAND UKEY1",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty ssh-rsa AAAKEY1 first` + "\n"
 	if string(raw) != want {
 		t.Fatalf("追加结果不符\n got: %q\nwant: %q", string(raw), want)
 	}
@@ -303,5 +303,57 @@ func TestAddThenRemoveRoundTrip(t *testing.T) {
 	}
 	if string(raw) != legacy {
 		t.Fatalf("往返后文件应回到原样\n got: %q\nwant: %q", string(raw), legacy)
+	}
+}
+
+// TestAddRejectsNewlineInjection 确认公钥字段里的换行不会写进 authorized_keys。
+//
+// 攻击场景：name = "x\nssh-ed25519 AAAA...attacker" 会追加一条不带
+// command= 选项的公钥行，sshd 会为该键提供 git 用户的交互式 shell。
+func TestAddRejectsNewlineInjection(t *testing.T) {
+	w, keyFile := newTestWriter(t, "/usr/bin/git")
+
+	cases := []struct {
+		name    string
+		keyType string
+		key     string
+		label   string
+	}{
+		{"name 注入", "ssh-ed25519", "AAAAKEY", "x\nssh-ed25519 AAAAATTACKER"},
+		{"key 注入", "ssh-ed25519", "AAAAKEY\nssh-ed25519 AAAAATTACKER", "normal"},
+		{"key 含空格", "ssh-ed25519", "AAAA KEY", "normal"},
+		{"keyType 注入", "ssh-ed25519\n", "AAAAKEY", "normal"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := w.Add("UKEY", tc.keyType, tc.key, tc.label); err == nil {
+				t.Fatal("期望拒绝含换行/空白的字段")
+			}
+			if _, err := os.Stat(keyFile); !os.IsNotExist(err) {
+				t.Fatalf("校验失败时不应创建 authorized_keys")
+			}
+		})
+	}
+}
+
+// TestRemoveIsAtomicAndKeepsContent 确认删除走临时文件替换，且未命中行保持不变。
+func TestRemoveIsAtomicAndKeepsContent(t *testing.T) {
+	w, keyFile := newTestWriter(t, "/usr/bin/git")
+	if err := os.MkdirAll(filepath.Dir(keyFile), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	const content = "ssh-rsa KEEP keep\nssh-rsa DELETE remove\n"
+	if err := os.WriteFile(keyFile, []byte(content), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.Remove("DELETE"); err != nil {
+		t.Fatalf("Remove 失败: %v", err)
+	}
+	raw, err := os.ReadFile(keyFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "ssh-rsa KEEP keep\n" {
+		t.Fatalf("删除结果 = %q", string(raw))
 	}
 }

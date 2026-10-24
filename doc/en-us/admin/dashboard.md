@@ -1,79 +1,103 @@
-# 概览和系统服务
+# Overview and system services
 
-此页面没有管理功能, 仅用于监视 `系统资源使用量` 和 `服务状态`。
+This page has no management actions; it shows `system resource usage` and `service status`.
 
-### 进入概览页面
+### Open the overview page
 
-能查看 `概览页面` 需要满足以下条件
+You need to be a CodeFever `administrator`.
 
-- `CodeFever` 系统 `管理员`
+1. Click `Admin` in the top-right navigation bar.
+2. Click `Overview` in the left sidebar.
 
-进入 `概览页面` 的步骤:
+### Usage statistics
 
-1. 在 `CodeFever` 导航栏右侧找到 `管理后台` 按钮
-1. 点击 `管理后台` 按钮进入 `管理后台`
-1. 点击左侧菜单栏 `概览` 选项
+Shows CodeFever usage.
 
-### 统计
+> CodeFever does not limit the number of repositories.
 
-统计部分用于展示 `CodeFever` 使用量
+### System resources
 
-> `CodeFever` 对于使用量没有限制
+Shows `system resource` usage.
 
-### 系统资源
+> Check this panel when investigating performance problems.
 
-统计部分用于展示 `系统资源` 使用量
+### Disk usage
 
-> 当出现性能问题时, 需要查看此面板确定有足够的 `系统资源` 可以使用
+Shows `disk` usage.
 
-### 磁盘使用量
+> Git repositories live under `git-storage/` in the application root:
+> - Docker Compose: `codefever-data/git-storage/` under the repository root;
+> - source install: `/data/www/codefever-next/git-storage`.
+>
+> If disk space is low, expand the disk or move this directory to a larger disk and mount
+> it back.
 
-统计部分用于展示 `磁盘` 使用量
+### Service status and maintenance
 
-> CodeFever 的 Git 仓库均保存在 `/data/www/codefever-community/git-storage` 目录下, 如果磁盘空间剩余不足，请考 `扩容磁盘` 或 将 Git 仓库目录链接保存到其他磁盘上。
+The backend is fully Go-based: **there is no PHP-FPM / php-fpm / crond**. The running
+processes are:
 
-### 系统服务状态及维护
+| Component | Purpose | Managed by |
+| --- | --- | --- |
+| `nginx` | HTTP reverse proxy, static assets, Git HTTP entry | base image / system service |
+| `codefever-api` | API, server-rendered pages, file downloads | supervisor (container) / systemd (source) |
+| `codefever-worker` | events, inbox, e-mail, webhook delivery | supervisor / systemd |
+| `codefever-http-gateway` | Git over HTTP gateway (`127.0.0.1:27555`) | supervisor / systemd |
+| `codefever-ssh-gateway` | SSH forced command, started per SSH connection | not resident |
+| `sshd` | Git over SSH entry | base image / system service |
 
-`CodeFever` 有三个主要的系统服务, 分别是 `PHP` , `Nginx` 和 `CodeFever` 。如果某个服务异常需要手动重新启动。
+> The admin overview `service` object only contains `nginx`, `codefever` (detected via the
+> `codefever-api` process) and `sendmail`; PHP/crond keys no longer exist. `sendmail` now
+> means “system mail channel”; SMTP is recommended.
 
-具体服务启动方式如下:
-
-#### PHP
-
-说明: 脚本引擎, 用于程序运行
-
-支持的维护命令: 
-
-```shell
-service php-fpm start  # 启动
-service php-fpm stop # 停止
-service php-fpm restart # 重新启动
-service php-fpm reload # 重新启动
-service php-fpm status # 查看状态
-```
-
-#### Nginx
-
-说明: 服务器软件, 用于 HTTP 反向代理服务 
-
-支持的维护命令: 
+#### Container deployment (Docker Compose)
 
 ```shell
-service nginx start  # 启动
-service nginx stop # 停止
-service nginx restart # 重新启动
-service nginx reload # 重新启动
+# all resident processes
+docker exec -it codefever-next-app supervisorctl status
+
+# individual services
+docker exec -it codefever-next-app supervisorctl restart codefever-api
+docker exec -it codefever-next-app supervisorctl restart codefever-worker
+docker exec -it codefever-next-app supervisorctl restart codefever-http-gateway
+
+# nginx
+docker exec -it codefever-next-app nginx -t
+docker exec -it codefever-next-app nginx -s reload
+
+# logs
+docker compose logs -f codefever
 ```
 
-#### CodeFever
-
-说明: 基础服务, 用于 Git 客户端 `HTTP` 连接和 `SSH` 连接相关服务
-
-支持的维护命令: 
+#### Source installation (systemd)
 
 ```shell
-service codefever start  # 启动
-service codefever stop # 停止
-service codefever restart # 重新启动
-service codefever status # 查看状态
+systemctl status codefever-api codefever-worker codefever-http-gateway
+systemctl restart codefever-api codefever-worker codefever-http-gateway
+
+# nginx
+nginx -t && systemctl reload nginx
+
+# sshd (after changing Match/ForceCommand)
+sshd -t && systemctl reload ssh
 ```
+
+> `codefever-service-template` is only for the legacy VM HTTP-gateway init script. In the
+> container, supervisor manages it; for a source install, prefer systemd directly.
+
+#### E-mail (Sendmail / SMTP)
+
+The image does **not** install an MTA, so the `sendmail`/`mail` fallback is normally
+unavailable. Configure SMTP at deployment time:
+
+```shell
+CODEFEVER_SMTP_HOST=smtp.example.com
+CODEFEVER_SMTP_PORT=587
+CODEFEVER_SMTP_USER=git@example.com
+CODEFEVER_SMTP_PASSWORD='<password>'
+CODEFEVER_SMTP_FROM='CodeFever <git@example.com>'
+CODEFEVER_SMTP_TLS=starttls
+```
+
+Without SMTP, the overview may show sendmail as stopped and e-mail notifications only log
+failures in the worker; Git operations are unaffected.

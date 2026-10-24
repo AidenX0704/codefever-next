@@ -1,7 +1,7 @@
 // Package config 负责加载 env.yaml 与 config.yaml。
 //
-// 配置文件结构与现有 PHP 后端保持完全一致 —— 同一个 env.yaml 要同时被
-// PHP 后端、http-gateway、ssh-gateway 与 misc/hooks/main 读取，
+// 配置文件结构与旧 PHP 后端保持完全一致 —— 同一个 env.yaml 要同时被
+// codefever-api / codefever-worker / git 钩子 / 两个 Go 网关读取，
 // 因此键名与层级不能有任何改动。
 //
 // PHP 侧通过 www/index.php 的 make_constants('YAML_', ...) 把嵌套 YAML 展平成
@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync/atomic"
 
 	"gopkg.in/yaml.v3"
 
@@ -137,6 +138,30 @@ type Config struct {
 
 	// BaseDir 是配置文件所在目录，所有相对路径都以此为基准解析。
 	BaseDir string
+
+	// site 是 Site 的原子快照。
+	//
+	// 管理后台 POST /api/admin/config 会热更新 host/ssh/email，而多个请求
+	// 并发读取；直接读写 Site 字段是数据竞争。运行时统一走 SiteConfig()。
+	site atomic.Pointer[Site]
+}
+
+// SiteConfig 返回当前生效的站点配置快照。
+//
+// 未经过 SetSite 的构造（测试里的 Config 字面量）回退到 Site 字段。
+func (c *Config) SiteConfig() Site {
+	if p := c.site.Load(); p != nil {
+		return *p
+	}
+	return c.Site
+}
+
+// SetSite 原子替换站点配置。
+//
+// 同时更新 Site 字段，保持测试与旧调用方的可见性；运行期读取请用 SiteConfig()。
+func (c *Config) SetSite(site Site) {
+	c.Site = site
+	c.site.Store(&site)
 }
 
 // Load 加载 env.yaml 与 config.yaml。
@@ -217,6 +242,9 @@ func (c *Config) applyDefaults() {
 			c.Env.MySQL.Port = n
 		}
 	}
+
+	// 初始化原子快照，之后运行期的读取都走 SiteConfig()。
+	c.SetSite(c.Site)
 }
 
 // overrideString 用环境变量覆盖非空配置项。
@@ -224,6 +252,21 @@ func overrideString(dst *string, key string) {
 	if v := os.Getenv(key); v != "" {
 		*dst = v
 	}
+}
+
+// GitStoragePath 返回裸仓库根目录的绝对路径。
+//
+// 该方法是给只加载 env.yaml 的进程（两个网关）用的：它们不解析
+// config.yaml，但同样需要尊重 path.git 配置。
+func (e *Env) GitStoragePath(baseDir string) string {
+	rel := e.Path.Git
+	if rel == "" {
+		rel = "git-storage"
+	}
+	if filepath.IsAbs(rel) {
+		return rel
+	}
+	return filepath.Join(baseDir, rel)
 }
 
 // Resolve 把配置中的相对路径解析为绝对路径。
@@ -238,7 +281,7 @@ func (c *Config) Resolve(rel string) string {
 }
 
 // GitStoragePath 返回裸仓库根目录的绝对路径。
-func (c *Config) GitStoragePath() string { return c.Resolve(c.Env.Path.Git) }
+func (c *Config) GitStoragePath() string { return c.Env.GitStoragePath(c.BaseDir) }
 
 // FileStoragePath 返回附件存储根目录的绝对路径。
 func (c *Config) FileStoragePath() string { return c.Resolve(c.Env.Path.File) }
@@ -247,9 +290,14 @@ func (c *Config) FileStoragePath() string { return c.Resolve(c.Env.Path.File) }
 //
 // parseTime=true 让 DATETIME/TIMESTAMP 列直接扫描进 time.Time；
 // 多语句关闭以降低 SQL 注入面。
+//
+// timeout/readTimeout/writeTimeout 显式给出：没有它们时，数据库网络抖动
+// 会让请求 goroutine 与连接一起无限挂起（HTTP 层的 WriteTimeout 只让
+// 写响应失败，不会取消请求 ctx）。
 func (c *Config) DSN() string {
 	return fmt.Sprintf(
-		"%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local&multiStatements=false",
+		"%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=true&loc=Local&multiStatements=false"+
+			"&timeout=5s&readTimeout=60s&writeTimeout=60s",
 		c.Env.MySQL.Username,
 		c.Env.MySQL.Password,
 		c.Env.MySQL.Host,

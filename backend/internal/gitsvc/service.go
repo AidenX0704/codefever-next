@@ -29,7 +29,23 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
+
+// defaultCommandTimeout 是单条 git 命令的兜底超时。
+//
+// HTTP 层没有给请求 ctx 设置 deadline；损坏仓库上的 log/blame/rev-list 或
+// 临时 clone 可能挂住几十分钟，占满 goroutine 与 DB 连接。10 分钟足够覆盖
+// 大仓库的正常操作，同时保证异常时一定会被取消。
+const defaultCommandTimeout = 10 * time.Minute
+
+// commandContext 在调用方没有设置 deadline 时补一个兜底超时。
+func commandContext(ctx context.Context) (context.Context, context.CancelFunc) {
+	if _, ok := ctx.Deadline(); ok {
+		return ctx, func() {}
+	}
+	return context.WithTimeout(ctx, defaultCommandTimeout)
+}
 
 // ExitError 表示 git 以非零退出码结束。
 //
@@ -139,6 +155,9 @@ func (s *Service) RepoPath(rPath string) (string, error) {
 // 关键点：argv 数组直传，**不经过 shell**；用户输入即使含有
 // `; rm -rf / #` 也只是一个普通参数。
 func (s *Service) run(ctx context.Context, repoPath string, args ...string) (string, error) {
+	ctx, cancel := commandContext(ctx)
+	defer cancel()
+
 	env, err := s.buildEnv()
 	if err != nil {
 		return "", err

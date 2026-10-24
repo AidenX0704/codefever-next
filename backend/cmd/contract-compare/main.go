@@ -61,7 +61,7 @@ type diffItem struct {
 
 func main() {
 	baselineDir := flag.String("baseline", "testdata/contract", "基准采集结果目录")
-	actualDir := flag.String("actual", "testdata/contract-go", "实际采集结果目录")
+	actualDir := flag.String("actual", "testdata/contract-verify", "实际采集结果目录（先用 contract-collect 生成）")
 	verbose := flag.Bool("verbose", false, "打印每条用例的比对细节")
 	failOnDiff := flag.Bool("fail-on-diff", false, "存在 DIFF 时以非 0 退出码结束")
 	flag.Parse()

@@ -20,10 +20,10 @@ import (
 	"codefever-next/backend/internal/repo"
 )
 
-// RepositoryHandler 实现 /api/repository/* 端点。
+// RepositoryHandler 实现 /api/repository/* 的只读端点。
 //
-// 本阶段只移植**只读**端点；写端点（create / fork / update / delete / merge 等）
-// 不注册，路由层会自动返回 0x0105（与 PHP "方法不存在" 语义一致）。
+// 写端点（create / fork / update / delete / merge 等）在 RepositoryWriteHandler，
+// 两者注册到同一个 controller（PHP 侧也是同一个文件）。
 type RepositoryHandler struct {
 	Repos *repo.RepositoryRepo
 	Git   *gitsvc.Service
@@ -94,7 +94,7 @@ func (h *RepositoryHandler) host() string {
 	if h.Cfg == nil {
 		return ""
 	}
-	return h.Cfg.Site.Host
+	return h.Cfg.SiteConfig().Host
 }
 
 // ssh 返回站点 ssh 地址（PHP 侧的 YAML_SSH）。
@@ -102,7 +102,7 @@ func (h *RepositoryHandler) ssh() string {
 	if h.Cfg == nil {
 		return ""
 	}
-	return h.Cfg.Site.SSH
+	return h.Cfg.SiteConfig().SSH
 }
 
 // repoPath 解析仓库对应的裸仓库绝对路径。
@@ -274,9 +274,13 @@ func (h *RepositoryHandler) config(ctx context.Context, req *httpapi.Request) (a
 	if err != nil {
 		return nil, err
 	}
+	forkCounts, err := h.Repos.ForkCounts(ctx, []string{rKey})
+	if err != nil {
+		return nil, err
+	}
 
 	return domain.RepositoryConfig{
-		Repository: domain.NormalizeRepository(repoInfo, group, 0, mrCounts[rKey]),
+		Repository: domain.NormalizeRepository(repoInfo, group, forkCounts[rKey], mrCounts[rKey]),
 		Group:      domain.NormalizeRepositoryGroup(group),
 		Members:    members[rKey],
 		Branches:   branches,
@@ -1065,6 +1069,14 @@ func (h *RepositoryHandler) normalizeMergeRequest(ctx context.Context, mr *domai
 		submitter = domain.NormalizeUser(u, emails[mr.UKey], false, 0, h.host(), h.ssh())
 	}
 
+	// 评审人来自 cc_merge_request_reviewers；列表接口已实现，详情接口
+	// 曾经硬编码为空数组，导致前端 MR 详情页看不到 / 无法管理评审人。
+	reviewerRows, err := h.Repos.MergeRequestReviewers(ctx, []string{mr.Key})
+	if err != nil {
+		return nil, err
+	}
+	reviewers := reviewersOf(reviewerRows[mr.Key])
+
 	sourceRepo, err := h.Repos.Get(ctx, mr.SourceRKey)
 	if err != nil {
 		return nil, err
@@ -1111,7 +1123,7 @@ func (h *RepositoryHandler) normalizeMergeRequest(ctx context.Context, mr *domai
 		Update:           phpTimeOf(mr.Updated),
 		Close:            phpTimeOf(mr.CloseTime),
 		Merge:            phpTimeOf(mr.MergeTime),
-		Reviewers:        []any{},
+		Reviewers:        reviewers,
 	}
 
 	// 控制器在最后追加提交者的邮箱。
@@ -1230,17 +1242,23 @@ func (h *RepositoryHandler) mergeRequestCommits(ctx context.Context, req *httpap
 		return nil, contract.NewError(contract.CodeMissingParameter)
 	}
 
-	if targetRKey != sourceRKey {
-		// 跨仓库比较需要经 HTTP git 网关拉取远端对象（PHP 的 getDiffWithRemote /
-		// getCommitWithRemote），该链路属于 internal 域，本阶段尚未移植。
-		return nil, contract.NewError(contract.CodeOperateFail)
-	}
-
 	sourcePath, err := h.repoPath(ctx, sourceRKey)
 	if err != nil {
 		return nil, err
 	}
-	commits, err := h.Git.CommitListFromLocal(ctx, sourcePath, targetObject, sourceObject)
+
+	var commits []domain.Commit
+	if targetRKey != sourceRKey {
+		// 跨仓库（fork MR）：在临时工作区 fetch 目标仓库后比较。
+		// 对应 PHP 的 getCommitWithRemote()。
+		targetPath, perr := h.repoPath(ctx, targetRKey)
+		if perr != nil {
+			return nil, perr
+		}
+		commits, err = h.Git.CommitsSinceRemote(ctx, sourcePath, sourceObject, targetPath, targetObject)
+	} else {
+		commits, err = h.Git.CommitListFromLocal(ctx, sourcePath, targetObject, sourceObject)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -1483,29 +1501,42 @@ func (h *RepositoryHandler) fileChanges(ctx context.Context, req *httpapi.Reques
 		}
 	}
 
-	if targetRKey != "" && targetRKey != rKey {
-		// 跨仓库比较需要经 HTTP git 网关拉取远端对象（PHP 的 getDiffWithRemote），
-		// 该链路属于 internal 域，本阶段尚未移植。
-		return nil, contract.NewError(contract.CodeOperateFail)
-	}
-
 	repoPath, err := h.repoPath(ctx, rKey)
 	if err != nil {
 		return nil, err
 	}
 
-	count, err := h.Git.DiffFileCount(ctx, repoPath, original, modified)
+	// 跨仓库（fork MR）比较：在临时工作区 fetch 目标仓库后执行。
+	// 对应 PHP 的 getDiffWithRemote()。
+	var count int
+	var diff string
+	if targetRKey != "" && targetRKey != rKey {
+		targetPath, perr := h.repoPath(ctx, targetRKey)
+		if perr != nil {
+			return nil, perr
+		}
+		count, err = h.Git.DiffFileCountWithRemote(ctx, repoPath, original, targetPath, modified)
+		if err != nil {
+			return nil, err
+		}
+		if count > maxDisplayDiffFile {
+			return domain.FileChangesLarge{Large: true, Count: count, Detail: ""}, nil
+		}
+		diff, err = h.Git.DiffWithRemote(ctx, repoPath, original, targetPath, modified)
+	} else {
+		count, err = h.Git.DiffFileCount(ctx, repoPath, original, modified)
+		if err != nil {
+			return nil, err
+		}
+		if count > maxDisplayDiffFile {
+			return domain.FileChangesLarge{Large: true, Count: count, Detail: ""}, nil
+		}
+		diff, err = h.Git.Diff(ctx, repoPath, original, modified)
+	}
 	if err != nil {
 		return nil, err
-	}
-	if count > maxDisplayDiffFile {
-		return domain.FileChangesLarge{Large: true, Count: count, Detail: ""}, nil
 	}
 
-	diff, err := h.Git.Diff(ctx, repoPath, original, modified)
-	if err != nil {
-		return nil, err
-	}
 	parsed := gitsvc.ParseDiff(diff)
 	return domain.FileChanges{Count: len(parsed), Detail: parsed}, nil
 }

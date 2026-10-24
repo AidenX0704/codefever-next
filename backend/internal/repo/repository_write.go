@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"strings"
+	"time"
 
 	"codefever-next/backend/internal/contract"
 	"codefever-next/backend/internal/domain"
@@ -799,6 +800,46 @@ func (r *RepositoryWriteRepo) MergeRequestMerge(ctx context.Context, uKey, mrKey
 		WHERE mr_key = ?`,
 		sourceSHA, targetSHA, domain.MergeRequestStatusMerged, uKey, mrKey)
 	return err
+}
+
+// SetDefaultBranch 更新仓库默认分支（启动修复 HEAD 时使用）。
+func (r *RepositoryWriteRepo) SetDefaultBranch(ctx context.Context, rKey, branch string) error {
+	if rKey == "" || branch == "" {
+		return nil
+	}
+	_, err := r.runner().ExecContext(ctx,
+		"UPDATE cc_repositories SET r_default_branch_name = ? WHERE r_key = ?", branch, rKey)
+	return err
+}
+
+// WithMergeLock 在 MR 级 MySQL 命名锁下执行 fn，避免并发重复合并。
+//
+// 命名锁是会话级的，因此必须绑定同一条 *sql.Conn。锁的等待上限 30 秒：
+// 第二个请求宁可失败，也不应该同时执行 git merge。
+func (r *RepositoryWriteRepo) WithMergeLock(ctx context.Context, mrKey string, fn func() error) error {
+	if mrKey == "" {
+		return errors.New("合并请求主键为空")
+	}
+	conn, err := r.db.Conn(ctx)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+
+	lockName := "codefever:merge:" + mrKey
+	var got sql.NullInt64
+	if err := conn.QueryRowContext(ctx, "SELECT GET_LOCK(?, 30)", lockName).Scan(&got); err != nil {
+		return err
+	}
+	if !got.Valid || got.Int64 != 1 {
+		return errors.New("合并请求正在被其他请求处理")
+	}
+	defer func() {
+		relCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_, _ = conn.ExecContext(relCtx, "SELECT RELEASE_LOCK(?)", lockName)
+	}()
+	return fn()
 }
 
 // ---------------------------------------------------------------------------

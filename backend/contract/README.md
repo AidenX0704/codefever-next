@@ -36,18 +36,20 @@ HTTP 状态映射）固化下来，作为 Go 重写后的逐条比对依据。
 cd backend
 
 go build ./...                      # 编译校验
-go run ./cmd/contract-collect       # 全量采集 → testdata/contract/
+go run ./cmd/contract-collect       # 全量采集 → testdata/contract-verify/
 go run ./cmd/contract-collect -verbose            # 逐条打印
 go run ./cmd/contract-collect -only user.info     # 只跑一条（调试用）
 go run ./cmd/contract-collect -base http://localhost:9080 \
                          -manifest contract/manifest.yaml \
-                         -out testdata/contract
+                         -out testdata/contract-verify
 ```
 
-前置条件：PHP 后端在 `http://localhost:9080` 可用，管理员账号可登录。
+前置条件：一个可登录的 CodeFever 实例（Go 后端）在 `http://localhost:9080` 可用，
+管理员账号可登录。`testdata/contract/` 是**只读基线**，不要用采集器覆盖它；
+默认输出目录已改为 `testdata/contract-verify/`。
 
-采集器只读业务数据，唯一的写操作是登录（CodeIgniter 的
-`sess_use_database = FALSE`，会话整体存在客户端 Cookie 里，**不落库**）。
+采集器只读业务数据；唯一的副作用是登录会在 `cc_sessions` 表写一行会话记录
+（Go 后端使用服务端会话）。如在意，可在采集结束后调用 `/user/logout` 或清理该行。
 
 采集结束后必须确认被测系统仍然健康（见 §6）。
 

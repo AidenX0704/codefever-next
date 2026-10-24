@@ -27,7 +27,6 @@ package authkeys
 import (
 	"errors"
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 	"os/user"
@@ -47,13 +46,20 @@ const (
 	// authorizedKeysName 是公钥文件名（PHP:13）。
 	authorizedKeysName = "authorized_keys"
 
-	// sshGatewayRel 是 ssh-gateway 可执行体相对应用根目录的路径（PHP:114）。
-	sshGatewayRel = "ssh-gateway/shell/main"
+	// sshGatewayRel 是 ssh-gateway 可执行体相对应用根目录的路径。
+	//
+	// 历史上是 ssh-gateway/shell/main（PHP:114）。源码合并进 backend 后，
+	// 规范位置改为 <base>/bin/codefever-ssh-gateway；镜像里同时保留
+	// <base>/ssh-gateway/shell/main 软链，保证旧部署已写入的 authorized_keys
+	// 行继续可用。
+	sshGatewayRel = "bin/codefever-ssh-gateway"
 
-	// sshDirMode 与 keyFileMode 复刻 PHP 的 mkdir/touch 默认权限
-	// （PHP 用 0777 / 0666，实际生效值由 umask 决定）。
-	sshDirMode  = 0o777
-	keyFileMode = 0o666
+	// sshDirMode 与 keyFileMode 是新建 .ssh / authorized_keys 的权限。
+	//
+	// PHP 时代用 0777 / 0666；这里收紧为 0700 / 0600（sshd StrictModes
+	// 接受的标准权限）。既有文件不会被 chmod，保持原样。
+	sshDirMode  = 0o700
+	keyFileMode = 0o600
 )
 
 // ErrUnsupported 表示当前平台不支持 authorized_keys 同步协议。
@@ -74,29 +80,38 @@ type Payload struct {
 
 // Writer 负责写 authorized_keys。
 //
-// 一个 Writer 对应一个部署实例：家目录根固定为 /home，
-// 公钥文件是 /home/<users.git>/.ssh/authorized_keys。
+// 一个 Writer 对应一个部署实例：公钥文件是 <users.git 的家目录>/.ssh/authorized_keys。
+// 家目录优先从系统用户数据库读取；读不到时回退 /home/<users.git>。
 //
 // 写操作由进程内互斥锁串行化；跨进程再用 flock 兜底（见 platform_unix.go）。
 type Writer struct {
-	homeRoot string
-	baseDir  string
-	gitUser  string
-	gitDir   string
+	homeDir string
+	baseDir string
+	gitUser string
+	gitDir  string
 
 	mu sync.Mutex
 }
 
 // NewWriter 创建 Writer。
 //
-//   - baseDir 是 env.yaml 所在目录（PHP 侧 BASE_PATH 的父目录）；
-//     ssh-gateway 可执行体位于 <baseDir>/ssh-gateway/shell/main（PHP:114）。
-//   - gitUser 是 env.yaml 的 users.git，即 /home/<gitUser> 家目录的属主。
+//   - baseDir 是 env.yaml 所在目录；
+//     ssh-gateway 可执行体位于 <baseDir>/bin/codefever-ssh-gateway。
+//   - gitUser 是 env.yaml 的 users.git，即 authorized_keys 家目录的属主。
 //   - cliGit 是 env.yaml 的 cli.git，取其**目录部分**拼进 PATH= 前缀（PHP:116）。
-//
-// 家目录根固定为 /home；单元测试用 newWriterWithHomeRoot 换成临时目录。
 func NewWriter(baseDir, gitUser, cliGit string) *Writer {
-	return newWriterWithHomeRoot(defaultHomeRoot, baseDir, gitUser, cliGit)
+	homeDir := filepath.Join(defaultHomeRoot, gitUser)
+	if supported {
+		if u, err := user.Lookup(gitUser); err == nil && strings.TrimSpace(u.HomeDir) != "" {
+			homeDir = u.HomeDir
+		}
+	}
+	return &Writer{
+		homeDir: homeDir,
+		baseDir: baseDir,
+		gitUser: gitUser,
+		gitDir:  phpDirname(cliGit),
+	}
 }
 
 // newWriterWithHomeRoot 指定家目录根创建 Writer。
@@ -104,10 +119,10 @@ func NewWriter(baseDir, gitUser, cliGit string) *Writer {
 // 仅供单元测试使用：测试不能写真实的 /home/<用户>/.ssh。
 func newWriterWithHomeRoot(homeRoot, baseDir, gitUser, cliGit string) *Writer {
 	return &Writer{
-		homeRoot: homeRoot,
-		baseDir:  baseDir,
-		gitUser:  gitUser,
-		gitDir:   phpDirname(cliGit),
+		homeDir: filepath.Join(homeRoot, gitUser),
+		baseDir: baseDir,
+		gitUser: gitUser,
+		gitDir:  phpDirname(cliGit),
 	}
 }
 
@@ -115,10 +130,18 @@ func newWriterWithHomeRoot(homeRoot, baseDir, gitUser, cliGit string) *Writer {
 //
 // 逐字对应 misc/modify_authorized_keys.php:106-123。写出的行是：
 //
-//	command="PATH=$PATH:<cli.git 的目录> && <BASE>/ssh-gateway/shell/main $SSH_ORIGINAL_COMMAND <u_key>",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty <type> <key> <name>
+//	command="PATH=$PATH:<cli.git 的目录> && <BASE>/bin/codefever-ssh-gateway $SSH_ORIGINAL_COMMAND <u_key>",no-port-forwarding,no-X11-forwarding,no-agent-forwarding,no-pty <type> <key> <name>
 //
 // 四个字段以**单个空格**连接，行尾补 "\n"，以追加方式写入。
+//
+// 安全约束：key / keyType / name 都会原样写进 authorized_keys。若其中含
+// 换行，攻击者可以追加一条**不带 command= 选项**的公钥行，sshd 会为该键
+// 提供 git 用户的交互式 shell（绕过 forced command）。因此这里在任何写入
+// 之前做单行化校验；只拒绝异常输入，正常取值的字节序列保持不变。
 func (w *Writer) Add(uKey, keyType, key, name string) error {
+	if err := validateKeyFields(keyType, key, name); err != nil {
+		return err
+	}
 	if err := w.ensure(); err != nil {
 		return err
 	}
@@ -155,6 +178,9 @@ func (w *Writer) Remove(key string) error {
 	if key == "" {
 		return errors.New("待删除的公钥正文为空")
 	}
+	if strings.ContainsAny(key, "\r\n\x00") {
+		return errors.New("公钥正文不能包含换行或 NUL")
+	}
 	if err := w.ensure(); err != nil {
 		return err
 	}
@@ -162,19 +188,20 @@ func (w *Writer) Remove(key string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	f, err := os.OpenFile(w.keyFile(), os.O_RDWR|os.O_CREATE, keyFileMode)
+	// 跨进程锁挂在独立的 .lock 文件上：写回使用 rename 原子替换，
+	// 若锁挂在 authorized_keys 本身，rename 之后锁就失效了。
+	lock, err := os.OpenFile(w.keyFile()+".lock", os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
-		return fmt.Errorf("打开 authorized_keys 失败: %w", err)
+		return fmt.Errorf("打开 authorized_keys 锁失败: %w", err)
 	}
-	defer f.Close()
-
-	if err := lockFile(f); err != nil {
+	defer lock.Close()
+	if err := lockFile(lock); err != nil {
 		return fmt.Errorf("锁定 authorized_keys 失败: %w", err)
 	}
-	defer unlockFile(f)
+	defer unlockFile(lock)
 
-	raw, err := io.ReadAll(f)
-	if err != nil {
+	raw, err := os.ReadFile(w.keyFile())
+	if err != nil && !os.IsNotExist(err) {
 		return fmt.Errorf("读取 authorized_keys 失败: %w", err)
 	}
 
@@ -190,12 +217,54 @@ func (w *Writer) Remove(key string) error {
 	}
 
 	// PHP: file_put_contents(文件, implode("\n", 保留的行)) —— 整体覆盖写。
+	//
+	// 这里改为"临时文件 + rename"：旧实现先 Truncate(0) 再写回，两步之间
+	// 进程崩溃会让 authorized_keys 变空，所有用户的 SSH 公钥一次丢失。
 	out := strings.Join(kept, "\n")
-	if err := f.Truncate(0); err != nil {
-		return fmt.Errorf("截断 authorized_keys 失败: %w", err)
+	tmp, err := os.CreateTemp(filepath.Dir(w.keyFile()), ".authorized_keys.tmp-*")
+	if err != nil {
+		return fmt.Errorf("创建临时文件失败: %w", err)
 	}
-	if _, err := f.WriteAt([]byte(out), 0); err != nil {
-		return fmt.Errorf("写回 authorized_keys 失败: %w", err)
+	tmpName := tmp.Name()
+	defer func() { _ = os.Remove(tmpName) }()
+
+	if err := tmp.Chmod(0o600); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("设置临时文件权限失败: %w", err)
+	}
+	if _, err := tmp.WriteString(out); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("写入临时文件失败: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("同步临时文件失败: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("关闭临时文件失败: %w", err)
+	}
+	if err := os.Rename(tmpName, w.keyFile()); err != nil {
+		return fmt.Errorf("替换 authorized_keys 失败: %w", err)
+	}
+	// rename 后的新文件属主是当前进程，重新归给 git 用户（sshd StrictModes 要求）。
+	w.ensureOwnership()
+	return nil
+}
+
+// validateKeyFields 校验写入 authorized_keys 的字段不含行分隔符。
+//
+// authorized_keys 是**一行一个键**的格式；任何字段里出现换行都等于注入
+// 一条新记录。keyType 与 key 还必须是单 token（不能含空白），否则会改变
+// 行内字段边界。
+func validateKeyFields(keyType, key, name string) error {
+	if strings.TrimSpace(keyType) == "" || strings.ContainsAny(keyType, " \t\r\n\x00") {
+		return errors.New("公钥类型非法")
+	}
+	if strings.TrimSpace(key) == "" || strings.ContainsAny(key, " \t\r\n\x00") {
+		return errors.New("公钥正文非法：必须是不含空白的单个 token")
+	}
+	if strings.ContainsAny(name, "\r\n\x00") {
+		return errors.New("公钥名称不能包含换行或 NUL")
 	}
 	return nil
 }
@@ -298,14 +367,14 @@ func (w *Writer) chownToGitUser() error {
 	return nil
 }
 
-// sshDir 返回 /home/<git 用户>/.ssh（PHP:12）。
+// sshDir 返回 <家目录>/.ssh。
 func (w *Writer) sshDir() string {
-	return filepath.Join(w.homeRoot, w.gitUser, sshDirName)
+	return filepath.Join(w.homeDir, sshDirName)
 }
 
-// keyFile 返回 authorized_keys 的完整路径（PHP:13）。
+// keyFile 返回 authorized_keys 的完整路径。
 func (w *Writer) keyFile() string {
-	return filepath.Join(w.homeRoot, w.gitUser, sshDirName, authorizedKeysName)
+	return filepath.Join(w.homeDir, sshDirName, authorizedKeysName)
 }
 
 // sshGateway 返回 ssh-gateway 可执行体的绝对路径（PHP:114）。

@@ -6,11 +6,13 @@
 
 ### 安装
 
-`CodeFever Next` 提供 `从零开始安装` 和 `Docker 镜像安装` 两种安装方式, 可以根据自己的实际需要选择安装方式。
+`CodeFever Next` 提供 `docker compose` 和 `从零开始安装` 两种方式，可以根据实际需要选择。
 
-- **(推荐)** 最简单的安装方式是使用 `Docker`, 只需要一行命令即可完成, 具体可见: [Docker 镜像安装](../installation/install_via_docker.md)
+- **(推荐)** 最简单的安装方式是 `docker compose up -d --build`；首次构建需要能访问两个基础镜像、Debian 归档源与 Go module 代理。具体见：[使用 docker-compose 安装](../installation/install_via_docker_compose.md)
 
-- 如果出于学习、研究或定制化需求, 也可以手动方式安装, 具体可见: [从零开始安装](../installation/install_from_scratch.md)
+- 如果想了解镜像构建细节，或已经有一个外部 MySQL，可见：[Docker 镜像安装](../installation/install_via_docker.md)
+
+- 如果出于学习、研究或定制化需求，也可以手动方式安装，具体可见: [从零开始安装](../installation/install_from_scratch.md)
 
 ### 更新
 

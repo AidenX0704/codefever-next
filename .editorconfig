@@ -14,6 +14,9 @@ indent_size = 4
 [*.{go,js,jsx,ts,tsx,json,yml,yaml,css,html}]
 indent_size = 2
 
+[*.go]
+indent_style = tab
+
 [*.md]
 trim_trailing_whitespace = false
 
@@ -23,6 +26,7 @@ indent_style = tab
 [*.{sh,bash}]
 indent_size = 4
 
+# .gitattributes 统一 *.ps1 为 LF；编辑器不要另存为 CRLF。
 [*.ps1]
 indent_size = 4
-end_of_line = crlf
+end_of_line = lf

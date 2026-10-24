@@ -2,88 +2,86 @@
 
 ## When this document applies
 
-> Use the `从零开始安装` (install from scratch) route if any of the following applies,
-> otherwise use [Install via Docker Image](install_via_docker.md).
+Use the source installation if:
 
-- Learning and technical exchange
-- You need custom modifications
-- `Docker 镜像安装` cannot satisfy your `Bug` fixing or `PR` submitting needs
-- The Docker image cannot run on your `operating system` or `hardware architecture`
+- you want to study or customize the code;
+- you need to build/debug Go sources directly or submit a PR;
+- Docker is not available on your OS/architecture;
+- you need deep control over nginx/systemd/database.
 
-> **Version note**: the backend of this project has been rewritten from PHP in Go.
-> **PHP, php-fpm, Composer and crond are no longer required.**
-> The steps below describe the Go backend; the former PHP installation steps were removed.
+Otherwise, use [Install with docker-compose](install_via_docker_compose.md); it is shorter
+and easier to upgrade.
+
+> **Version note**: the backend has been rewritten in Go. `http-gateway` and `ssh-gateway`
+> are now part of `backend/`. **PHP, php-fpm, Composer and crond are no longer required.**
 
 ## Installation
 
 ### 0. Before you start
 
-These steps apply to most `Linux` distributions. The whole procedure has to be performed
-as the `root` operating system user.
+- Run the commands below as `root`.
+- The **source path** used here is `/data/www/codefever-next`; the in-container path is
+  `/data/www/codefever-community`. They are different; do not mix them.
+- A source install serves HTTP/SSH on **80/22** by default (nginx/sshd), unlike the Compose
+  defaults of 9080/2222.
 
-> Steps `1` - `3` only install the software environment. Skip them if your machine already
-> provides it.
+### 1. Prepare the OS
 
-### 1. Prepare the operating system
-
-Pick a suitable `Linux` distribution — `Debian 12` / `Ubuntu 22.04` or `CentOS 7.x` and newer
-are recommended.
+`Debian 12` / `Ubuntu 22.04` or newer is recommended.
 
 ```shell
 # Debian / Ubuntu
 apt-get update
-apt-get install -y nginx git mysql-server mariadb-client sendmail
+apt-get install -y nginx git mysql-server mariadb-client ca-certificates curl
 
-# CentOS / RHEL
-yum install -y nginx git mariadb-server mariadb sendmail
+# Optional: only if you want the system-mail fallback instead of SMTP
+# apt-get install -y mailutils
 ```
+
+> CodeFever recommends SMTP (`CODEFEVER_SMTP_*`) over the system `mail` fallback.
 
 ### 2. Install Go
 
-Download the `1.25`+ binary release (recommended: `1.25`) from
-[https://golang.google.cn/dl/](https://golang.google.cn/dl/), unpack it into `/usr/local/go`.
+Download a `1.23`+ Linux binary from <https://golang.google.cn/dl/>
+(`backend/go.mod` declares `go 1.23.0`; the Docker build uses a 1.25 base image, which does
+not affect a source install):
 
 ```shell
-cp -R go /usr/local
-ln -s /usr/local/go/bin/go /usr/local/bin/go
-ln -s /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+tar -C /usr/local -xzf go1.23.0.linux-amd64.tar.gz
+ln -sf /usr/local/go/bin/go /usr/local/bin/go
+ln -sf /usr/local/go/bin/gofmt /usr/local/bin/gofmt
+go version
 ```
 
-### 3. Install NodeJS (only when you need to rebuild the front-end)
+### 3. Install Node.js (only when rebuilding the front-end)
 
-The front-end bundle `www/view/build` is committed to the repository, so Node.js is **not**
-required for a normal installation. You only need it when you change front-end sources:
+The front-end bundle `www/view/build` is committed, so Node.js is **not** needed for a
+normal installation:
 
 ```shell
-curl -fsSL https://nodejs.org/dist/v20.x.x/node-v20.x.x-linux-x64.tar.xz | tar -xJ -C /usr/local
-ln -s /usr/local/node-v20.x.x-linux-x64/bin/node /usr/local/bin/node
-ln -s /usr/local/node-v20.x.x-linux-x64/bin/npm  /usr/local/bin/npm
+curl -fsSL https://nodejs.org/dist/v20.19.0/node-v20.19.0-linux-x64.tar.xz | tar -xJ -C /usr/local
+ln -sf /usr/local/node-v20.19.0-linux-x64/bin/node /usr/local/bin/node
+ln -sf /usr/local/node-v20.19.0-linux-x64/bin/npm  /usr/local/bin/npm
 ```
 
-Then run `yarn install && yarn build` inside `www/view`.
+Then run `yarn install && yarn build` in `www/view`. Node 17+ needs
+`NODE_OPTIONS=--openssl-legacy-provider`.
 
 ### 4. Install MySQL / MariaDB
 
-MySQL does not have to be compiled — install it with the package manager of your distribution.
+> ⚠️ **Use MySQL 8.0.x (or MariaDB 10.6+).** The event worker and webhook deliverer use
+> `FOR UPDATE SKIP LOCKED` (MySQL 8.0.1 / MariaDB 10.6+).
+> MySQL 5.7 fails with a syntax error; MySQL 8.4+ changes authentication options and is not
+> yet supported by the provided setup.
 
-> ⚠️ **`MySQL 8.0+` (or `MariaDB 10.6+`) is required.** The event worker and the webhook
-> deliverer claim their work with `FOR UPDATE SKIP LOCKED`, which only exists since
-> MySQL 8.0.1 / MariaDB 10.6. On MySQL 5.7 those two queries fail with a syntax error,
-> which silently kills the activity feed, in-app notifications, e-mail notifications
-> and webhooks.
-
-Start it with `service mariadb start` or `service mysql start`, then initialise it with
-`mysql_secure_installation` or `mariadb-secure-installation`.
-
-* When you set the `root` password to `123456`, you do not have to change the database
-  settings in `env.yaml` in the next step.
-
-The default `SQL MODE` of `MySQL 8.0` already satisfies the requirement. If you are on
-`MySQL 5.7`, change the SQL MODE variable manually, otherwise creating the database fails:
-
-```sql
-set global sql_mode='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_AUTO_CREATE_USER,NO_ENGINE_SUBSTITUTION';
+```shell
+service mysql start     # or: service mariadb start
+mysql_secure_installation
+# or: mariadb-secure-installation
 ```
+
+If the root password is `123456`, you can keep the `env.yaml` defaults; otherwise update
+the `mysql` section in step 6.
 
 ### 5. Get the source code
 
@@ -94,147 +92,173 @@ git clone https://github.com/AidenX0704/codefever-next.git codefever-next
 cd codefever-next
 ```
 
+All following commands run in `/data/www/codefever-next`.
+
 ### 6. Prepare the configuration files
 
+A source install uses the repository-root `config.yaml` / `env.yaml` (not `config/`):
+
 ```shell
-cd /data/www/codefever-community
+cd /data/www/codefever-next
 cp config.template.yaml config.yaml
 cp env.template.yaml env.yaml
-chmod 0777 config.yaml env.yaml
+chmod 0660 config.yaml env.yaml
 ```
 
-`session_key` and `totp_salt` in `env.yaml` are placeholders — replace them with random values:
+`session_key`, `totp_salt` and `gateway.token` in `env.yaml` are placeholders and must be
+replaced:
 
 ```shell
-KEY="$(head -c 32 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)"
+KEY="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' | cut -c1-32)"
+TOKEN="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' | cut -c1-32)"
 sed -i "s|key: <session_key>|key: ${KEY}|" env.yaml
 sed -i "s|salt: <totp_salt_for_codefever>|salt: ${KEY}|" env.yaml
+sed -i "s|token: <codefever_community_api_token>|token: ${TOKEN}|" env.yaml
 ```
 
-Adjust the database connection (`host` / `port` / `username` / `password` / `db`) in `env.yaml`
-if needed.
+- `gateway.token` authenticates the internal gateway callbacks; a source install **must**
+  fill it in.
+- Adjust the `mysql` section in `env.yaml` (`host` / `port` / `username` / `password` / `db`).
+- `config.yaml` `host` / `ssh` controls the clone panel. For a default 80/22 source install
+  use `host: http://<server-ip>` and `ssh: git@<server-ip>:`. If SSH is not on port 22, use
+  `ssh://git@<server-ip>:<port>/`.
+- Set `allowRegister: false` before exposing the instance publicly.
 
 ### 7. Build the Go services
 
-```shell
-cd /data/www/codefever-community/backend
+`backend/` is a single Go module containing the API, worker, git hook, HTTP gateway and SSH
+gateway:
 
-export GOPROXY=https://mirrors.aliyun.com/goproxy,direct
+```shell
+cd /data/www/codefever-next/backend
+
+export GOPROXY=https://mirrors.aliyun.com/goproxy,direct   # optional in China
 export GOFLAGS=-mod=mod
 
-go build -trimpath -ldflags="-s -w" -o ../bin/codefever-api    ./cmd/codefever-api
-go build -trimpath -ldflags="-s -w" -o ../bin/codefever-worker ./cmd/codefever-worker
-go build -trimpath -ldflags="-s -w" -o ../bin/codefever-hook   ./cmd/codefever-hook
+go build ./...                                             # compile check (5 commands)
+
+mkdir -p ../bin
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-api          ./cmd/codefever-api
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-worker       ./cmd/codefever-worker
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-hook         ./cmd/codefever-hook
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-http-gateway ./cmd/codefever-http-gateway
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-ssh-gateway  ./cmd/codefever-ssh-gateway
 ```
 
-Build the two Git gateways. `http-gateway/` and `ssh-gateway/` are upstream GOPATH-style code
-(relative imports + `GO111MODULE=off`); modern Go no longer supports that mode, so the imports
-are converted to module mode at build time:
+> You no longer need per-gateway `go.mod` files or `sed` on relative imports; they are
+> ordinary commands under `backend/cmd/`.
+
+### 8. Create the git user, directories and symlinks
 
 ```shell
-cd /data/www/codefever-community
-export GOPROXY=https://mirrors.aliyun.com/goproxy,direct
-export GOFLAGS=-mod=mod
+cd /data/www/codefever-next
 
-printf 'module codefever\n\ngo 1.21\n\nrequire gopkg.in/yaml.v2 v2.4.0\n' > go.mod
-sed -i 's#"\./Request"#"codefever/http-gateway/Request"#' http-gateway/main.go
-sed -i 's#"\.\./JsonHttpClient"#"codefever/http-gateway/JsonHttpClient"#' http-gateway/Request/main.go
-sed -i 's#"\.\./JsonHttpClient"#"codefever/ssh-gateway/JsonHttpClient"#' ssh-gateway/shell/main.go
+# SSH user and public-key directory (the UI writes authorized_keys here)
+useradd -rm -d /home/git -s /bin/bash git || true
+mkdir -p /home/git/.ssh
+chown -R git:git /home/git/.ssh
 
-cd http-gateway && go build -trimpath -ldflags="-s -w" -o main .
-cd ../ssh-gateway/shell && go build -trimpath -ldflags="-s -w" -o main .
-```
+# git hooks run as the git user and need to read env.yaml (gateway.token)
+chown root:git config.yaml env.yaml
+chmod 0660 config.yaml env.yaml
 
-### 8. Restore the git hook symlinks
+# runtime directories
+mkdir -p bin git-storage file-storage deploy/hooks misc/hooks git-storage/hooks ssh-gateway/shell
 
-The git hooks are provided by `bin/codefever-hook`; the `hooks/` directory of every bare
-repository symlinks to it:
+# new bare repos use deploy/hooks; misc/hooks and ssh-gateway/shell keep old deployments working
+for d in deploy/hooks misc/hooks git-storage/hooks; do
+  ln -sfn ../../bin/codefever-hook "$d/main"
+  ln -sfn main "$d/pre-receive"
+  ln -sfn main "$d/post-receive"
+  ln -sfn main "$d/update"
+done
+ln -sfn ../../bin/codefever-ssh-gateway ssh-gateway/shell/main
 
-```shell
-cd /data/www/codefever-community
-mkdir -p git-storage/hooks
-rm -f misc/hooks/main misc/hooks/post-receive misc/hooks/pre-receive misc/hooks/update
-rm -f git-storage/hooks/main git-storage/hooks/post-receive git-storage/hooks/pre-receive git-storage/hooks/update
-
-ln -s ../../bin/codefever-hook misc/hooks/main
-ln -s main misc/hooks/post-receive
-ln -s main misc/hooks/pre-receive
-ln -s main misc/hooks/update
-
-ln -s ../../bin/codefever-hook git-storage/hooks/main
-ln -s main git-storage/hooks/post-receive
-ln -s main git-storage/hooks/pre-receive
-ln -s main git-storage/hooks/update
-```
-
-The front-end entry point `www/app` has to point at `www/view/build` as well:
-
-```shell
-rm -f www/app
-ln -s view/build www/app
+# front-end entry
+ln -sfn view/build www/app
 ```
 
 ### 9. Initialise the database
 
+The script reads the repository-root `env.yaml` and is idempotent:
+
 ```shell
-cd /data/www/codefever-community/misc
-sh ./create_db.sh
+cd /data/www/codefever-next
+sh backend/deploy/sql/create_db.sh
 ```
 
-If you do not plan to modify CodeFever or to run the unit tests, the test data can be removed:
+If you do not want the test data (usual for production):
 
 ```shell
-cd /data/www/codefever-community/misc
-sh ./remove_test_data.sh
+sh backend/deploy/sql/remove_test_data.sh
 ```
 
 ### 10. Configure nginx
 
-Generate the site configuration from `misc/docker/vhost-go.conf-template` and make sure its
-`root` points at the application directory on your machine:
+The template is `backend/deploy/docker/vhost-go.conf-template`; its root uses the container
+path `/data/www/codefever-community`, so replace it with your source path:
 
 ```shell
 mkdir -p /etc/nginx/conf.d
-cp /data/www/codefever-community/misc/docker/vhost-go.conf-template \
-   /etc/nginx/conf.d/codefever.conf
+sed 's#/data/www/codefever-community#/data/www/codefever-next#g' \
+    /data/www/codefever-next/backend/deploy/docker/vhost-go.conf-template \
+    > /etc/nginx/conf.d/codefever.conf
 
+# disable the distro's default site on :80 if present
+rm -f /etc/nginx/sites-enabled/default
 nginx -t && systemctl reload nginx
 ```
 
-The configuration contains three parts:
+The config contains:
 
-- Application paths (`/api/*`, `/apiv1/*`, `/user/*`, `/doc/*`, …) → proxied to
-  `http://127.0.0.1:9001` (the Go backend)
-- `/*.git` → proxied to `http://127.0.0.1:27555` (the Git over HTTP gateway)
-- `/static/*` and everything else → served directly by nginx from the front-end bundle
+- `/api/*`, `/apiv1/*`, `/user/*`, `/doc/*` → `http://127.0.0.1:9001` (Go API)
+- `/*.git` → `http://127.0.0.1:27555` (HTTP gateway)
+- `/static/*` and everything else → `www/view/build`
 
 ### 11. Configure passwordless SSH access
 
-Git over SSH runs `ssh-gateway/shell/main` as a forced command:
+Git over SSH runs `bin/codefever-ssh-gateway` as a forced command:
 
-```
-# /etc/ssh/sshd_config
+```sshconfig
+# end of /etc/ssh/sshd_config
 Match User git
-    ForceCommand /data/www/codefever-community/ssh-gateway/shell/main
+    ForceCommand /data/www/codefever-next/bin/codefever-ssh-gateway
     AllowTcpForwarding no
     PermitTunnel no
 ```
 
-### 12. Supervise the three Go services with systemd
+```shell
+sshd -t && systemctl reload ssh
+```
+
+Then add a public key in **SSH Key** in the UI and test with
+`git clone ssh://git@<server-ip>:22/<group>/<repo>.git`.
+
+### 12. Supervise the three resident services with systemd
+
+`ssh-gateway` is not resident; sshd starts it per connection. The resident services are API,
+worker and HTTP gateway.
 
 `/etc/systemd/system/codefever-api.service`:
 
 ```ini
 [Unit]
 Description=CodeFever Next API (Go)
-After=network.target mysqld.service
+After=network.target mysql.service
 
 [Service]
 Type=simple
 User=root
-WorkingDirectory=/data/www/codefever-community
-Environment=CODEFEVER_BASE_DIR=/data/www/codefever-community
-ExecStart=/data/www/codefever-community/bin/codefever-api
+WorkingDirectory=/data/www/codefever-next
+Environment=CODEFEVER_BASE_DIR=/data/www/codefever-next
+# E-mail is recommended via SMTP:
+# Environment=CODEFEVER_SMTP_HOST=smtp.example.com
+# Environment=CODEFEVER_SMTP_PORT=587
+# Environment=CODEFEVER_SMTP_USER=git@example.com
+# Environment=CODEFEVER_SMTP_PASSWORD='<password>'
+# Environment=CODEFEVER_SMTP_FROM='CodeFever <git@example.com>'
+# Environment=CODEFEVER_SMTP_TLS=starttls
+ExecStart=/data/www/codefever-next/bin/codefever-api -base /data/www/codefever-next
 Restart=always
 RestartSec=3
 
@@ -242,38 +266,45 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-`/etc/systemd/system/codefever-worker.service`: same file with
+Create `codefever-worker.service` and `codefever-http-gateway.service` with the same
+`[Unit]/[Service]/[Install]`, changing only the description and `ExecStart`:
 
-```
-ExecStart=/data/www/codefever-community/bin/codefever-worker
-```
-
-`/etc/systemd/system/codefever-http-gateway.service`: same file with
-
-```
-ExecStart=/data/www/codefever-community/http-gateway/main
+```ini
+ExecStart=/data/www/codefever-next/bin/codefever-worker -base /data/www/codefever-next
+ExecStart=/data/www/codefever-next/bin/codefever-http-gateway -base /data/www/codefever-next
 ```
 
-Enable and start them:
+Enable and start:
 
 ```shell
 systemctl daemon-reload
 systemctl enable --now codefever-api codefever-worker codefever-http-gateway
 ```
 
-### 13. Enable the services on boot
+> The provided units run as `root`, matching the container. If you switch to `git`, make
+> sure `git-storage`, `file-storage`, `bin/`, `config.yaml` and `env.yaml` permissions are
+> correct.
+
+### 13. Enable services on boot
 
 ```shell
-systemctl enable nginx mysqld mariadb sendmail
+systemctl enable nginx
+systemctl enable mysql     # or mariadb
 ```
 
 ### 14. Verify
 
-Open `http://127.0.0.1` or `http://<server ip>` and log in.
+Open `http://<server-ip>` (port 80 for a source install) and log in.
 
 Default administrator: `root@codefever.cn`, password: `123456`.
-**Change the password and bind an MFA device right after the first login.**
+**Change the password, bind MFA and disable open registration right after the first login.**
 
 ### 15. Service maintenance
 
-See the `系统服务状态及维护` section of [Admin / Dashboard](../admin/dashboard.md).
+See [Admin / Overview and system services](../admin/dashboard.md). Common commands:
+
+```shell
+systemctl status codefever-api codefever-worker codefever-http-gateway
+journalctl -u codefever-api -f
+nginx -t && systemctl reload nginx
+```

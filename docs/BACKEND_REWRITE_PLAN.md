@@ -1,6 +1,11 @@
-# CodeFever Community 后端重写方案（Go 1.25）
+# CodeFever Community 后端重写方案（Go 1.23+）
 
 > 决策依据：`docs/ARCHITECTURE_ANALYSIS.md`（架构分析）+ 运行态实测 + MySQL 8.0.46 兼容性实测 + 浏览器 UI 取证。
+
+> **文档状态（2026-10-23 晚）**：本文是重写方案的历史记录。`backend/go.mod` 当前声明
+> `go 1.23.0`（Docker 构建使用 Go 1.25 基础镜像）；`http-gateway` / `ssh-gateway` 已并入
+> `backend/cmd/`，`misc/` 已迁移到 `backend/deploy/`。下文这些旧路径用于解释当时的决策，
+> 不是当前目录结构；当前结构以仓库根 `README.md` 为准。
 
 ---
 
@@ -8,7 +13,7 @@
 
 | 决策项 | 结论 | 状态 |
 |---|---|---|
-| 重写语言 | **Go 1.25** | ✅ 用户已确认 |
+| 重写语言 | **Go 1.23+**（Docker 构建使用 1.25 基础镜像） | ✅ 已调整 |
 | 数据库 | **MySQL 8**（从 5.7.31 升级） | ✅ 用户已确认 |
 | Go 网关 | **保留**（`http-gateway` / `ssh-gateway` 不重写） | ✅ 用户已确认 |
 | 前端 | **零改动**（保留 `www/view` 源码与 `www/view/build` 产物） | ✅ 用户硬约束 |
@@ -31,9 +36,11 @@
 ### 1.2 非目标（明确不做）
 
 - ❌ 不改前端源码、不重装前端依赖（`@pgyer/mui-theme-preset` 声明为 `latest`，重装即漂移）。
-- ❌ 不改两个 Go 网关的源码与部署路径（`http-gateway/main`、`ssh-gateway/shell/main` 的落位决定 `../env.yaml` 与 `../../env.yaml` 的解析）。
+- ~~❌ 不改两个 Go 网关的源码与部署路径~~（后续已调整：网关源码并入 `backend/cmd/`，
+  但运行时仍保持独立进程，不常驻的 SSH forced command 语义不变）。
 - ❌ 不改 URL 形状（不做 RESTful 重设计）。
-- ❌ 不合并 Go 网关进新后端（SSH 网关涉及 pty/shell/密钥同步，独立进程更安全）。
+- ~~❌ 不合并 Go 网关进新后端~~（源码已并入同一 Go module，但运行时仍是独立进程：
+  API / worker / HTTP 网关常驻，SSH 网关由 sshd 每次连接拉起）。
 - ❌ 不实现 `user/getCode`、`user/confirmTel`（前端调用了但后端从未存在，运行时必然 404 —— 保持"不存在"即可，属死代码）。
 - ❌ 不实现 `RepositorySettingJob.js` 的 3 个幽灵端点（`repository/jobTemplates` 等，页面未注册进路由）。
 
@@ -169,7 +176,7 @@ Go 网关只依赖 4 个键：`gateway.token`、`gateway.authHTTP`、`gateway.au
                     └──────────────┬─────────────────────────────┘
                                    │ FastCGI 换为 HTTP 反代
                     ┌──────────────▼─────────────────────────────┐
-                    │ codefever-api (Go 1.25, 单二进制)            │
+                    │ codefever-api (Go 1.23+, 单二进制)           │
                     │  httpapi ─▶ contract ─▶ handlers            │
                     │                  │                          │
                     │            domain（业务规则）                 │
@@ -180,7 +187,7 @@ Go 网关只依赖 4 个键：`gateway.token`、`gateway.authHTTP`、`gateway.au
                     └────────────────────────────────────────────┘
                                    │ 异步
                     ┌──────────────▼─────────────────────────────┐
-                    │ codefever-worker (Go 1.25, 同一仓库)         │
+                    │ codefever-worker (Go 1.23+, 同一仓库)        │
                     │  事件消费 → 站内信 / 邮件 / Webhook 投递      │
                     └────────────────────────────────────────────┘
 
@@ -374,7 +381,7 @@ func (g *Git) run(ctx context.Context, dir string, args ...string) (stdout strin
 |---|---|---|
 | 仓库创建 = `git init --bare` | `repository_model.php:652` | 保持 |
 | Fork = `git clone --bare <src> .` | `:662` | 保持 |
-| 仓库 hooks = `rm -r hooks && ln -s ../../misc/hooks hooks` | `:653-654` | **相对路径软链必须保持**（`git-storage/<uuid>` 的 `../../misc/hooks` = 根 `misc/hooks`） |
+| 仓库 hooks = `rm -r hooks && ln -s ../../deploy/hooks hooks` | `:653-654` | 相对路径软链必须保持；旧仓库的 `../../misc/hooks` 也保留兼容软链 |
 | 仓库目录权限 `chmod -R 0777` | `:655` | 改为 `0750` + 属主 `git`（安全修正，不影响功能） |
 | 需要工作树的操作（merge/blame） | `Utility/Workspace.php` `/tmp/workspace/<uuid>` | 保持机制，换 Go 实现 |
 | 合并模式 | `repository_model.php:1017-1110` | `message=NULL`→FF；`message`+`squash=false`→`--no-ff`；`message`+`squash=true`→`--squash`+commit |
@@ -486,14 +493,14 @@ handler ──事务内──▶ cc_events 表（新增）
 | 步 | 动作 | 验证 |
 |---|---|---|
 | 0 | 备份：`mysqldump --single-transaction --routines --triggers` | 备份可恢复 |
-| 1 | **唯一改动**：`misc/docker/docker-entrypoint.sh:23` 的 sql_mode 改为<br>`'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'` | 移除 `NO_AUTO_CREATE_USER`（8.0.3+ 已删除，否则 `ERROR 1231`）<br>移除 `NO_ZERO_DATE` / `NO_ZERO_IN_DATE`（保留零日期语义） |
+| 1 | **唯一改动**：`backend/deploy/docker/docker-entrypoint.sh` 的 sql_mode 改为<br>`'ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION'` | 移除 `NO_AUTO_CREATE_USER`（8.0.3+ 已删除，否则 `ERROR 1231`）<br>移除 `NO_ZERO_DATE` / `NO_ZERO_IN_DATE`（保留零日期语义） |
 | 2 | `db_structure.sql` / `db_data.sql` / `db_update_20220215.sql` | **零改动**。实测在放宽后的 sql_mode 下，17 张表全部建成、种子数据原样写入、零日期值逐字保留 |
 | 3 | 用 `mysqldump` 把 5.7 数据导入 8.0（`--single-transaction --set-gtid-purged=OFF`） | 行数与关键表计数一致（实测 3 用户 / 2 组 / 3 仓库 / 1 SSH key） |
 | 4 | 校验隐式默认一致性 | 实测 5.7 与 8.0 对同一份 DDL 的 `datetime NOT NULL` 隐式默认**同为 `0001-01-01 00:00:00`**，无需处理 |
 | 5 | 校验零日期存储值 | 实测两版本**完全一致**（`0000-00-00 00:00:00` 与 `0001-01-01 00:00:00` 均原样保留） |
 | 6 | PHP 后端在 8.0 上跑全链路回归：登录、列表、Git HTTP/SSH clone+push、钩子回调 | 回归通过后再开始 Go 开发 |
 
-**已应用的改动**（`misc/docker/docker-entrypoint.sh`）：
+**已应用的改动**（`backend/deploy/docker/docker-entrypoint.sh`）：
 
 ```sh
 # NO_AUTO_CREATE_USER —— MySQL 8.0.3+ 已移除该模式，MySQL 8 下设置会报 ERROR 1231，故移除。
@@ -738,8 +745,8 @@ mysql ... -e"set global sql_mode='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,ERROR_F
 - [ ] `uid` 格式 `"<u_key>|<r_key>"`；`PGYER_UID` 传递链不断
 - [ ] "仓库不存在" 返回 404 / `0x0302`（Go 网关据此区分 401 与 404）
 - [ ] `env.yaml` / `config.yaml` 键结构与 Go 网关读取路径未变
-- [ ] `git-storage/<32-hex>` 布局、bare 仓库、`hooks → ../../misc/hooks` 软链未变
+- [x] `git-storage/<32-hex>` 布局、bare 仓库、hooks 软链未变（新仓库 `../../deploy/hooks`，旧仓库 `../../misc/hooks` 兼容）
 - [ ] `/file/fetch/avatar/<key>` 返回二进制，路径穿越被拒
 - [ ] 5 个服务端渲染页 DOM 与 CSS 引用逐字未变（截图 diff 全绿）
 - [ ] SPA 产物哈希未变（`www/view/build` 未重新构建）
-- [ ] 仓库名含连字符可正常 HTTP 访问（nginx/Go/PHP 三端正则已统一）
+- [x] 仓库名含连字符可正常 HTTP 访问（nginx/Go 两端已统一为 `[0-9a-z_.-]+`）

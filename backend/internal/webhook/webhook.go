@@ -56,7 +56,7 @@ type Deliverer struct {
 	sender Sender
 	log    *slog.Logger
 
-	// Host 是站点地址（cfg.Site.Host），用于拼出仓库地址。
+	// Host 是站点地址（cfg.SiteConfig().Host），用于拼出仓库地址。
 	Host string
 
 	// PollInterval 是轮询间隔。
@@ -74,7 +74,7 @@ type Deliverer struct {
 
 // NewDeliverer 创建 webhook 投递器。
 //
-// db 用于读取队列与写入日志；host 是站点地址（cfg.Site.Host）；
+// db 用于读取队列与写入日志；host 是站点地址（cfg.SiteConfig().Host）；
 // sender 为 nil 时使用默认的 HTTP 投递器。
 func NewDeliverer(db *sql.DB, host string, sender Sender, log *slog.Logger) *Deliverer {
 	if log == nil {

@@ -1,13 +1,29 @@
-# HTTP 和 SSH 的选择
+# Choosing between HTTP and SSH
 
-在克隆仓库到本地时, 一般会遇到选择使用 `HTTP` 还是 `SSH` 方式来连接远端仓库的问题。
+When cloning a repository you can use either `HTTP` or `SSH`. CodeFever supports both, and
+the clone panel generates the URLs from the configured site address.
 
-`CodeFever` 也提供了这两种方式供用户选择
+### Comparison
 
-### 两种方式的比较
+`SSH` is convenient after you add a public key in your personal settings: no password is
+needed for clone/pull/push. The downside is that you must generate and configure a key.
+HTTP is easier for beginners, but each connection asks for your e-mail and password.
 
-`SSH` 方式的优点在于, 当用户在 `CodeFever` 的个人设置中设置好 `SSH Key` 以后，每次使用 `SSH` 连接远端仓库均不需要再进行任何人工的认证方式。但是使用 `SSH` 方式对于用户有一定的技术  要求, 用户必须自己生成 `SSH Key` 并完成配置。
+### Ports and URL forms
 
-相比之下 `HTTP` 方式更适合新手和不熟悉操作系统的用户, 不需要生成并设置 `SSH Key`。 但是在使用 `HTTPS` 方式连接远端仓库时，每次连接都需要输入邮箱和密码进行身份认证。
+- Compose defaults: HTTP `9080`, SSH `2222` (override with `CODEFEVER_HTTP_PORT` /
+  `CODEFEVER_SSH_PORT`).
+- HTTP: `http://<email-or-user>@<host>:9080/<group>/<repo>.git`
+- SSH: `ssh://git@<host>:2222/<group>/<repo>.git`
 
-> 关于如何生成 `SSH Key`。 参照: [获取并设置 SSH Key](ssh_key.md)
+> SSH must use the `ssh://git@host:port/...` form to carry a non-22 port; the scp-like
+> `git@host:<path>` form treats `2222` as part of the path. For a source install that still
+> uses port 22, `git@host:<group>/<repo>.git` is also valid.
+
+Test the SSH connection:
+
+```shell
+ssh -p 2222 -T git@<host>
+```
+
+> See [Generate and configure an SSH key](ssh_key.md) for key setup.

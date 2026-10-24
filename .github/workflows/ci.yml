@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: Go build / vet / test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend/go.mod
+          cache-dependency-path: backend/go.sum
+
+      - name: gofmt
+        run: |
+          unformatted="$(gofmt -l .)"
+          if [ -n "$unformatted" ]; then
+            echo "以下文件未格式化："
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: build
+        run: go build ./...
+
+      - name: build (linux, cross-compile; catches build-tag-only errors)
+        env:
+          GOOS: linux
+          GOARCH: amd64
+          CGO_ENABLED: 0
+        run: go build ./...
+
+      - name: vet
+        run: go vet ./...
+
+      - name: test
+        run: go test ./internal/...
+
+  compose:
+    name: Docker Compose config
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate docker-compose.yml
+        run: docker compose config > /dev/null

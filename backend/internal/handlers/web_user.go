@@ -70,7 +70,7 @@ func (h *WebUserHandler) RegisterWeb(s *httpapi.Server) {
 // 关闭注册时，POST 也会 302 跳到 /user/login（不是返回 JSON）。
 func (h *WebUserHandler) register(w http.ResponseWriter, r *http.Request) {
 	// 逐字对应 user.php:134-137。
-	if !h.Cfg.Site.AllowRegister {
+	if !h.Cfg.SiteConfig().AllowRegister {
 		redirect(w, "/user/login")
 		return
 	}
@@ -383,7 +383,7 @@ func (h *WebUserHandler) getResetPasswordCode(w http.ResponseWriter, r *http.Req
 	if h.Mailer != nil {
 		_ = h.Mailer.Send(ctx, mailer.Message{
 			To:      email,
-			From:    h.Cfg.Site.Email.From,
+			From:    h.Cfg.SiteConfig().Email.From,
 			Subject: "【CodeFever Next】重置密码",
 			Body:    "您的验证码是：" + code,
 		})

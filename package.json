@@ -2,13 +2,13 @@
   "name": "codefever-next",
   "version": "0.1.0",
   "description": "CodeFever Next —— 基于 CodeFever 二次开发的 Git 代码托管平台（Go 后端，运行时不含 PHP）",
-  "homepage": "https://github.com/AidenX0704/codefever-next/codefever-next#readme",
+  "homepage": "https://github.com/AidenX0704/codefever-next#readme",
   "bugs": {
-    "url": "https://github.com/AidenX0704/codefever-next/codefever-next/issues"
+    "url": "https://github.com/AidenX0704/codefever-next/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AidenX0704/codefever-next/codefever-next.git"
+    "url": "git+https://github.com/AidenX0704/codefever-next.git"
   },
   "keywords": [
     "git",
@@ -26,7 +26,7 @@
     "fmt": "cd backend && gofmt -l .",
     "up": "docker compose up -d --build",
     "down": "docker compose down",
-    "logs": "docker compose logs -f codefever-next-app"
+    "logs": "docker compose logs -f codefever"
   },
   "devDependencies": {
     "cz-conventional-changelog": "^2.1.0"

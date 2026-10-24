@@ -35,6 +35,7 @@ import (
 	"codefever-next/backend/internal/domain"
 	"codefever-next/backend/internal/httpapi"
 	"codefever-next/backend/internal/repo"
+	"codefever-next/backend/internal/session"
 	"codefever-next/backend/internal/storage"
 )
 
@@ -62,6 +63,8 @@ type AdminHandler struct {
 	Repos *repo.RepositoryRepo
 	// Disk 用于存放新用户的头像文件。
 	Disk *storage.Disk
+	// Sessions 用于禁用账号/重置口令后吊销会话（可选）。
+	Sessions *session.Store
 
 	// site 是当前生效的 config.yaml 文档。
 	//
@@ -274,6 +277,12 @@ func (h *AdminHandler) updateUserStatus(ctx context.Context, req *httpapi.Reques
 		return nil, contract.NewError(contract.CodeOperateFail)
 	}
 
+	// 禁用账号时吊销其全部会话；currentUser 也会按状态拒绝，但主动清理
+	// 可以立即让 cc_sessions 不再保留无效行。
+	if newStatus != domain.CommonStatusNormal && h.Sessions != nil {
+		_ = h.Sessions.DeleteByUser(ctx, uKey)
+	}
+
 	return []any{}, nil
 }
 
@@ -331,6 +340,11 @@ func (h *AdminHandler) resetPassword(ctx context.Context, req *httpapi.Request) 
 		return tx.UpdateUserFields(ctx, uKey, map[string]any{"u_password": hashed})
 	}); err != nil {
 		return nil, contract.NewError(contract.CodeOperateFail)
+	}
+
+	// 管理员重置口令后，旧会话立即失效。
+	if h.Sessions != nil {
+		_ = h.Sessions.DeleteByUser(ctx, uKey)
 	}
 
 	return []any{}, nil
@@ -1037,7 +1051,7 @@ func (h *AdminHandler) configPost(ctx context.Context, req *httpapi.Request) (an
 	}
 
 	h.storeSiteDocument(merged)
-	h.Cfg.Site = siteConfigFromDocument(merged)
+	h.Cfg.SetSite(siteConfigFromDocument(merged))
 
 	return merged, nil
 }
@@ -1069,8 +1083,8 @@ func (h *AdminHandler) storeSiteDocument(doc map[string]any) {
 }
 
 // host 与 ssh 返回站点配置里的 host / ssh。
-func (h *AdminHandler) host() string { return h.Cfg.Site.Host }
-func (h *AdminHandler) ssh() string  { return h.Cfg.Site.SSH }
+func (h *AdminHandler) host() string { return h.Cfg.SiteConfig().Host }
+func (h *AdminHandler) ssh() string  { return h.Cfg.SiteConfig().SSH }
 
 // siteConfigFromDocument 由配置文档构造 config.Site。
 func siteConfigFromDocument(doc map[string]any) config.Site {
@@ -1110,6 +1124,12 @@ func writeSiteDocumentAtomic(path string, doc map[string]any) error {
 	data, err := domain.MarshalSiteDocument(doc)
 	if err != nil {
 		return err
+	}
+
+	// config.yaml 在容器里是指向 <base>/config/config.yaml 的软链（命名卷）。
+	// os.Rename 会替换软链本身而不是目标文件，因此先解析真实路径。
+	if resolved, evalErr := filepath.EvalSymlinks(path); evalErr == nil {
+		path = resolved
 	}
 
 	dir := filepath.Dir(path)

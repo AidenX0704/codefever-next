@@ -1,0 +1,71 @@
+# CodeFever Next —— nginx 站点配置（Go 后端）
+#
+# PHP 后端下线后，本文件是**唯一**的站点配置（原先的 PHP 版 vhost.conf-template
+# 已随 PHP 运行时一起删除）。
+#
+# 要点：
+#   1. 应用层路径（/api /apiv1 /user /file /doc /lang /captcha 等）全部反向代理
+#      到 Go 后端 http://127.0.0.1:9001。
+#   2. 静态资源与 SPA 回退由 nginx 直接托管 www/view/build（PHP 时代也是如此）。
+#   3. 仓库名正则放宽，允许连字符 —— 与 Go 后端及 Go 网关统一；
+#      PHP 版的三层正则不一致（nginx 拒绝 `-`、Go 网关接受、PHP 拒绝）
+#      是已知缺陷，见 docs/ARCHITECTURE_ANALYSIS.md §4.6。
+#
+# 无需任何切换开关：镜像里只有 Go 后端。
+
+server_names_hash_max_size 512;
+server_names_hash_bucket_size 128;
+
+server {
+    listen 80;
+    server_name localhost;
+    index index.html index.htm;
+    root /data/www/codefever-community/www/;
+
+    # Git over HTTP —— 转发给 codefever-http-gateway（127.0.0.1:27555）。
+    #
+    # 大仓库 push 的 pack 可能远超 nginx 默认的 1MB 请求体上限，
+    # 因此这里显式关闭上限，并放宽读写超时。
+    #
+    # 注意：不要开 `proxy_request_buffering off`。Go 的 net/http/cgi 会拒绝
+    # Transfer-Encoding: chunked 的请求；关闭缓冲后 nginx 可能把大 pack 以
+    # chunked 转发，push 会直接 400。默认的 on 会先缓冲并补上 Content-Length。
+    location ~* ^\/[0-9a-z_.-]+\/[0-9a-z_.-]+\.git {
+        proxy_pass http://127.0.0.1:27555;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 0;
+        proxy_buffering off;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # 静态资源。
+    location ^~ /static/ {
+        rewrite "(.*)\.map(.*)" "/static/not/found" last;
+        rewrite "^/static/\d{14}/(.*)$" "/static/$1" last;
+        try_files $uri /app$uri 404;
+    }
+
+    # 应用层：API、内部网关回调、服务端渲染页面、文件下载。
+    location ~* ^/(user|file|feature|doc|community|lang|captcha|boss|service|pricing|api(v\d+)?)?(\/.*)?$ {
+        proxy_pass http://127.0.0.1:9001;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        # 头像等文件上传上限，与 PHP 侧的 20MB 保持一致。
+        client_max_body_size 20m;
+    }
+
+    # SPA history 路由回退。
+    location / {
+        try_files $uri /app/index.html;
+    }
+}

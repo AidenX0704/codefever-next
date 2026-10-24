@@ -4,8 +4,7 @@
 .gitattributes
 .editorconfig
 
-# 文档与社区治理文件 (运行期不需要)
-doc/
+# 文档与社区治理文件 (运行期不需要；doc/ 例外，应用内文档中心要读)
 docs/
 scripts/
 .github/
@@ -16,7 +15,6 @@ CHANGELOG.md
 LOCAL_DEPLOY.md
 README.md
 README_EN.md
-LICENSE
 
 # 前端源码 (构建产物 www/view/build 已随仓库提交, 运行时不需要 src)
 www/view/src/
@@ -33,6 +31,17 @@ dist/
 *.tar
 .tmp-*
 NUL
+www/view/.tmp-build-check/
+
+# 运行时数据卷（构建上下文里不应包含真实仓库/附件）
+git-storage/
+file-storage/
+codefever-data/
+
+# 本地真实配置（必须由模板在构建期重新生成；绝不能把本地密钥带进构建上下文）
+config.yaml
+env.yaml
+node_modules/
 
 # Go 后端的本地构建产物与测试基线（镜像运行时不需要，仓库里仍然保留）
 backend/bin/

@@ -3,7 +3,7 @@
 # ============================================================================
 #  默认所有文本文件统一用 LF：
 #    - 仓库内统一 LF，容器内的 sh 脚本不会因 CRLF 报 `$'\r': command not found`
-#    - misc/create_db.sh 用 grep|awk 解析 env.yaml 时不会把 \r 带进库名
+#    - deploy/sql/create_db.sh 解析 env.yaml 时不会把 \r 带进库名
 #    - 消除 "Windows 检出 / Linux 部署" 跨平台差异
 #  写文件时用 LF，检出时也用 LF：
 #    eol=lf 让 Windows 上的检出结果同样是 LF，避免在 Windows 上开发时产生
@@ -29,6 +29,9 @@ Dockerfile* text eol=lf
 *.md    text eol=lf
 *.yml   text eol=lf
 *.yaml  text eol=lf
+*.sql   text eol=lf
+*.conf  text eol=lf
+*.template text eol=lf
 
 # --- Go ---------------------------------------------------------------------
 *.go    text eol=lf

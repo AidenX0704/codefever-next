@@ -325,8 +325,8 @@ type NormalizedMergeRequest struct {
 	Reviewers        []NormalizedReviewer `json:"reviewers"`
 	// Commit 对应 PHP 的 getLastCommit()。
 	//
-	// TODO(git)：该字段需要执行 git log 查询源仓库，属于 git 操作，
-	// 不在仓库组域的移植范围内，先给空值占位。
+	// 由 GroupHandler 在注入 git 服务后按源仓库 + 源分支查询填充；
+	// 仓库不可用时保持零值（与 repository.mergeRequests 的降级一致）。
 	// 见 application/models/repository_model.php:189。
 	Commit Commit `json:"commit"`
 }

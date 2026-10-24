@@ -417,3 +417,63 @@ func TestWindowsRepoPathSeparator(t *testing.T) {
 		t.Fatalf("Windows 路径里不应出现 /: %q", got)
 	}
 }
+
+// gitRun 在指定目录执行 git，返回 stdout，并带上固定的提交身份。
+func gitRun(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=codefever", "GIT_AUTHOR_EMAIL=root@codefever.cn",
+		"GIT_COMMITTER_NAME=codefever", "GIT_COMMITTER_EMAIL=root@codefever.cn",
+	)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %v 失败: %v\n%s", args, err, out)
+	}
+	return strings.TrimSpace(string(out))
+}
+
+// TestCrossRepoDiffAndCommits 覆盖 fork MR 的跨仓库 diff / 提交列表。
+func TestCrossRepoDiffAndCommits(t *testing.T) {
+	if !gitAvailable() {
+		t.Skip("环境里没有 git")
+	}
+	source := newTestRepo(t)
+
+	// 目标仓库：从源仓库克隆后回退到第一次提交，保证两者共享历史
+	// （真实 fork 也是这种关系；无关历史没有 merge-base）。
+	target := filepath.Join(t.TempDir(), "target")
+	gitRun(t, filepath.Dir(target), "clone", "-q", source, target)
+	gitRun(t, target, "reset", "-q", "--hard", "HEAD~1")
+
+	sourceSHA := gitRun(t, source, "rev-parse", "HEAD")
+	targetSHA := gitRun(t, target, "rev-parse", "HEAD")
+
+	svc := NewService("git", filepath.Join(t.TempDir(), "git-storage"))
+	defer svc.Close()
+
+	diff, err := svc.DiffWithRemote(context.Background(), source, targetSHA, target, sourceSHA)
+	if err != nil {
+		t.Fatalf("DiffWithRemote 失败: %v", err)
+	}
+	if !strings.Contains(diff, "second line") {
+		t.Fatalf("diff 未包含源分支新增内容: %s", diff)
+	}
+
+	count, err := svc.DiffFileCountWithRemote(context.Background(), source, targetSHA, target, sourceSHA)
+	if err != nil {
+		t.Fatalf("DiffFileCountWithRemote 失败: %v", err)
+	}
+	if count != 1 {
+		t.Fatalf("变动文件数 = %d, 期望 1", count)
+	}
+
+	commits, err := svc.CommitsSinceRemote(context.Background(), source, sourceSHA, target, targetSHA)
+	if err != nil {
+		t.Fatalf("CommitsSinceRemote 失败: %v", err)
+	}
+	if len(commits) != 1 {
+		t.Fatalf("提交数 = %d, 期望 1", len(commits))
+	}
+}

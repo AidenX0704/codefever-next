@@ -32,6 +32,7 @@ type Session struct {
 	UserAgent string
 	Created   time.Time
 	Expires   time.Time
+	LastSeen  time.Time
 }
 
 // Store 是会话仓储。
@@ -62,7 +63,7 @@ func (s *Store) Create(ctx context.Context, uKey, ip, userAgent string) (*Sessio
 	if err != nil {
 		return nil, err
 	}
-	return &Session{Key: key, UKey: uKey, IP: ip, UserAgent: userAgent, Created: now, Expires: expires}, nil
+	return &Session{Key: key, UKey: uKey, IP: ip, UserAgent: userAgent, Created: now, Expires: expires, LastSeen: now}, nil
 }
 
 // Get 按 session id 读取会话。
@@ -74,9 +75,9 @@ func (s *Store) Get(ctx context.Context, key string) (*Session, error) {
 	}
 	var sess Session
 	err := s.db.QueryRowContext(ctx, `
-		SELECT s_key, u_key, s_ip, s_user_agent, s_created, s_expires
+		SELECT s_key, u_key, s_ip, s_user_agent, s_created, s_expires, s_last_seen
 		FROM cc_sessions WHERE s_key = ?`, key).
-		Scan(&sess.Key, &sess.UKey, &sess.IP, &sess.UserAgent, &sess.Created, &sess.Expires)
+		Scan(&sess.Key, &sess.UKey, &sess.IP, &sess.UserAgent, &sess.Created, &sess.Expires, &sess.LastSeen)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}

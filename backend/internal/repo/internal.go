@@ -89,6 +89,50 @@ func (r *InternalRepo) RepositoryByName(ctx context.Context, name, gKey string) 
 	return &repo, nil
 }
 
+// RepositoryPath 返回仓库在 git-storage 下的相对路径（r_path）。
+func (r *InternalRepo) RepositoryPath(ctx context.Context, rKey string) (string, error) {
+	if rKey == "" {
+		return "", nil
+	}
+	var path sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		"SELECT r_path FROM cc_repositories WHERE r_key = ?", rKey).Scan(&path)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return path.String, nil
+}
+
+// DefaultBranch 返回仓库的默认分支名；未设置时返回空串。
+func (r *InternalRepo) DefaultBranch(ctx context.Context, rKey string) (string, error) {
+	if rKey == "" {
+		return "", nil
+	}
+	var branch sql.NullString
+	err := r.db.QueryRowContext(ctx,
+		"SELECT r_default_branch_name FROM cc_repositories WHERE r_key = ?", rKey).Scan(&branch)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	return branch.String, nil
+}
+
+// SetDefaultBranch 更新仓库默认分支。
+func (r *InternalRepo) SetDefaultBranch(ctx context.Context, rKey, branch string) error {
+	if rKey == "" || branch == "" {
+		return nil
+	}
+	_, err := r.db.ExecContext(ctx,
+		"UPDATE cc_repositories SET r_default_branch_name = ? WHERE r_key = ?", branch, rKey)
+	return err
+}
+
 // ProtectedBranchRules 读取仓库的保护分支规则。
 //
 // 逐字对应 application/models/repository_model.php:2047-2050：

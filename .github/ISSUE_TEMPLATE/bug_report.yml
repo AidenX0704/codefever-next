@@ -8,7 +8,7 @@ body:
         感谢反馈！请先确认**没有重复的 Issue**。
 
         ⚠️ 如果你遇到的是**安全问题**，请不要用公开 Issue 反馈，
-        请按 [SECURITY.md](../SECURITY.md) 的说明私下报告。
+        请按 [SECURITY.md](../../SECURITY.md) 的说明私下报告。
 
   - type: textarea
     id: version
@@ -17,7 +17,8 @@ body:
       description: 你是怎么部署的？用的是哪个版本 / commit？
       placeholder: |
         部署方式: docker compose up -d --build
-        版本: v0.1.0 (commit: abc1234)
+        版本: main @ abc1234（或你实际使用的 commit/tag）
+        端口: HTTP 9080 / SSH 2222（或你覆盖后的值）
         基础镜像: webdevops/php-nginx:7.4
     validations:
       required: true

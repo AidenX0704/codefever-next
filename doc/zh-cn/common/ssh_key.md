@@ -17,7 +17,7 @@
 1. 如果目录中包含 `id_rsa.pub` 或 `id_dsa.pub` 文件时, 则不需要新产生 `SSH Key`; 否则, 需要手动生成 `SSH Key`。在终端输入以下命令可以生成 SSH Key
 
     ```shell
-    ssh-keygen -t rsa -C ”<name or comment>“
+    ssh-keygen -t rsa -C "<name or comment>"
     ```
 
     > 注意： 参数 `-C` 后面可以输入任何你希望标识该 SSH Key 的名称
@@ -39,3 +39,12 @@
 1. 在 `SSH Key 设置页面` 输入 `SSH Key` 点击 `新增 SSH Key` 按钮即可
 
 > - 由于 `SSH Key` 用于鉴别用户身份, 因此每个 `SSH Key` 只能添加到一个账号里, 否则会提示 `SSH Key` 已经添加
+
+添加完成后，可以用下面的命令验证（Compose 默认 SSH 端口是 `2222`）：
+
+```shell
+ssh -p 2222 -T git@<host>
+```
+
+克隆地址使用 `ssh://git@<host>:2222/<group>/<repo>.git`。如果 SSH 仍使用 22 端口，
+可省略端口；不要写成 `git@host:2222/...`，那会被当成路径而不是端口。

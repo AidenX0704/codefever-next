@@ -44,9 +44,13 @@ func (r *UserRepo) Get(ctx context.Context, uKey string) (*domain.User, error) {
 }
 
 // GetByEmail 按邮箱读取用户。
+//
+// 与 GetByTel 一致，过滤软删除（u_status = 4）的账号：
+// PHP 的 User_model::getInfoByPwd() 也是这样，因此被禁用账号不能登录。
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx,
-		"SELECT "+userColumns+" FROM cc_users WHERE u_email = ?", email)
+		"SELECT "+userColumns+" FROM cc_users WHERE u_email = ? AND u_status <> ? LIMIT 1",
+		email, domain.CommonStatusDelete)
 	return scanUser(row)
 }
 
@@ -100,7 +104,7 @@ func (r *UserRepo) AddUser(ctx context.Context, u NewUser) error {
 func (r *UserRepo) UpdateFields(ctx context.Context, uKey string, fields map[string]any) error {
 	allowed := map[string]bool{
 		"u_name": true, "u_email": true, "u_team": true, "u_role": true,
-		"u_job": true, "u_company": true, "u_tel": true, "u_calling_code": true,
+		"u_tel": true, "u_calling_code": true,
 		"u_location": true, "u_avatar": true, "u_admin": true, "u_2fa": true,
 		"u_password": true, "u_notification_status": true, "u_status": true,
 		"u_updated": true,

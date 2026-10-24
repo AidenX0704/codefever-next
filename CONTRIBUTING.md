@@ -21,25 +21,24 @@
 
 | 用途 | 要求 |
 | --- | --- |
-| 后端开发 | Go **1.25+**（`backend/go.mod` 声明 `go 1.25`） |
+| 后端开发 | Go **1.23+**（`backend/go.mod` 声明 `go 1.23.0`；Docker 构建使用 1.25 基础镜像） |
 | 前端开发 | Node.js 16.10+ / Yarn |
 | 完整环境 | Docker 20.10+ 与 Docker Compose v2 |
-| 数据库 | MySQL **8.0+** 或 MariaDB **10.6+**（事件 worker 用 `FOR UPDATE SKIP LOCKED`，5.7 / 10.3 不支持） |
+| 数据库 | MySQL **8.0.x** 或 MariaDB **10.6+**（事件 worker 用 `FOR UPDATE SKIP LOCKED`，5.7 / 10.3 不支持；MySQL 8.4+ 的认证参数变化需另行适配） |
 
-> 后端是 Go module 项目，`backend/go.mod` 声明 `go 1.25`。
-> 两个 Git 网关（`http-gateway/`、`ssh-gateway/`）是上游保留的 GOPATH 风格代码，
-> 编译时需要按 [从零开始安装](doc/zh-cn/installation/install_from_scratch.md) 第 7 步
-> 转成 module 模式，或直接用 `Dockerfile` 构建镜像。
+> 后端是**单一 Go module**：`http-gateway` 与 `ssh-gateway` 已并入
+> `backend/cmd/codefever-http-gateway` / `backend/cmd/codefever-ssh-gateway`，
+> 不再需要 GOPATH 模式或构建期 `sed`。直接 `cd backend && go build ./...` 即可。
 
 ## 本地开发
 
 ### 方式一：Docker（推荐，最接近生产拓扑）
 
 ```shell
-# 构建并启动（镜像从当前源码构建）
+# 构建并启动（镜像从当前源码构建；首次需要网络拉基础镜像）
 docker compose up -d --build
 
-# 观察日志
+# 观察日志（服务名是 codefever）
 docker compose logs -f codefever
 
 # 停止
@@ -47,24 +46,42 @@ docker compose down
 ```
 
 访问 <http://localhost:9080>，默认账号 `root@codefever.cn` / `123456`。
+改端口用 `CODEFEVER_HTTP_PORT` / `CODEFEVER_SSH_PORT`；域名/反代用
+`CODEFEVER_SITE_HOST` / `CODEFEVER_SITE_SSH`。
 
 ### 方式二：只跑 Go 后端（快速迭代）
 
+**必须先准备仓库根目录的配置文件**（`-base` 指向仓库根，不是 `backend/`）：
+
 ```shell
-cd backend
-go run ./cmd/codefever-api -base . -addr 127.0.0.1:9001
+cd /path/to/codefever
+cp config.template.yaml config.yaml
+cp env.template.yaml env.yaml
+# 至少把 env.yaml 的 session key / totp salt / gateway token 换成随机值；
+# 只是为了本地跑通也可以先留占位符，但日志会提示“gateway.token 仍是模板占位符”。
 ```
 
-后端通过 `-base`（或环境变量 `CODEFEVER_BASE_DIR`）定位 `env.yaml` 与 `config.yaml`。
-仓库根目录已有 `env.template.yaml` / `config.template.yaml`，复制成 `env.yaml` / `config.yaml`
-即可。数据库连接可以通过环境变量覆盖：
+从 `backend/` 启动（`-base ..` 指回仓库根）：
 
 ```shell
+cd backend
+go run ./cmd/codefever-api -base .. -addr 127.0.0.1:9001
+```
+
+数据库连接可通过环境变量覆盖（entrypoint 与后端都识别 `CODEFEVER_MYSQL_*`；
+旧版 `DB_*` 仍兼容）：
+
+```shell
+cd backend
 CODEFEVER_MYSQL_HOST=127.0.0.1 CODEFEVER_MYSQL_PORT=3306 \
 CODEFEVER_MYSQL_USER=root CODEFEVER_MYSQL_PASSWORD=123456 \
 CODEFEVER_MYSQL_DB=codefever_community \
-go run ./cmd/codefever-api -base .
+go run ./cmd/codefever-api -base .. -addr 127.0.0.1:9001
 ```
+
+> 从仓库根直接 `go run ./backend/cmd/codefever-api` **不可用**：仓库根没有
+> `go.mod`，Go 会报 `cannot find main module`。要么 `cd backend` 后用 `-base ..`，
+> 要么先在仓库根用 `GO111MODULE=on GOWORK=off` 建 workspace（不推荐）。
 
 ### 前端
 
@@ -98,20 +115,24 @@ yarn build
 ## 目录结构
 
 ```
-backend/          Go 后端（api / worker / git 钩子 / 契约工具）
-  cmd/            可执行程序入口
-  internal/       内部实现，按领域划分
-  contract/       API 契约 manifest
-  testdata/       契约基线与页面快照
-http-gateway/     Git over HTTP 网关
-ssh-gateway/      Git over SSH forced command
-www/view/         前端源码与构建产物
-www/static/       服务端渲染页面用的静态资源
-misc/             nginx / supervisor 模板、数据库脚本、git 钩子
-doc/              用户文档（zh-cn / en-us）
-docs/             后端重写的分析、计划与实施记录
-scripts/          本地构建、运行、复验与截图比对脚本
+backend/           单一 Go module（codefever-next/backend）
+  cmd/             api / worker / hook / http-gateway / ssh-gateway / 契约工具
+  internal/        内部实现，按领域划分
+  deploy/          数据库脚本、nginx/supervisor 模板、容器入口、服务脚本
+  contract/        API 契约 manifest
+  testdata/        契约基线与页面快照
+www/view/          前端源码与构建产物（build/ 必须提交）
+www/static/        服务端渲染页面用的静态资源
+doc/               用户文档（zh-cn / en-us；运行时会进镜像）
+docs/              后端重写的分析、计划与实施记录
+scripts/           本地构建、运行、复验与截图比对脚本
+Dockerfile         镜像构建配方
+docker-compose.yml 编排（codefever + mysql）
 ```
+
+仓库根**没有** `misc/`、`http-gateway/`、`ssh-gateway/`、`git-storage/`；
+这些内容分别收敛到 `backend/deploy/`、`backend/cmd/`，运行时目录由
+Dockerfile/entrypoint 创建。
 
 ## 代码规范
 
@@ -121,6 +142,7 @@ scripts/          本地构建、运行、复验与截图比对脚本
 cd backend
 gofmt -l .        # 必须无输出
 go vet ./...      # 必须无告警
+go build ./...    # 必须通过（含 5 个命令）
 ```
 
 - 遵循 [Effective Go](https://go.dev/doc/effective_go) 与
@@ -131,14 +153,16 @@ go vet ./...      # 必须无告警
 
 ### 前端
 
-- 2 空格缩进，遵循仓库既有 `.eslintrc` / `package.json` 中的 scripts。
+- 2 空格缩进，遵循 `www/view/package.json` 的 `eslintConfig` 与 `scripts`
+  （`yarn lint` / `yarn fix`）；仓库没有独立的 `.eslintrc` 文件。
 - 不引入新的全局样式污染；复用 `@pgyer/essential-component` 与
   `@pgyer/mui-theme-preset` 提供的组件与主题变量。
 
 ### 通用
 
 - 行尾统一 LF（由 `.gitattributes` 保证，不要在编辑器里提交 CRLF）。
-- 不要提交构建产物、依赖目录、运行时数据（`.gitignore` 已覆盖）。
+- **`www/view/build` 是例外，必须随仓库提交**；除此之外不要提交构建产物、依赖目录、
+  运行时数据（`.gitignore`/`.dockerignore` 已覆盖）。
 - 中文注释与英文标识符混用是本仓库的既有风格，保持一致即可。
 
 ## 提交规范
@@ -175,7 +199,7 @@ docs(readme): 补充 CodeFever Next 的架构说明
 ```
 
 > 仓库根目录的 `package.json` 已配置 `cz-conventional-changelog`，
-> 执行 `npx cz` 可以交互式生成符合规范的提交信息。
+> 执行 `npx cz` 可以交互式生成符合规范的提交信息（需要能访问 npm）。
 
 ## 测试与验证
 
@@ -201,7 +225,6 @@ go test ./internal/...
 >   -e GOFLAGS=-mod=mod \
 >   -e GOPROXY=https://mirrors.aliyun.com/goproxy,direct \
 >   -e GOSUMDB=off \
->   -e GODEBUG=http2client=0 \
 >   golang:1.25-bookworm \
 >   sh -c 'go build ./... && go vet ./... && test -z "$(gofmt -l .)" && go test ./internal/... -count=1'
 > ```
@@ -210,13 +233,12 @@ go test ./internal/...
 >
 > - **`doc` 目录必须挂进去** —— `backend/internal/handlers/web_doc_test.go` 用
 >   `repoDocDir = "../../../doc"` 读真实文档树，缺了会直接失败；
-> - **`GODEBUG=http2client=0`** —— 国内 goproxy 镜像的 HTTP/2 会让请求**无限挂起且不超时**
->   （模块缓存零增长，表现为构建期永久等待），强制走 HTTP/1.1 才不会卡死。
+> - 如果国内 goproxy 出现 HTTP/2 挂起，可再加 `-e GODEBUG=http2client=0`。
 
 ### 契约回归
 
-后端的 108 个 `/api/*` 端点 + 4 个 `/apiv1/internal` 回调有逐条记录的基线
-（`backend/testdata/contract/`）。改动 API 后必须重跑：
+后端保留了 108 个 `/api/*` 端点 + 4 个 `/apiv1/internal` 回调的历史基线
+（`backend/testdata/contract/`）。改动 API 后如需复跑，需要一个**已启动且可登录**的实例：
 
 ```shell
 cd backend
@@ -225,23 +247,32 @@ go run ./cmd/contract-compare -baseline testdata/contract -actual testdata/contr
 ```
 
 比对结果有差异时，确认是有意的行为变更后，再更新基线并在 PR 描述里写明原因。
+这些命令是验收/回归工具，不是部署或构建的前提。
 
-### 一键复验
+### 维护者质量门禁
 
 ```powershell
 pwsh -File scripts/verify.ps1
 ```
 
-依次执行：编译 → vet → gofmt → 单测 → 重建镜像 → 契约采集与比对 →
-写操作冒烟 → 多视口截图逐像素比对 → 打包离线镜像。
+当前脚本执行：gofmt → `go build ./...` → Linux 交叉编译（`GOOS=linux`）→
+`go vet ./...` → `go test ./internal/...` → `docker compose config`；只有加
+`-BuildImage` 才会额外 `docker build`。它**不启动**数据库/应用，也不做契约比对、
+截图比对或写操作冒烟；这些深度验证见
+[docs/IMPLEMENTATION_STATUS.md](docs/IMPLEMENTATION_STATUS.md) 与 `backend/cmd/` 工具。
+
+CI 已恢复（`.github/workflows/ci.yml`）：Go 1.23 的 gofmt / build / Linux 交叉编译 /
+vet / test，以及 `docker compose config`。提交 PR 前建议在本地跑同一组命令。
 
 ## 提交 Pull Request
 
 1. **先开 Issue**：修复缺陷请先开 Issue 并在 PR 中引用；新特性请在 PR 中详细描述。
 2. **建分支**：`git checkout -b feature/xxx` 或 `fix/xxx`。
 3. **同步主干**：`git rebase origin/main`（本仓库不接受 merge 提交来同步主干）。
-4. **自测**：至少跑通 `go test ./internal/...`；涉及页面变更的，跑截图比对。
-5. **补文档**：改了配置项、API 或部署方式，必须同步改 `doc/` 下的文档。
+4. **自测**：至少跑通 `cd backend && go build ./... && go vet ./... && go test ./internal/...`；
+   涉及页面变更的，重建 `www/view/build` 并跑截图比对。
+5. **补文档**：改了配置项、API 或部署方式，必须同步改 `doc/`、`README*.md`、
+   `LOCAL_DEPLOY.md` 等下相关文档；`.github/` 模板也属于文档。
 6. **PR 描述**：说明改了什么、为什么、怎么验证的，关联 Issue。
 
 ### PR 标题格式
@@ -254,7 +285,7 @@ fix(git): 修复 tag 名包含空格时被截断的问题
 ### 评审
 
 - 至少需要一位维护者 approve。
-- 本地复验（编译 / vet / 单测 / 契约比对，见上文「一键复验」）必须全绿。
+- 本地质量门禁（gofmt / build / vet / test / compose config）必须全绿。
 - 有未解决的讨论评论请勿合并。
 
 ## 行为兼容性约定

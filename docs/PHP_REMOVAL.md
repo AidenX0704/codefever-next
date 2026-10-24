@@ -6,6 +6,11 @@
 > 前置条件：**先证明 Go 后端是稳定的**。稳定性没过关之前不动 PHP，
 > 否则一旦出问题就没有可回滚的目标。
 
+> **文档状态（2026-10-23 晚）**：本文记录 PHP 下线过程。当前仓库已再次收敛：
+> `http-gateway/` / `ssh-gateway/` 并入 `backend/cmd/`，`misc/` 迁移到
+> `backend/deploy/`，`CODEFEVER_BACKEND` 已移除。文中的 `misc/*`、旧网关路径与
+> 回滚命令为**历史快照**；当前结构见 `README.md` / `LOCAL_DEPLOY.md`。
+
 ---
 
 ## 1. 为什么现在可以下线 PHP
@@ -22,7 +27,7 @@
 
 **唯一还挂在 PHP 上的两件事**，就是本次要拆掉的：
 
-1. `misc/hooks/main` —— git 钩子（push 链路）
+1. `misc/hooks/main`（历史路径；当前为 `deploy/hooks/main` 的兼容软链） —— git 钩子（push 链路）
 2. ~~`misc/modify_authorized_keys.php` —— SSH 公钥同步守护进程~~
    ✅ **已下线**（第 2 步完成）：改由 Go 后端（`backend/internal/authkeys`）
    直接写 `/home/<users.git>/.ssh/authorized_keys`，PHP 守护进程、FIFO +
@@ -65,9 +70,12 @@
 | `/opt/docker/etc/supervisor.d/php-fpm.conf` | supervisor 里的 php-fpm program |
 | `/opt/docker/provision/entrypoint.d/20-php.sh`、`20-php-fpm.sh` | 容器入口里的 PHP 初始化 |
 
-### 2.3 仓库内 PHP 专用文件
+### 2.3 仓库内 PHP 专用文件（历史清单）
 
-`application/**`、`system/**`、`www/index.php`、`misc/hooks/main`、
+> 下列 `misc/*` 是改造前的路径；当前 `backend/deploy/` 只保留
+> `codefever-service-template` 与 `sql/`、`docker/` 脚本，旧路径不复存在。
+
+`application/**`、`system/**`、`www/index.php`、`misc/hooks/main`（历史）、
 `misc/php-fpm-service-template`、
 `misc/php-fpm.conf-template`、`misc/www.conf-template`、`misc/php.ini-template`、
 `misc/nginx.conf-template`（VM 部署路径的 PHP 版 nginx 主配置）、
@@ -77,8 +85,8 @@
 > 第 2 步已删除：`misc/modify_authorized_keys.php`（PHP 守护进程）、
 > `misc/docker/supervisor-codefever-modify-authorized-keys.conf`、
 > `misc/codefever`（只服务于该守护进程的脚本）。
-> `misc/codefever-service-template` 保留（`install.sh` / `update.sh` 会装成
-> `/etc/init.d/codefever`），但已不再拉起 PHP 守护进程。
+> `misc/codefever-service-template`（现为 `backend/deploy/codefever-service-template`）
+> 保留，但已不再拉起 PHP 守护进程。
 
 > **`application/**` 与 `system/**` 的源码已于二次开源时从仓库中彻底删除**：
 > 仓库里保留它们原本只是为了"废弃与删除之间更稳的一步"，
@@ -128,7 +136,8 @@ go run ./cmd/stress -base http://127.0.0.1:9003 -pprof http://127.0.0.1:9003 `
 | 32 | 43,480 | 965 | **0** | 65.4 ms | 82.7 ms | ✅ |
 | 64 | 44,086 | 978 | **0** | 141.6 ms | 177.7 ms | ✅ |
 
-QPS 在 ~970 处饱和 —— 瓶颈是本机 MySQL 5.7 容器（读写混合下的单库上限），
+QPS 在 ~970 处饱和 —— 瓶颈是当次压测使用的 MySQL 5.7 容器（读写混合下的单库上限；
+当前部署要求 MySQL 8.0.x），
 不是 Go 后端本身：64 并发时 p99 仍只有 178 ms，**没有出现排队塌陷**。
 
 **长稳浸泡**：20 分钟 × 24 并发，见 §3.4。
@@ -143,7 +152,7 @@ QPS 在 ~970 处饱和 —— 瓶颈是本机 MySQL 5.7 容器（读写混合下
 | 2 | **SSH 公钥同步 Go 化**：去掉 PHP 守护进程 + FIFO + SIGUSR1 协议，Go 后端直接写 `authorized_keys` | 加/删公钥后文件内容正确 + 真实 `git clone` over SSH 成功 | ✅ 已完成 |
 | 3 | **镜像去 PHP**：删 PHP 运行时 / php-fpm program / PHP 入口 / composer / crond；`application/`、`system/`、`www/index.php` 不再进镜像 | 镜像内 `find / -name 'php*'` 无结果；`ps` 无 php 进程 | ✅ 已完成 |
 | 4 | **管理端移除 PHP 服务**：`systemStatus` 去掉 `php`/`crond` 两个键；前端仪表盘去掉 PHP-FPM / Crond 两张卡片 | 21 张截图逐像素比对：只有管理端仪表盘按预期变化 | ✅ 已完成 |
-| 5 | **契约基线与最终回归** | 契约回归、页面路由对拍、冒烟回归、git push 端到端、SSH 端到端 | ⏳ 进行中 |
+| 5 | **契约基线与最终回归** | 契约回归、页面路由对拍、冒烟回归、git push 端到端、SSH 端到端 | ✅ 已完成（历史验收；复跑见 `docs/IMPLEMENTATION_STATUS.md`） |
 
 ### 4.1 第 1 步的关键实现（`backend/internal/hook`）
 
@@ -234,7 +243,8 @@ node_modules: 未打进镜像 ✓（.dockerignore 已排除，省约 170 MB）
 
 ### 5.4 顺带修掉的两个真缺陷
 
-1. **`ssh-gateway` 打不开日志文件就 panic** —— `ssh-gateway/shell/main.go` 的 `init()` 用
+1. **旧 `ssh-gateway` 打不开日志文件就 panic** —— 历史实现
+   `ssh-gateway/shell/main.go`（现由 `backend/cmd/codefever-ssh-gateway` 取代）的 `init()` 用
    `os.OpenFile("./message.txt", …)` 打开工作目录下的日志，失败即 `panic(err)`。
    forced command 以 `git` 用户运行、工作目录是 `/home/git`，一旦该文件属主不对
    （例如残留的 root 文件）或家目录不可写，**所有 SSH push / clone 全部失败**，
@@ -264,8 +274,8 @@ node_modules: 未打进镜像 ✓（.dockerignore 已排除，省约 170 MB）
 
 **回滚策略**：
 - 步骤 1–2（钩子、公钥同步）：只删 PHP 守护进程，PHP 后端本身还在，
-  仍可临时把 `CODEFEVER_BACKEND` 切回 `php` 找原因（此时钩子已是 Go 版，
-  但协议与 PHP 完全一致，PHP 后端的 `/apiv1/internal/hooks` 照常工作）。
+  历史上仍可临时把 `CODEFEVER_BACKEND` 切回 `php` 找原因（该开关现已被删除；
+  PHP 后端也已不在仓库/镜像中）。
 - 步骤 3（镜像去 PHP）：**不可回滚**。这是不可逆的一步，
   因此必须放在稳定性门禁之后、且在步骤 1–2 全部验证通过之后。
 

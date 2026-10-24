@@ -28,6 +28,8 @@ func Open(cfg *config.Config) (*sql.DB, error) {
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(10)
 	sqlDB.SetConnMaxLifetime(time.Hour)
+	// 及时回收空闲连接，避免 MySQL 侧 wait_timeout 先断开后客户端仍复用。
+	sqlDB.SetConnMaxIdleTime(5 * time.Minute)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()

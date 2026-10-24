@@ -42,7 +42,10 @@ Pull Request、评论区）时。滥用行为可能构成对项目及社区成�
 
 ## 举报
 
-如需报告不可接受的行为，请通过仓库的 Issue 或维护者邮箱联系项目维护者。
+如需报告不可接受的行为，请通过
+[GitHub 私密漏洞报告](https://github.com/AidenX0704/codefever-next/security/advisories/new)
+或 GitHub [@AidenX0704](https://github.com/AidenX0704) 资料页所列联系方式私下联系项目维护者。
+**不要用公开 Issue 报告骚扰/安全类问题。**
 所有举报都将被审阅和调查，并得到及时处理。
 社区成员应尊重并配合问题处理者的决定。
 

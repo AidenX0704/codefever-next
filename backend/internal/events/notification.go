@@ -216,7 +216,7 @@ func NewNotificationHandler(db *sql.DB, cfg *config.Config, logger *slog.Logger)
 		db:     db,
 		cfg:    cfg,
 		log:    logger,
-		mailer: mailer.NewLocalMailer(),
+		mailer: mailer.FromEnv(cfg.SiteConfig().Email.From),
 		refuse: repo.NewNotificationRepo(db),
 	}
 }
@@ -856,7 +856,7 @@ func (h *notificationHandler) sendMail(ctx context.Context, ev domain.EventPaylo
 func (h *notificationHandler) mergeRequestURL(data *messageData) string {
 	host := ""
 	if h.cfg != nil {
-		host = h.cfg.Site.Host
+		host = h.cfg.SiteConfig().Host
 	}
 	if host != "" {
 		host = strings.TrimRight(host, "/") + "/"
@@ -872,7 +872,7 @@ func (h *notificationHandler) fromAddress() string {
 	if h.cfg == nil {
 		return ""
 	}
-	return h.cfg.Site.Email.Name + "<" + h.cfg.Site.Email.From + ">"
+	return h.cfg.SiteConfig().Email.Name + "<" + h.cfg.SiteConfig().Email.From + ">"
 }
 
 // emailNotifyTemplate 是邮件正文模板。

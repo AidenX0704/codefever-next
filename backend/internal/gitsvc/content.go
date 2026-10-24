@@ -21,6 +21,9 @@ func (s *Service) FileContent(ctx context.Context, repoPath, sha, path string) (
 	if cleaned == "" {
 		return "", fmt.Errorf("文件路径为空")
 	}
+	if err := rejectOptionLike(sha); err != nil {
+		return "", err
+	}
 	spec := sha + ":" + cleaned
 	out, err := s.run(ctx, repoPath, "cat-file", "blob", spec)
 	if err != nil {

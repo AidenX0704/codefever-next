@@ -1,13 +1,13 @@
 // 本文件实现 /apiv1/internal/* 的四个内部网关回调端点。
 //
-// 这四个端点是 Go 网关（http-gateway / ssh-gateway）与 git 钩子
-// （misc/hooks/main）访问后端的**唯一通道**，因此：
+// 这四个端点是两个 Go 网关（internal/githttp、internal/gitssh）与 git 钩子
+// （cmd/codefever-hook）访问后端的**唯一通道**，因此：
 //
 //  1. 请求方法与参数名必须与既有调用方发出的请求完全一致，
 //     调用方不可修改；
 //  2. 响应体是跨进程硬契约 —— 特别是 uid 字段的 "<u_key>|<r_key>" 格式，
 //     改错会导致 push 后端找不到用户与仓库；
-//  3. 状态码语义被 Go 网关二次改写（见 http-gateway/Request/main.go:144-150）：
+//  3. 状态码语义被 HTTP 网关二次改写（internal/githttp/handler.go）：
 //     除非后端返回 404，否则任何失败都会被改写成 401。
 //     因此"仓库/分组不存在"必须用 404 / 0x0302 表达。
 //
@@ -16,6 +16,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"strconv"
@@ -25,8 +26,10 @@ import (
 	"codefever-next/backend/internal/config"
 	"codefever-next/backend/internal/contract"
 	"codefever-next/backend/internal/domain"
+	"codefever-next/backend/internal/gitsvc"
 	"codefever-next/backend/internal/httpapi"
 	"codefever-next/backend/internal/repo"
+	"log/slog"
 )
 
 // gitStorageURL 是 git 裸仓库的对外访问地址。
@@ -53,11 +56,44 @@ type InternalHandler struct {
 	Users *repo.UserRepo
 	// Cfg 提供 git-storage 根目录。
 	Cfg *config.Config
+	// DB 与 Bus 用于 post-receive 事件入队。
+	//
+	// push 事件必须在钩子请求内落库，否则活动流与 webhook 都会缺记录
+	// （PHP 侧是同步 newEvent）。二者为 nil 时 post-receive 会明确报错，
+	// 而不是静默丢事件。
+	DB  *sql.DB
+	Bus EventBus
+	// Git 用于 push 后修复裸仓库 HEAD（默认分支）。
+	Git *gitsvc.Service
+}
+
+// InternalOption 是 InternalHandler 的可选依赖。
+type InternalOption func(*InternalHandler)
+
+// WithInternalEventBus 注入事件总线与数据库连接。
+//
+// 只有 post-receive 钩子需要它；其它内部端点是纯读。
+func WithInternalEventBus(db *sql.DB, bus EventBus) InternalOption {
+	return func(h *InternalHandler) {
+		h.DB = db
+		h.Bus = bus
+	}
+}
+
+// WithInternalGit 注入 git 服务，用于 post-receive 后修复 HEAD。
+func WithInternalGit(git *gitsvc.Service) InternalOption {
+	return func(h *InternalHandler) {
+		h.Git = git
+	}
 }
 
 // NewInternalHandler 创建内部网关回调处理器。
-func NewInternalHandler(cfg *config.Config, guard *Guard, repos *repo.InternalRepo, users *repo.UserRepo) *InternalHandler {
-	return &InternalHandler{Guard: guard, Repos: repos, Users: users, Cfg: cfg}
+func NewInternalHandler(cfg *config.Config, guard *Guard, repos *repo.InternalRepo, users *repo.UserRepo, opts ...InternalOption) *InternalHandler {
+	h := &InternalHandler{Guard: guard, Repos: repos, Users: users, Cfg: cfg}
+	for _, opt := range opts {
+		opt(h)
+	}
+	return h
 }
 
 // Register 把内部网关回调端点注册到服务器。
@@ -245,7 +281,7 @@ func (h *InternalHandler) authSSH(ctx context.Context, req *httpapi.Request) (an
 // 逐字对应 application/controllers/apiv1/internal.php:142-184：
 //
 //	args 为空或 uid 为空 / uid 拆不出两段 / 钩子名为空 → 0x0201 + data.remote = ""
-//	post-receive → 逐行解析 stdin（本阶段不发事件，见下方 TODO）
+//	post-receive → 逐行解析 stdin，写入 HOOK_POST_RECEIVE 事件
 //	pre-receive  → 命中保护分支 → 0x040F + data.remote = 提示文本
 //	其他钩子名（含 update）→ 静默成功，data.remote = ""
 //
@@ -275,21 +311,14 @@ func (h *InternalHandler) hooks(ctx context.Context, req *httpapi.Request) (any,
 	switch hookName {
 	case "post-receive":
 		pushes := domain.ParseHookPushLines(stdin)
-		// TODO: 发送 HOOK_POST_RECEIVE 事件（写 activities 表）。
-		//
-		// PHP 侧 application/controllers/apiv1/internal.php:150-162 对每一行
-		// （恰好 3 段）调用一次：
-		//
-		//	$this->service->newEvent('HOOK_POST_RECEIVE', [
-		//	    'rKey' => $rKey,
-		//	    'name' => $pushInfo[2],   // 被更新的引用
-		//	    'from' => $pushInfo[0],   // 推送前的 commit
-		//	    'to'   => $pushInfo[1]    // 推送后的 commit
-		//	], $uKey);
-		//
-		// 即：事件名 HOOK_POST_RECEIVE，载荷 {rKey, name, from, to}，
-		// 触发者为 uKey，每条合法的 push 记录发一次。
-		_ = pushes
+		if len(pushes) > 0 {
+			if err := h.emitPostReceive(ctx, uKey, rKey, pushes); err != nil {
+				return nil, err
+			}
+			// 首次 push 或默认分支变更后，裸仓库的 HEAD 必须指向真实分支，
+			// 否则 git clone 会报 "remote HEAD refers to nonexistent ref"。
+			h.repairDefaultBranch(ctx, rKey, pushes)
+		}
 
 	case "pre-receive":
 		for _, push := range domain.ParseHookPushLines(stdin) {
@@ -316,6 +345,104 @@ func (h *InternalHandler) hooks(ctx context.Context, req *httpapi.Request) (any,
 	}
 
 	return hookResult{Remote: ""}, nil
+}
+
+// emitPostReceive 把一次 push 的每条引用更新写成 HOOK_POST_RECEIVE 事件。
+//
+// PHP 侧 application/controllers/apiv1/internal.php:150-162 对每一行
+// （恰好 3 段）调用一次 newEvent：
+//
+//	newEvent('HOOK_POST_RECEIVE', [
+//	    'rKey' => $rKey,
+//	    'name' => $pushInfo[2],   // 被更新的引用
+//	    'from' => $pushInfo[0],   // 推送前的 commit
+//	    'to'   => $pushInfo[1]    // 推送后的 commit
+//	], $uKey);
+//
+// 事件与业务写入使用同一事务的约定在这里体现为：整批 push 行要么全部入队，
+// 要么全部失败（不出现"活动流只记了一半"）。worker 随后异步消费，写入
+// cc_activities，并向 webhook 队列投递。
+func (h *InternalHandler) emitPostReceive(ctx context.Context, uKey, rKey string, pushes []domain.HookPush) error {
+	if h.Bus == nil || h.DB == nil {
+		return errors.New("post-receive 事件总线未配置")
+	}
+	tx, err := h.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("开启 post-receive 事件事务失败: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	for _, push := range pushes {
+		data := map[string]any{
+			"rKey": rKey,
+			"name": push.Ref,
+			"from": push.From,
+			"to":   push.To,
+		}
+		if err := h.Bus.Emit(ctx, tx,
+			domain.EventTypeHOOK_POST_RECEIVE,
+			domain.EventDataDescHOOK_POST_RECEIVE_D,
+			data, uKey,
+		); err != nil {
+			return err
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("提交 post-receive 事件失败: %w", err)
+	}
+	return nil
+}
+
+// repairDefaultBranch 让裸仓库 HEAD 指向真实存在的默认分支。
+//
+// 场景：`git init --bare` 的 HEAD 默认是 refs/heads/master，而用户第一次
+// push 的是 main。此时 clone 会报 "remote HEAD refers to nonexistent ref"。
+// post-receive 里顺手修复：默认分支为空时取本次 push 的分支，否则沿用
+// cc_repositories.r_default_branch_name。
+func (h *InternalHandler) repairDefaultBranch(ctx context.Context, rKey string, pushes []domain.HookPush) {
+	if h.Git == nil || h.Repos == nil {
+		return
+	}
+	pushed := ""
+	for _, push := range pushes {
+		if strings.HasPrefix(push.Ref, "refs/heads/") {
+			pushed = strings.TrimPrefix(push.Ref, "refs/heads/")
+			break
+		}
+	}
+	if pushed == "" {
+		return
+	}
+
+	relPath, err := h.Repos.RepositoryPath(ctx, rKey)
+	if err != nil || relPath == "" {
+		slog.Warn("修复默认分支：读取仓库路径失败", "rKey", rKey, "error", err)
+		return
+	}
+	repoPath, err := h.Git.RepoPath(relPath)
+	if err != nil {
+		slog.Warn("修复默认分支：解析裸仓库路径失败", "rKey", rKey, "error", err)
+		return
+	}
+	current, err := h.Repos.DefaultBranch(ctx, rKey)
+	if err != nil {
+		slog.Warn("修复默认分支：读取默认分支失败", "rKey", rKey, "error", err)
+		return
+	}
+	preferred := current
+	if preferred == "" {
+		preferred = pushed
+	}
+	chosen, err := h.Git.EnsureHEAD(ctx, repoPath, preferred)
+	if err != nil {
+		slog.Warn("修复默认分支 HEAD 失败", "rKey", rKey, "branch", preferred, "error", err)
+		return
+	}
+	if chosen != "" && chosen != current {
+		if err := h.Repos.SetDefaultBranch(ctx, rKey, chosen); err != nil {
+			slog.Warn("回写默认分支失败", "rKey", rKey, "branch", chosen, "error", err)
+		}
+	}
 }
 
 // searchPublicKey 实现 GET /apiv1/internal/searchPublicKey。

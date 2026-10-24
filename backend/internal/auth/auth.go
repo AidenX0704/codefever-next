@@ -172,7 +172,13 @@ func IsLegacyHash(stored string) bool {
 //
 // PHP 侧 APIAuth.php:18 用 `===` 直接比较字符串，存在计时侧信道；
 // 网关令牌是内部服务的唯一凭据，必须用常量时间比较。
+//
+// 空令牌一律返回 false：subtle.ConstantTimeCompare("", "") == 1，
+// 若配置里漏填 gateway.token，会把"不带 Token 的请求"放进来（fail-open）。
 func CompareToken(got, want string) bool {
+	if want == "" {
+		return false
+	}
 	return subtle.ConstantTimeCompare([]byte(got), []byte(want)) == 1
 }
 

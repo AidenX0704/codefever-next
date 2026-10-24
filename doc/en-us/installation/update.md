@@ -1,95 +1,119 @@
 # Upgrade
 
-`CodeFever Next` is released on a regular basis, driven by new features and community
-feedback. The upgrade procedure differs per installation method — **always back up the
-database first**.
+`CodeFever Next` is released as needed. The upgrade procedure depends on the installation
+method — **always back up the `codefever-data/` directory first** (MySQL, repositories,
+attachments and configuration).
 
 ## Docker Compose installation
 
 ```shell
-cd codefever-community
+cd codefever-next
 
-# 1. Back up the database
-docker compose exec -T db mysqldump -uroot -p123456 codefever_community > backup-$(date +%Y%m%d).sql
+# 1. Stop the service and back up the whole data directory (consistent MySQL files)
+docker compose stop
+tar czf codefever-data-$(date +%Y%m%d).tar.gz codefever-data
+docker compose start
 
 # 2. Pull the new code and rebuild the image
 git pull
 docker compose up -d --build
 
-# 3. Watch the start-up log until the initialisation is done
+# 3. Watch the start-up log until initialisation completes
 docker compose logs -f codefever
 ```
 
-> `db-data` / `git-storage` / `file-storage` are named volumes. `docker compose up -d --build`
-> leaves them alone, so your data and repositories are preserved. **Do not** run
-> `docker compose down -v` — that deletes the data as well.
+> Data lives in `codefever-data/` under the repository root (`mysql/`, `git-storage/`,
+> `file-storage/`, `config/`). `docker compose up -d --build` leaves it alone, so data,
+> repositories and admin settings are preserved. The directory is ignored by `.gitignore`;
+> do not commit it. **Do not** delete `codefever-data/` manually; `docker compose down -v`
+> removes containers/networks but not this bind-mounted directory.
+
+> Schema upgrades run in the entrypoint: every start executes
+> `backend/deploy/sql/db_update_*.sql` (idempotent).
 
 ## Docker image installation
 
-```shell
-# 1. Back up the database
-docker container exec codefever mysqldump -uroot -p123456 codefever_community > backup-$(date +%Y%m%d).sql
+A standalone container is only valid when you already have an external MySQL 8.0.x.
+Prefer Compose for upgrades; if you keep the standalone container, back up first, rebuild the
+image, and recreate the container with exactly the same volumes (`config`, `git-storage`,
+`file-storage`) and database environment as the initial deployment. See
+[Install via Docker Image](install_via_docker.md#run).
 
-# 2. Pull the new code and rebuild the image
-cd codefever-community
+```shell
+# Back up (container name may differ)
+docker container exec codefever mysqldump -uroot -p'<password>' codefever_community > backup-$(date +%Y%m%d).sql
+
+# Rebuild
+cd codefever-next
 git pull
 docker build -f Dockerfile -t codefever-next:local .
-
-# 3. Recreate the container
-docker container rm -f codefever
-docker container run -d --name codefever \
-  -p 80:80 -p 22:22 \
-  -v codefever-next-db:/var/lib/mysql \
-  -v codefever-git-storage:/data/www/codefever-community/git-storage \
-  -v codefever-file-storage:/data/www/codefever-community/file-storage \
-  -e DB_HOST=db -e DB_PORT=3306 -e DB_USER=root -e DB_PASS=123456 \
-  -e DB_NAME=codefever_community -e CONTAINER_UID=git \
-  codefever-next:local
 ```
+
+> Do not use the old `docker run ... -e DB_HOST=db` example: it starts no `db` container and
+> mounts no `config` volume, so admin settings are lost.
 
 ## Install from scratch
 
 ```shell
-cd /data/www/codefever-community
+cd /data/www/codefever-next
 
 # 1. Back up the database
-mysqldump -uroot -p123456 codefever_community > backup-$(date +%Y%m%d).sql
+mysqldump -uroot -p'<password>' codefever_community > backup-$(date +%Y%m%d).sql
 
-# 2. Pull the new code
+# 2. Back up the configuration
+cp config.yaml config.yaml.bak
+cp env.yaml env.yaml.bak
+
+# 3. Pull the new code
 git pull
 
-# 3. Rebuild the Go services
+# 4. Rebuild the five binaries
 cd backend
 export GOPROXY=https://mirrors.aliyun.com/goproxy,direct
 export GOFLAGS=-mod=mod
-go build -trimpath -ldflags="-s -w" -o ../bin/codefever-api    ./cmd/codefever-api
-go build -trimpath -ldflags="-s -w" -o ../bin/codefever-worker ./cmd/codefever-worker
-go build -trimpath -ldflags="-s -w" -o ../bin/codefever-hook   ./cmd/codefever-hook
+go build ./...
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-api          ./cmd/codefever-api
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-worker       ./cmd/codefever-worker
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-hook         ./cmd/codefever-hook
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-http-gateway ./cmd/codefever-http-gateway
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-ssh-gateway  ./cmd/codefever-ssh-gateway
 cd ..
 
-# 4. Rebuild the Git gateways (see step 7 of install_from_scratch.md)
-#    ...
+# 5. Restore hooks/front-end symlinks (skip if already present)
+mkdir -p deploy/hooks misc/hooks git-storage/hooks ssh-gateway/shell
+for d in deploy/hooks misc/hooks git-storage/hooks; do
+  ln -sfn ../../bin/codefever-hook "$d/main"
+  ln -sfn main "$d/pre-receive"; ln -sfn main "$d/post-receive"; ln -sfn main "$d/update"
+done
+ln -sfn ../../bin/codefever-ssh-gateway ssh-gateway/shell/main
+ln -sfn view/build www/app
 
-# 5. Restore the symlinks and restart the services (see step 8 of install_from_scratch.md)
-#    ...
+# 6. Run schema updates (also done idempotently by create_db.sh)
+cd backend/deploy/sql
+sh ./create_db.sh
+cd ../..
 
+# 7. Restart services
 systemctl restart codefever-api codefever-worker codefever-http-gateway
+systemctl reload nginx
 ```
 
-> **Note**: the PHP-era `misc/update.sh` was removed together with the PHP backend — update
-> manually with the steps above.
+> The PHP-era `misc/update.sh` no longer exists. If the new release changes
+> `config.yaml`/`env.yaml` defaults, merge them manually from the templates; do not overwrite
+> production configuration.
 
 ## Database schema upgrades
 
-Schema changes are described by the `misc/db_update_*.sql` files:
+Schema changes live in `backend/deploy/sql/db_update_*.sql`; `create_db.sh` runs them in
+order (idempotent). To run one manually:
 
 ```shell
-cd /data/www/codefever-community/misc
-mysql -h<host> -P<port> -u<user> -p<password> -D<codefever_community> -e "source db_update_20220215.sql"
+cd /data/www/codefever-next/backend/deploy/sql
+mysql -h<host> -P<port> -u<user> -p'<password>' -D<codefever_community> \
+  -e "source db_update_20220215.sql"
 ```
 
-## Upgrade without keeping the data
+## Upgrade without keeping data
 
-Simply pick your preferred installation method again and reinstall from scratch, following
-[Install From Scratch](install_from_scratch.md) or
+Reinstall using your preferred method: [Install From Scratch](install_from_scratch.md) or
 [Install via Docker Image](install_via_docker.md).

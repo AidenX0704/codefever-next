@@ -42,40 +42,48 @@
 合并请求、分支保护、Webhook、多人协作与权限管理，中英双语界面。
 
 **相对上游最大的变化：后端已从 PHP 完整重写为 Go**，运行镜像里不再存在任何
-PHP 进程、PHP 可执行文件与 PHP 配置。
+PHP 进程、PHP 可执行文件与 PHP 配置；`http-gateway` 与 `ssh-gateway` 也已并入
+同一个 Go module（`backend/`）。
 
 | 维度 | 状态 |
 | --- | --- |
 | 后端 | Go（`backend/`），替换原 CodeIgniter 2.1.1 + PHP 7.4 实现 |
-| API 契约 | 108 个 `/api/*` 端点 + 4 个 `/apiv1/internal` 回调，**契约回归 123/123 符合预期** |
-| Web 路由 | 43 条服务端渲染路由 + 5 个页面，与 PHP 版**逐字节一致（43/43）**（品牌文案 1 处属有意变更，基线已同步） |
-| 前端 | React 17 + MUI v4，产物 `www/view/build` 随仓库提交；**依赖未重装**，仅品牌文案随二次开源更新 |
+| API 契约 | 108 个 `/api/*` 端点 + 4 个 `/apiv1/internal` 回调；**123/123 为历史验收记录**，复跑方法见 [实施记录](docs/IMPLEMENTATION_STATUS.md) |
+| Web 路由 | 43 条服务端渲染路由 + 5 个页面；**43/43 为历史对照记录**（品牌文案属有意变更） |
+| 前端 | React 17 + MUI v4；产物 `www/view/build` 随仓库提交，构建期不需要 Node.js |
 | 运行时 | 镜像内 **无 PHP、无 php-fpm、无 crond** |
-| 镜像 | **全部从本地源码构建**，不依赖任何上游预构建镜像 |
-| 体积 | 前端 vendor 由 23.2MB / 2072 个文件裁剪至 3.5MB / 27 个文件（只删可证明无引用的） |
+| 镜像 | 应用镜像从本地源码构建；仍需拉取两个基础镜像（见“快速开始”） |
+| 前端体积 | `www/static/vendor` 约 3.7 MB / 27 个文件（历史对照约 23.2 MB / 2072 个文件） |
 
-> 迁移的完整依赖面清单、稳定性门禁与验证数据见 [`docs/PHP_REMOVAL.md`](docs/PHP_REMOVAL.md)。
+> 迁移的完整依赖面清单、稳定性门禁与历史验证数据见 [`docs/PHP_REMOVAL.md`](docs/PHP_REMOVAL.md)。
+> 镜像内包含 `doc/`（应用内文档中心）与 `LICENSE`；`docs/` 是重写记录，不进镜像。
+> 契约数字是当次验收结果，不是当前环境的自动保证；复跑需要可用的实例与数据库。
 
 ## 功能特性
 
 - 🆓 **永久免费:** 无任何付费墙与功能阉割
 - ❤️ **完整开源:** MIT 协议，无编译或加密代码
-- 🥬 **轻量安装:** 一条 `docker compose up -d --build` 即可完成部署
-- ⚡️ **性能高效:** 1 核 CPU / 1G 内存即可运行；实测 64 并发下 p99 ≈ 178 ms、错误率 0
+- 🥬 **轻量安装:** `docker compose up -d --build` 即可完成部署
+- ⚡️ **性能高效:** 1 核 CPU / 1G 内存即可运行；历史压测 64 并发 p99 ≈ 178 ms
 - ♾️ **无限仓库:** 无仓库数量与容量限制
 - ⌨️ **代码对比:** 支持多版本高亮差异对比
 - 🛤️ **分支管理:** 完整支持 Git 原生分支与 Tag
-- 🙋️ **合并请求（Merge Request）:** 支持多人协作评审
+- 🙋‍ **合并请求（Merge Request）:** 支持多人协作评审
 - 🙅 **分支保护:** 保护分支让提交安全可控
 - 👥 **多人协作:** 角色与权限管理
 - 🔌 **Webhook:** 可与 Jenkins / Jira 等外部系统集成
 - 🖥️ **管理后台:** 超级管理员可管理所有项目与用户
-- 💬 **中英双语:** 原生支持中文与英文
+- 💬 **中英双语界面:** 界面支持中文与英文（用户文档的英文翻译仍在补全）
 - 🔑 **SSH 推送:** 支持 SSH 公钥认证的 clone / pull / push
 
 ## 快速开始
 
-环境要求：Docker 20.10+ 与 Docker Compose v2。
+环境要求：
+
+- Docker 20.10+ 与 Docker Compose v2；
+- **首次构建需要网络**：拉取 `webdevops/php-nginx:7.4`、`golang:1.25-bookworm`、`mysql:8.0`
+  三个镜像，并访问 Debian buster 归档源与 Go module 代理；
+- 建议至少 10 GB 可用磁盘空间（镜像、数据库与仓库数据）。
 
 ```shell
 git clone https://github.com/AidenX0704/codefever-next.git codefever-next
@@ -83,6 +91,12 @@ cd codefever-next
 
 docker compose up -d --build
 ```
+
+> **首次构建卡在 `load metadata ... docker.io` / `auth.docker.io` 超时？**
+> 说明基础镜像尚未拉到本机，Docker 正在访问 Docker Hub。国内/企业网络先执行
+> `pwsh -File scripts/build-local.ps1 -SkipPackage`（通过镜像源拉取并打本地 tag），
+> 或按下方“国内网络 / 镜像源”设置 `CODEFEVER_BASE_*` 后重试。镜像已在本机时，
+> Compose 会直接复用，不再访问 Docker Hub。
 
 启动完成后：
 
@@ -92,118 +106,58 @@ docker compose up -d --build
 | 默认账号 | `root@codefever.cn` |
 | 默认密码 | `123456` |
 | Git over HTTP | `http://<user>@localhost:9080/<group>/<repo>.git` |
-| Git over SSH | `ssh -p 2222 git@localhost` |
+| Git over SSH | `ssh://git@localhost:2222/<group>/<repo>.git` |
 
-> **首次登录后请立即修改密码并绑定 MFA 设备。**
+> **首次登录后请立即修改密码、绑定 MFA 设备，并在管理后台关闭开放注册。**
+> 默认 `allowRegister: true`，公网实例务必关闭。
 
-常用命令：
+常用命令（注意服务名是 `codefever`，容器名才是 `codefever-next-app`）：
 
 ```shell
-docker compose ps                # 查看状态
-docker compose logs -f codefever-next-app  # 跟踪日志
-docker compose restart codefever-next-app  # 重启应用
-docker compose down              # 停止（保留数据卷）
-docker compose down -v           # 停止并删除数据卷（数据全部丢失）
+docker compose ps                          # 查看状态
+docker compose logs -f codefever           # 跟踪应用日志
+docker compose restart codefever           # 重启应用
+docker compose down                        # 停止（保留 codefever-data）
+docker compose down -v                     # 停止并删除容器/网络（不删 codefever-data）
+docker exec -it codefever-next-app sh     # 进入应用容器排查
 ```
 
-镜像**从当前源码构建**，不需要预先拉取任何预构建镜像。想换端口、换数据库镜像、
-换基础镜像源，设置环境变量即可：
+### 端口与站点地址
+
+默认将容器内 `80/22` 映射到宿主机 `9080/2222`：
 
 ```shell
 CODEFEVER_HTTP_PORT=18080 CODEFEVER_SSH_PORT=18022 docker compose up -d
 ```
 
-完整说明见 [使用 docker-compose 安装](doc/zh-cn/installation/install_via_docker_compose.md)。
-需要离线分发（`docker save` / `docker load`）、换镜像源或用 PowerShell 一键脚本，见
-[本地镜像构建与部署](LOCAL_DEPLOY.md)。
-
-<details>
-<summary><b>不使用 Docker（从源码安装）</b></summary>
-
-需要 `nginx`、`git`、`Go 1.25+`、`MySQL 8.0+`。核心步骤：
+容器入口会按这两个端口自动写入 `config.yaml` 的 `host`/`ssh`，前端 clone 面板
+会直接显示正确地址。若部署在反向代理、域名或非默认端口之后，显式覆盖：
 
 ```shell
-# 1. 准备配置
-cp config.template.yaml config.yaml
-cp env.template.yaml env.yaml
-
-# 2. 编译 Go 服务
-cd backend && go build -o ../bin/codefever-api    ./cmd/codefever-api \
-                 && go build -o ../bin/codefever-worker ./cmd/codefever-worker \
-                 && go build -o ../bin/codefever-hook   ./cmd/codefever-hook
-
-# 3. 初始化数据库
-cd ../misc && sh ./create_db.sh
+CODEFEVER_SITE_HOST=https://git.example.com \
+CODEFEVER_SITE_SSH=ssh://git@git.example.com:2222/ \
+docker compose up -d
 ```
 
-完整的 15 步指南见 [从零开始安装](doc/zh-cn/installation/install_from_scratch.md)。
+> `ssh` 使用 `ssh://git@host:port/` 形式才能携带端口；scp 风格的
+> `git@host:path` 不能表达非 22 端口。管理后台“设置 → 主机”也可以修改这两项，
+> 修改会持久化到仓库根目录的 `codefever-data/config/config.yaml`。
 
-</details>
+### 国内网络 / 镜像源
 
-## 项目状态
+Compose 默认使用 Docker Hub、`proxy.golang.org` 与 Debian 官方归档源。国内网络可覆盖：
 
-### 已完成
-
-- ✅ **PHP 运行时下线** —— 后端 100% Go 化，镜像内无 PHP / php-fpm / crond
-- ✅ **本地源码构建** —— 唯一配方 `Dockerfile`，不再依赖任何上游预构建镜像
-- ✅ **契约回归** —— API 123/123，SSR 路由 43/43 与 PHP 版逐字节一致
-- ✅ **前端瘦身** —— vendor 精确裁剪（23.2MB / 2072 文件 → 3.5MB / 27 文件）
-- ✅ **开源治理齐备** —— CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG / Issue & PR 模板
-- ✅ **中英文档重写** —— 安装、配置、使用类文档全部按 Go 后端重写并对齐
-
-### 计划中
-
-- ⬜ 解除仓库名连字符限制（扩展 nginx vhost 规则）
-- ⬜ SSH 公钥支持 ed25519 / ECDSA
-- ⬜ 口令哈希从 `legacy` 平滑切换到 `argon2id`
-- ⬜ 重新引入 CI 流水线（编译 / 契约比对 / 镜像构建）
-
-> 认领上面任意一项，或直接提交 Issue / PR，详见 [贡献指南](CONTRIBUTING.md)。
-
-## 架构一览
-
-```
-                        ┌───────────────────────────────┐
-   Browser  ──HTTP──▶   │  nginx                        │
-   git client ──SSH──▶  │   ├── /api /user /doc …  ──▶  │ 127.0.0.1:9001
-                        │   ├── /*.git              ──▶  │ 127.0.0.1:27555
-                        │   └── /static /app        ──▶  │ 静态产物
-                        └───────────────────────────────┘
-                                          │
-      ┌───────────────────────────────────┴────────────────────────────────┐
-      │                                                                │
-┌─────▼──────────────────┐                              ┌──────────────────▼─────┐
-│ codefever-api  (Go)    │                              │ http-gateway   (Go)   │
-│  /api/*  /apiv1/*      │                              │  Git over HTTP        │
-│  43 条 web 路由        │                              └────────────────────────┘
-│  5 个服务端渲染页面     │
-└─────┬──────────────────┘                              ┌────────────────────────┐
-      │                                                 │ ssh-gateway/shell (Go) │
-┌─────▼──────────────────┐                              │  Git over SSH forced  │
-│ codefever-worker (Go)  │                              │  command              │
-│  事件 / 站内信 / 邮件   │                              └────────────────────────┘
-│  webhook 投递           │
-└────────────────────────┘
-      │
-┌─────▼──────────────────┐   ┌──────────────┐   ┌───────────────┐
-│ codefever-hook  (Go)   │──▶│  git-storage │   │  MySQL 8.0    │
-│  pre-receive / update  │   │  裸仓库       │   │  cc_* 表      │
-│  post-receive          │   └──────────────┘   └───────────────┘
-└────────────────────────┘
+```shell
+CODEFEVER_BASE_RUNTIME=docker.1ms.run/webdevops/php-nginx:7.4 \
+CODEFEVER_BASE_GO=docker.1ms.run/library/golang:1.25-bookworm \
+CODEFEVER_MYSQL_IMAGE=docker.1ms.run/library/mysql:8.0 \
+CODEFEVER_GOPROXY=https://mirrors.aliyun.com/goproxy,direct \
+CODEFEVER_APT_MIRROR=https://mirrors.aliyun.com/debian-archive \
+docker compose up -d --build
 ```
 
-| 目录 | 说明 |
-| --- | --- |
-| `backend/` | Go 后端（API / worker / git 钩子 / 契约测试工具），Go module `codefever-next/backend` |
-| `http-gateway/` | Git over HTTP 网关 |
-| `ssh-gateway/shell/` | Git over SSH forced command |
-| `www/` | 前端源码 `www/view/src` + 已构建产物 `www/view/build` + 静态资源 |
-| `misc/` | nginx / supervisor 配置模板、数据库结构与初始化脚本、git 钩子 |
-| `git-storage/` | 裸仓库存放目录（Docker 数据卷挂载点，仓库内只留空目录骨架） |
-| `doc/` | 用户文档（`zh-cn` / `en-us`） |
-| `docs/` | 后端重写的分析、计划与实施记录 |
-| `scripts/` | 本地构建、运行、复验与截图比对脚本 |
-| `.github/` | Issue 模板、PR 模板 |
+> 首次构建必须能访问上述镜像仓库/代理；完全离线环境请先在联网机器上
+> `docker save`，再在目标机器 `docker load`（见 [LOCAL_DEPLOY.md](LOCAL_DEPLOY.md)）。
 
 ## 配置说明
 
@@ -213,55 +167,181 @@ cd ../misc && sh ./create_db.sh
 | --- | --- | --- |
 | `CODEFEVER_HTTP_PORT` | `9080` | 宿主 HTTP 端口 |
 | `CODEFEVER_SSH_PORT` | `2222` | 宿主 Git SSH 端口 |
-| `CODEFEVER_DB_PASS` | `123456` | 数据库 root 口令 |
+| `CODEFEVER_SITE_HOST` | 按 HTTP 端口生成 | clone 面板显示的主机 URL，如 `https://git.example.com` |
+| `CODEFEVER_SITE_SSH` | 按 SSH 端口生成 | clone 面板显示的 SSH URL，如 `ssh://git@host:2222/` |
+| `CODEFEVER_DB_PASS` | `123456` | 数据库 root 口令；支持含 `/`、`&`、`\` 的强口令 |
+| `CODEFEVER_DATA_DIR` | `./codefever-data` | 数据目录（MySQL / 裸仓库 / 附件 / 配置） |
 | `CODEFEVER_IMAGE` | `codefever-next:local` | 应用镜像名 |
-| `CODEFEVER_MYSQL_IMAGE` | `mysql:8.0` | 数据库镜像（**必须 8.0+**，见下） |
-| `CODEFEVER_BASE_RUNTIME` | `docker.1ms.run/webdevops/php-nginx:7.4` | 构建期运行时基础镜像 |
-| `CODEFEVER_BASE_GO` | `docker.1ms.run/library/golang:1.25-bookworm` | 构建期 Go 基础镜像 |
+| `CODEFEVER_MYSQL_IMAGE` | `mysql:8.0` | 数据库镜像（**8.0.x**；8.4+ 已移除 compose 里的旧认证参数） |
+| `CODEFEVER_BASE_RUNTIME` | `webdevops/php-nginx:7.4` | 构建期运行时基础镜像 |
+| `CODEFEVER_BASE_GO` | `golang:1.25-bookworm` | 构建期 Go 基础镜像 |
+| `CODEFEVER_GOPROXY` | `https://proxy.golang.org,direct` | 构建期 Go module 代理 |
+| `CODEFEVER_APT_MIRROR` | `https://archive.debian.org` | Debian buster 归档源 |
 | `CODEFEVER_PASSWORD_HASH` | `legacy` | 新口令哈希格式：`legacy`（`md5(md5(x))`）或 `argon2id` |
 
 > 存量账号的口令哈希是历史遗留的 `legacy` 格式，默认保持 `legacy`，
 > **存量账号无需重置口令即可登录**。等全部账号重置过口令后，再切成 `argon2id`。
 
-> ⚠️ **数据库必须用 MySQL 8.0+**。事件 worker 与 webhook 投递器用
-> `FOR UPDATE SKIP LOCKED` 领取任务行，该语法自 MySQL 8.0.1 起才支持；
-> 在 5.7 上这两条查询直接报语法错误，会让活动流、站内信、邮件通知与
-> webhook **静默失效**（表现为日志里每 2 秒刷一次 `SKIP LOCKED` 报错）。
+> ⚠️ **数据库使用 MySQL 8.0.x**。事件 worker 与 webhook 投递器用
+> `FOR UPDATE SKIP LOCKED` 领取任务行（MySQL 8.0.1+）；compose 里的
+> `--default-authentication-plugin` 在 MySQL 8.4+ 已移除，因此不要使用 8.4/9.x。
 
-### 应用配置
+### 邮件（SMTP）
 
-`env.yaml`（数据库、邮件、网关 token、站点信息）与 `config.yaml`（站点标题、备案号等）
-由 `env.template.yaml` / `config.template.yaml` 复制而来，容器启动时会在
-`env.yaml` 中自动生成随机的 `session_key` 与 `totp_salt`。
+镜像默认**不安装 MTA**，不配置 SMTP 时系统 `mail` 命令不可用。请设置：
+
+```shell
+CODEFEVER_SMTP_HOST=smtp.example.com
+CODEFEVER_SMTP_PORT=587
+CODEFEVER_SMTP_USER=git@example.com
+CODEFEVER_SMTP_PASSWORD='<口令>'
+CODEFEVER_SMTP_FROM='CodeFever <git@example.com>'
+CODEFEVER_SMTP_TLS=starttls     # 465 端口自动按 implicit TLS 处理
+```
+
+SMTP 未配置时，邮件通知会回退到系统 `mail`（镜像内通常不存在），只会在 worker
+日志中记录失败，不会影响 Git 操作。
+
+### 应用配置与持久化
+
+默认所有持久化数据都在仓库根目录的 **`codefever-data/`**（已被 `.gitignore` 忽略）：
+
+```text
+codefever-data/
+├── mysql/          # MySQL 数据文件
+├── git-storage/    # 裸仓库 + hooks 软链
+├── file-storage/   # 上传文件与附件
+└── config/         # config.yaml + env.yaml（host/ssh、SMTP、token 等）
+```
+
+`env.yaml` 与 `config.yaml` 在容器内是 `<base>/config/` 目录的软链，因此管理后台的
+修改直接落在 `codefever-data/config/`，容器重建/镜像升级后仍保留。
+需要换位置时设置 `CODEFEVER_DATA_DIR=/绝对路径`。
+
+备份（建议先停服务，确保 MySQL 数据一致）：
+
+```shell
+docker compose stop
+tar czf codefever-data-$(date +%Y%m%d).tar.gz codefever-data
+docker compose start
+```
+
+> Windows PowerShell：`Compress-Archive -Path codefever-data -DestinationPath codefever-data.zip`。
+> **从旧命名卷升级到目录持久化时**，如果 MySQL 数据来自 Linux 命名卷、而当前是
+> Windows 绑定挂载，需要先 `mysqldump` 再从新库导入（Windows 文件系统大小写不敏感，
+> MySQL 的 `lower_case_table_names` 会从 0 变为 2，不能直接复用旧数据目录）。
+
+- 镜像构建时会随机生成 `session.key`、`totp.salt`、`gateway.token`；
+- 源码安装时需要手工填写 `gateway.token`（随机字符串），否则内部网关回调无法鉴权；
+- `gateway.token` 不要提交到仓库，也不要在多个实例间复用。
+
+## 不使用 Docker（从源码安装）
+
+需要 `nginx`、`git`、`Go 1.23+`、`MySQL 8.0.x`（`backend/go.mod` 声明 `go 1.23.0`；
+Docker 构建使用 Go 1.25 基础镜像，与源码安装不冲突）。完整步骤见
+[从零开始安装](doc/zh-cn/installation/install_from_scratch.md)，核心流程如下：
+
+```shell
+# 0. 目录约定：源码放在 /data/www/codefever-next
+#    容器内路径是 /data/www/codefever-community，两者不要混用。
+mkdir -p /data/www
+cd /data/www
+git clone https://github.com/AidenX0704/codefever-next.git codefever-next
+cd codefever-next
+
+# 1. 配置：源码安装直接使用仓库根目录的 config.yaml / env.yaml
+cp config.template.yaml config.yaml
+cp env.template.yaml env.yaml
+chmod 0660 config.yaml env.yaml
+
+# 2. 填写随机的 session key / totp salt / gateway token
+KEY="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' | cut -c1-32)"
+TOKEN="$(head -c 32 /dev/urandom | od -An -tx1 | tr -d ' \n' | cut -c1-32)"
+sed -i "s|key: <session_key>|key: ${KEY}|" env.yaml
+sed -i "s|salt: <totp_salt_for_codefever>|salt: ${KEY}|" env.yaml
+sed -i "s|token: <codefever_community_api_token>|token: ${TOKEN}|" env.yaml
+
+# 2.1 修改 config.yaml 的 host / ssh（源码安装默认 80/22）
+#     host: http://<服务器IP>
+#     ssh:  git@<服务器IP>:        # 非 22 端口时用 ssh://git@<服务器IP>:<端口>/
+
+# 3. 编译 5 个二进制
+mkdir -p bin file-storage git-storage
+cd backend
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-api          ./cmd/codefever-api
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-worker       ./cmd/codefever-worker
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-hook         ./cmd/codefever-hook
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-http-gateway ./cmd/codefever-http-gateway
+go build -trimpath -ldflags="-s -w" -o ../bin/codefever-ssh-gateway  ./cmd/codefever-ssh-gateway
+cd ..
+
+# 4. 初始化数据库（读取仓库根目录的 env.yaml）
+cd backend/deploy/sql
+sh ./create_db.sh
+```
+
+源码安装还需要：
+
+- 启动服务前创建 `git` 系统用户与家目录：
+  ```shell
+  useradd -rm -d /home/git -s /bin/bash git
+  mkdir -p /home/git/.ssh && chown -R git:git /home/git/.ssh
+  chown root:git config.yaml env.yaml
+  chmod 0660 config.yaml env.yaml
+  ```
+- 创建运行时钩子软链（Dockerfile 会自动做；源码安装需要手工执行一次）：
+  ```shell
+  mkdir -p deploy/hooks misc/hooks git-storage/hooks ssh-gateway/shell
+  for d in deploy/hooks misc/hooks git-storage/hooks; do
+    ln -sfn ../../bin/codefever-hook "$d/main"
+    ln -sfn main "$d/pre-receive"; ln -sfn main "$d/post-receive"; ln -sfn main "$d/update"
+  done
+  ln -sfn ../../bin/codefever-ssh-gateway ssh-gateway/shell/main
+  ln -sfn view/build www/app
+  ```
+- nginx 使用 `backend/deploy/docker/vhost-go.conf-template`，并把其中的
+  `/data/www/codefever-community` 改成源码目录 `/data/www/codefever-next`；
+- SSH 的 `ForceCommand` 使用 `<源码目录>/bin/codefever-ssh-gateway`；
+- systemd 单元使用 `bin/codefever-api`、`bin/codefever-worker`、
+  `bin/codefever-http-gateway`，工作目录为源码根目录。
 
 ## 开发与测试
 
 ```shell
 cd backend
 
-go build ./...          # 编译
+go build ./...          # 编译全部包（含 5 个命令）
 go vet ./...            # 静态检查
 gofmt -l .              # 格式检查
 go test ./internal/...  # 单元测试
 ```
 
+> **CI 已恢复**：`.github/workflows/ci.yml` 在 Go 1.23 上执行 gofmt / build /
+> Linux 交叉编译 / vet / test，以及 `docker compose config`。
+>
 > ⚠️ **Windows 上建议在 Linux 容器里跑测试** —— 部分环境会拦截 `config.test.exe`
 > 这类文件名，报 `Access is denied`（本机策略问题，与代码无关）。
 > 容器化的完整命令见 [贡献指南 · 测试与验证](CONTRIBUTING.md#单元测试)。
 
-一键复验流水线（编译 + 单测 + 契约比对 + 截图比对 + 镜像打包）：
+维护者本地质量门禁（gofmt → build → Linux 交叉编译 → vet → 单测 → compose config；
+加 `-BuildImage` 才构建镜像）：
 
 ```powershell
 pwsh -File scripts/verify.ps1
 ```
 
-前端产物重建（**不要**重装依赖，`@pgyer/mui-theme-preset` 声明为 `latest`，重装即漂移）：
+> 该门禁不启动数据库/应用，也不做契约、截图或写操作冒烟；这些深度验证有额外前置，
+> 见 [CONTRIBUTING.md](CONTRIBUTING.md#测试与验证)。普通用户部署只需要 Compose。
+
+前端产物重建（**不要**在正常部署时重装依赖；`@pgyer/mui-theme-preset`
+声明为 `latest`，重装会漂移）：
 
 ```shell
-cd www/view && yarn install && yarn build
+cd www/view && NODE_OPTIONS=--openssl-legacy-provider yarn build
 ```
 
-契约基线在 `backend/testdata/contract/`，Go 侧逐条比对 123 个端点的响应形状。
+契约基线在 `backend/testdata/contract/`，历史采集与比对命令见
+[贡献指南](CONTRIBUTING.md#契约回归)。这些是历史验收/回归工具，不是运行前提。
 
 > 行尾统一 LF，由 `.gitattributes` 保证；编辑器行为由 `.editorconfig` 约定。
 
@@ -269,23 +349,25 @@ cd www/view && yarn install && yarn build
 
 如果你在跑旧的上游 PHP 版本：
 
-- **数据不需要迁移** —— 数据库结构没有变化，会话需要重新登录一次
-  （旧会话在客户端 Cookie 里，新会话在服务端 `cc_sessions` 表，两者互不认得）
-- **口令哈希默认仍是 `legacy`** —— 存量账号免重置口令即可登录
-- `admin.systemStatus` 接口少了 `php` / `crond` 两个键（PHP 下线后没有意义）
-- `repository.fileContent` 从 PHP 时代的恒定 500 修正为 200
+- **数据不需要迁移** —— 数据库结构没有变化；会话需要重新登录一次
+  （旧会话在客户端 Cookie 里，新会话在服务端 `cc_sessions` 表，两者互不认得）；
+- **口令哈希默认仍是 `legacy`** —— 存量账号免重置口令即可登录；
+- `admin.systemStatus` 接口少了 `php` / `crond` 两个键（PHP 下线后没有意义）；
+- `repository.fileContent` 从 PHP 时代的恒定 500 修正为 200；
+- 旧版的 `misc/hooks`、`ssh-gateway/shell/main` 路径在镜像里保留兼容软链；
+  新建仓库的 hooks 指向 `deploy/hooks`。
 
 ## 已知限制
 
-以下限制继承自上游实现，二次开源版本尚未解除：
-
 | 限制 | 影响 | 规避方式 |
 | --- | --- | --- |
-| 仓库名不能含连字符（HTTP 访问） | nginx vhost 规则为 `^/[0-9a-z_]+/[0-9a-z_]+\.git`，不含 `-` | 建仓时避开 `-`（如 `demorepo`）；**SSH 方式不受此限制** |
-| SSH 公钥只识别 RSA | `base64_decode(整行公钥)` 后正则匹配类型，ed25519 会被误判成 `ssh-rsa` | 用 `ssh-keygen -t rsa` 生成密钥 |
+| SSH 公钥类型识别沿用上游正则 | 部分非 RSA 公钥（如某些 ed25519 变体）可能识别不稳定 | 优先使用 `ssh-keygen -t rsa` 生成密钥 |
 | 添加 SSH 公钥时 `key` 字段只传 base64 主体 | 不含 `ssh-rsa` 前缀与注释 | 与前端 `UserSettingSSHKey.js` 的解析保持一致 |
+| 404 页面引用了不存在的图片 | `/static/assets/images/404_pic.png` 会显示破图 | 可自行补充图片；不影响功能 |
+| 英文用户文档尚未全部翻译 | `doc/en-us/` 中部分页面仍为中文 | 见 [README_EN.md](README_EN.md) 的说明；欢迎参与翻译 |
 
-> 更完整的限制清单、以及与上游构建配方的逐条差异，见 [本地镜像构建与部署](LOCAL_DEPLOY.md)。
+> 仓库名**可以**包含连字符：nginx vhost 与 Go 后端使用 `[0-9a-z_.-]+` 规则。
+> 更完整的构建差异见 [LOCAL_DEPLOY.md](LOCAL_DEPLOY.md)。
 
 ## 使用说明
 
@@ -326,7 +408,7 @@ cd www/view && yarn install && yarn build
 2022 年 2 月以 MIT 协议开源，开放版本称为 `CodeFever Community`。
 
 `CodeFever Next` 是在该开源版本基础上的**二次开源版本**：后端已用 Go 完整重写，
-运行镜像中不再包含 PHP，镜像全部改为从本地源码构建。
+运行镜像中不再包含 PHP，应用镜像全部改为从本地源码构建。
 `CodeFever Next` 保留了上游的大部分功能，并针对单机部署做了优化。
 
 ### 维护者

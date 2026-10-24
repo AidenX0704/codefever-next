@@ -17,7 +17,7 @@
 1. 如果目录中包含 `id_rsa.pub` 或 `id_dsa.pub` 文件时, 则不需要新产生 `SSH Key`; 否则, 需要手动生成 `SSH Key`。在终端输入以下命令可以生成 SSH Key
 
     ```shell
-    ssh-keygen -t rsa -C ”<name or comment>“
+    ssh-keygen -t rsa -C "<name or comment>"
     ```
 
     > 注意： 参数 `-C` 后面可以输入任何你希望标识该 SSH Key 的名称

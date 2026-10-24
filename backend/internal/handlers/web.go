@@ -74,10 +74,10 @@ func redirect(w http.ResponseWriter, location string) {
 func pageData(cfg *config.Config, lang string) httpapi.PageData {
 	return httpapi.PageData{
 		Lang:          httpapi.NewTranslations(lang),
-		Host:          cfg.Site.Host,
+		Host:          cfg.SiteConfig().Host,
 		ReleaseNumber: cfg.Env.ReleaseNumber,
 		AppName:       AppName,
-		AllowRegister: cfg.Site.AllowRegister,
+		AllowRegister: cfg.SiteConfig().AllowRegister,
 	}
 }
 

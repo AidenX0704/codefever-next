@@ -279,3 +279,28 @@ func TestSplitEmail(t *testing.T) {
 		}
 	}
 }
+
+// TestInternalPostReceiveNoPushesSucceeds 确认空 stdin 的 post-receive 仍返回成功。
+//
+// 事件总线未注入时，只有"确实有 push 行"才会报错；没有推送记录时
+// 不应因为缺少依赖而让 git push 失败。
+func TestInternalPostReceiveNoPushesSucceeds(t *testing.T) {
+	srv := newInternalTestServer(t)
+	body := `{"uid":"u|r","args":["/base/hooks/post-receive"],"stdin":""}`
+	status, envelope := doInternalRequest(t, srv, http.MethodPost, "/apiv1/internal/hooks", body, internalTestToken)
+	assertEnvelope(t, status, envelope, http.StatusOK, 0, "Success", map[string]any{"remote": ""})
+}
+
+// TestInternalPostReceiveMissingBusFailsClosed 确认有 push 行但未注入事件总线时
+// 不会静默丢事件（返回 500，让运维在装配错误时立刻发现）。
+func TestInternalPostReceiveMissingBusFailsClosed(t *testing.T) {
+	srv := newInternalTestServer(t)
+	body := `{"uid":"u|r","args":["/base/hooks/post-receive"],"stdin":"0000000000000000000000000000000000000000 aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa refs/heads/master\n"}`
+	status, envelope := doInternalRequest(t, srv, http.MethodPost, "/apiv1/internal/hooks", body, internalTestToken)
+	if status != http.StatusForbidden {
+		t.Fatalf("状态码 = %d, 期望 403 (body=%v)", status, envelope)
+	}
+	if got, _ := envelope["code"].(float64); int(got) != 256 {
+		t.Fatalf("code = %v, 期望 256", envelope["code"])
+	}
+}

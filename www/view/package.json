@@ -1,7 +1,13 @@
 {
-  "name": "pgyer-codefever-community",
+  "name": "codefever-next-view",
   "version": "0.1.0",
   "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AidenX0704/codefever-next.git",
+    "directory": "www/view"
+  },
   "dependencies": {
     "@babel/core": "7.12.3",
     "@date-io/date-fns": "^1.3.8",

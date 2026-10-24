@@ -1,74 +1,70 @@
-# 设置
+# Settings
 
-管理员设置中的 设置 选项用于对 CodeFever 全局辅助功能进行设置。如果 `邮件发送` , `主机名` 和 `开放注册` 等。
+The admin **Settings** page controls global options: **host URLs (HTTP/SSH)**,
+**sender name/address** and **open registration**.
 
-在 `仓库组主页` 中左侧菜单中点击 `设置` 选项即可展开设置菜单
+Open it from **Admin → Settings** in the left sidebar.
 
-### 主机
+### Host
 
-`主机` 用于修改 `主机名`
+The host settings affect:
 
-此设置将会影响: 
+- the HTTP/SSH repository URLs shown in the repository clone panel;
+- the repository URL hint on an empty repository page.
 
-- 仓库 `clone 面板` 中 `仓库 URL` 的 `主机名` (包含 `HTTP` 和 `SSH`)
-- 空仓库首页的提示中 `仓库 URL` 的 `主机名`
+| Field | Example | Notes |
+| --- | --- | --- |
+| URL prefix (`host`) | `https://git.example.com` | HTTP scheme + domain/IP; do not end with `/` |
+| SSH prefix (`ssh`) | `ssh://git@git.example.com:2222/` | Use the `ssh://` form to carry a port; keep the trailing `/` |
 
-> 此设置项应填写为 `http://<ip address>` , `http://<domain name>` , `http://<host name>` 这三种格式中的一种。不要以 `/` 结尾
+> The container entrypoint generates defaults from `CODEFEVER_HTTP_PORT` /
+> `CODEFEVER_SSH_PORT`. Behind a reverse proxy or on a domain, prefer
+> `CODEFEVER_SITE_HOST` / `CODEFEVER_SITE_SSH`; changes made here are written to
+> `config.yaml` and persist in `codefever-data/config/` under the repository root.
 
-更换 `主机名` 需要以下操作步骤:
+Steps:
 
-1. 在 `CodeFever` 导航栏右侧找到 `管理后台` 按钮
-1. 点击 `管理后台` 按钮进入 `管理后台`
-1. 点击左侧菜单栏 `设置` 选项即可进入 `设置页面`
-1. 在 `设置页面` 中找到 `主机` 这一节
-1. 在 `URL` 输入框中输入你的 `主机` 设置后点击页面上的 `保存` 按钮即可
+1. Open **Admin → Settings**.
+2. Edit the URL / SSH prefixes under **Host**.
+3. Click **Save**.
+4. Refresh a repository page and check the clone panel.
 
-### SMTP
+### E-mail / SMTP
 
-`SMTP` 用于进行 `发件设置`
+The **Sender name** and **Sender address** fields in the Settings page only set the From
+display name/address. The SMTP server, port, credentials and TLS mode are configured with
+environment variables (not on this page):
 
-此设置将会影响: 
+```shell
+CODEFEVER_SMTP_HOST=smtp.example.com
+CODEFEVER_SMTP_PORT=587
+CODEFEVER_SMTP_USER=git@example.com
+CODEFEVER_SMTP_PASSWORD='<password>'
+CODEFEVER_SMTP_FROM='CodeFever <git@example.com>'
+CODEFEVER_SMTP_TLS=starttls     # port 465 is treated as implicit TLS
+```
 
-- 所有邮件通知里的邮件是否能够送达
+> The image does not install an MTA. Without `CODEFEVER_SMTP_HOST`, e-mail falls back to
+> the system `mail` command, which is normally unavailable; failures are only logged by
+> the worker.
 
-> 由于收件方邮件服务商可能有很强的反垃圾邮件策略, 邮件可能会被投递到垃圾收件箱
+To avoid spam classification, configure SPF for the sender domain and PTR if needed:
 
-更换 `SMTP` 需要以下操作步骤:
+```plain
+<sender-domain>        TXT   v=spf1 ip4:<server IP> ~all
+<server IP>            PTR   <sender-domain>
+```
 
-1. 在 `CodeFever` 导航栏右侧找到 `管理后台` 按钮
-1. 点击 `管理后台` 按钮进入 `管理后台`
-1. 点击左侧菜单栏 `设置` 选项即可进入 `设置页面`
-1. 在 `设置页面` 中找到 `SMTP` 这一节
-1. 在 `发件人名称` 和 `发件人地址` 输入框中输入你的 `SMTP` 设置后点击页面上的 `保存` 按钮即可
+### Registration
 
-#### 关于 `发件人名称` 和 `发件人地址` 设置的说明
+**Open registration** controls whether new users can sign up.
 
-由于收件服务器可能安装有强大的反垃圾邮件扩展, 因此仅设置 `SMTP` 是不够的, 你还需要对 `发件域名` 进行以下操作: 
+> For public deployments, **turning open registration off is strongly recommended**.
+> `config.template.yaml` ships with `allowRegister: true`; disable it in this page after the
+> first login.
 
-- 如果 `CodeFever` 服务器托管在 `云服务商` 上, 请联系你的 `云服务商` 确保你的 `主机` 可以访问 `外网主机` 的 `25` 端口
-- 可能需要对 `发件域名` 解析进行如下设置:
+Steps:
 
-  ```plain
-  mail.<发件域名>   A   <CodeFever 主机 IP>
-  <发件域名>        MX  mail.<发件域名>
-  ```
-
-- `发件人名称` 随意填写, `发件人地址` 填写 `<发件域名>` 即可
-
-### 注册
-
-`注册` 用于设置 `开放注册`
-
-此设置将会影响: 
-
-- 新用户是否可以通过注册加入 `CodeFever`
-
-更改 `开放注册` 选项需要以下操作步骤:
-
-1. 在 `CodeFever` 导航栏右侧找到 `管理后台` 按钮
-1. 点击 `管理后台` 按钮进入 `管理后台`
-1. 点击左侧菜单栏 `设置` 选项即可进入 `设置页面`
-1. 在 `设置页面` 中找到 `注册` 这一节
-1. 调整 `开放注册` 开关设置后点击页面上的 `保存` 按钮即可
-
-> 出于安全考虑，我们强烈推荐在公网上进行私有化部署的使用者关闭开放注册选项
+1. Open **Admin → Settings**.
+2. Find **Registration**.
+3. Turn off **Open registration** and save.

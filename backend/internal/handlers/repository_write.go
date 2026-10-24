@@ -23,6 +23,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -1496,6 +1497,18 @@ func (h *RepositoryWriteHandler) defaultBranch(ctx context.Context, req *httpapi
 	}); err != nil {
 		return nil, contract.NewError(contract.CodeOperateFail)
 	}
+
+	// 同步裸仓库 HEAD，否则下一次 clone 仍会检出旧默认分支。
+	// 用可选接口断言，避免把 SetHEAD 加进庞大的 RepositoryGit（会破坏测试 fake）。
+	if setter, ok := h.Git.(interface {
+		SetHEAD(ctx context.Context, repoPath, branch string) error
+	}); ok {
+		if repoPath, err := h.repoPath(ctx, rKey); err == nil {
+			if err := setter.SetHEAD(ctx, repoPath, branch); err != nil {
+				slog.Warn("更新裸仓库 HEAD 失败", "rKey", rKey, "branch", branch, "error", err)
+			}
+		}
+	}
 	return []any{}, nil
 }
 
@@ -2556,6 +2569,30 @@ func (h *RepositoryWriteHandler) mergeBranch(ctx context.Context, req *httpapi.R
 		return nil, contract.NewError(contract.CodeMissingParameter)
 	}
 
+	// 并发保护：同一个 MR 的合并请求串行化。
+	//
+	// 旧实现先查状态、再操作 git、最后写库；两个并发请求都能通过状态检查，
+	// 于是会把同一分支合并两次。这里用 MySQL 命名锁（GET_LOCK）包住整个
+	// "查状态 → git merge → 写库" 区间；拿不到锁的请求直接失败。
+	if locker, ok := h.Repos.(mergeLocker); ok {
+		var out any
+		err := locker.WithMergeLock(ctx, mrKey, func() error {
+			var runErr error
+			out, runErr = h.mergeBranchLocked(ctx, uKey, mrKey, message, usingSquash)
+			return runErr
+		})
+		return out, err
+	}
+	return h.mergeBranchLocked(ctx, uKey, mrKey, message, usingSquash)
+}
+
+// mergeLocker 是仓库写仓储的可选扩展能力（生产实现是 *repo.RepositoryWriteRepo）。
+type mergeLocker interface {
+	WithMergeLock(ctx context.Context, mrKey string, fn func() error) error
+}
+
+// mergeBranchLocked 在持有 MR 级锁的前提下执行合并。
+func (h *RepositoryWriteHandler) mergeBranchLocked(ctx context.Context, uKey, mrKey, message string, usingSquash bool) (any, error) {
 	mr, err := h.Repos.GetMergeRequestByKey(ctx, mrKey)
 	if err != nil {
 		return nil, err

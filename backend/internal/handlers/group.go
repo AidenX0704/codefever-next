@@ -35,10 +35,36 @@ type GroupHandler struct {
 	Cfg *config.Config
 	// Bus 是事件总线；事件与业务写入在同一个事务里入队。
 	Bus EventBus
+	// Git 用于合并请求列表里的 last commit（可选）。
+	Git GroupGit
+	// RepoPaths 由仓库主键查 r_path（可选）。
+	RepoPaths GroupRepoPaths
+}
+
+// GroupGit 是仓库组域需要的 git 只读操作。
+type GroupGit interface {
+	RepoPath(rPath string) (string, error)
+	LastCommit(ctx context.Context, repoPath, ref, path string, lastSHA ...string) (*domain.Commit, error)
+}
+
+// GroupRepoPaths 由仓库主键查裸仓库相对路径。
+type GroupRepoPaths interface {
+	RepositoryPath(ctx context.Context, rKey string) (string, error)
 }
 
 // GroupOption 是 GroupHandler 的可选依赖。
 type GroupOption func(*GroupHandler)
+
+// WithGroupGit 注入 git 服务与仓库路径查询。
+//
+// 合并请求列表的 commit 字段需要查源仓库最后一次提交；
+// 不注入时该字段保持空值（退化为旧行为）。
+func WithGroupGit(git GroupGit, paths GroupRepoPaths) GroupOption {
+	return func(h *GroupHandler) {
+		h.Git = git
+		h.RepoPaths = paths
+	}
+}
 
 // WithGroupUserRepo 注入用户仓储。
 func WithGroupUserRepo(users *repo.UserRepo) GroupOption {
@@ -338,9 +364,36 @@ func (h *GroupHandler) mergeRequests(ctx context.Context, req *httpapi.Request) 
 				ID: rv.Key, User: rv.UKey, IsReview: rv.IsReview,
 			})
 		}
-		out = append(out, domain.NormalizeMergeRequest(&mrs[i], reviewers))
+		view := domain.NormalizeMergeRequest(&mrs[i], reviewers)
+		// commit 字段需要查源仓库的最后一次提交；仓库已被删除或 git
+		// 读取失败时保持空值，与 repository.mergeRequests 的降级行为一致。
+		view.Commit = h.mrCommit(ctx, mrs[i].SourceRKey, mrs[i].SourceBranch)
+		out = append(out, view)
 	}
 	return out, nil
+}
+
+// mrCommit 读取合并请求源分支的最后一次提交。
+//
+// PHP 侧 normalizeMergeRequests() 对每条 MR 调 getLastCommit()；Go 侧
+// 同样按需查询。依赖未注入时返回零值。
+func (h *GroupHandler) mrCommit(ctx context.Context, sourceRKey, sourceBranch string) domain.Commit {
+	if h.Git == nil || h.RepoPaths == nil || sourceRKey == "" || sourceBranch == "" {
+		return domain.Commit{}
+	}
+	rPath, err := h.RepoPaths.RepositoryPath(ctx, sourceRKey)
+	if err != nil {
+		return domain.Commit{}
+	}
+	repoPath, err := h.Git.RepoPath(rPath)
+	if err != nil {
+		return domain.Commit{}
+	}
+	commit, err := h.Git.LastCommit(ctx, repoPath, sourceBranch, "")
+	if err != nil || commit == nil {
+		return domain.Commit{}
+	}
+	return *commit
 }
 
 // activities 实现 GET /api/group/activities。
@@ -941,7 +994,7 @@ func (h *GroupHandler) host() string {
 	if h.Cfg == nil {
 		return ""
 	}
-	return h.Cfg.Site.Host
+	return h.Cfg.SiteConfig().Host
 }
 
 // ssh 返回站点 ssh 地址（PHP 侧的 YAML_SSH）。
@@ -949,7 +1002,7 @@ func (h *GroupHandler) ssh() string {
 	if h.Cfg == nil {
 		return ""
 	}
-	return h.Cfg.Site.SSH
+	return h.Cfg.SiteConfig().SSH
 }
 
 // saveAvatar 保存头像文件。

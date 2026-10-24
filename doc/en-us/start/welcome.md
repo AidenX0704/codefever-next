@@ -8,13 +8,16 @@
 
 ### Installation
 
-`CodeFever Next` can be installed either `from scratch` or `via Docker` — pick the one that
-matches your needs.
+`CodeFever Next` can be installed with `docker compose` or `from scratch` — pick the one
+that matches your needs.
 
-- **(Recommended)** The easiest way is to use `Docker`; it takes a single command. See:
+- **(Recommended)** The shortest route is `docker compose up -d --build`. The first build
+  needs access to two base images, the Debian archive and a Go module proxy. See:
+  [Install with docker-compose](../installation/install_via_docker_compose.md)
+- If you want to inspect the image build or already have an external MySQL, see:
   [Install via Docker Image](../installation/install_via_docker.md)
-- If you need it for learning, research or customisation, you can also install it manually.
-  See: [Install From Scratch](../installation/install_from_scratch.md)
+- If you need it for learning, research or customisation, install it manually. See:
+  [Install From Scratch](../installation/install_from_scratch.md)
 
 ### Upgrade
 

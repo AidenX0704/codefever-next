@@ -26,15 +26,17 @@
 ```
 cd backend
 go build ./... && go vet ./... && go test ./internal/...
+cd ..
+docker compose config >/dev/null
 ```
 
 - [ ] `go build ./...` 通过
 - [ ] `go vet ./...` 无告警
 - [ ] `gofmt -l .` 无输出
 - [ ] `go test ./internal/...` 全部通过
-- [ ] 契约比对通过（`contract-collect` + `contract-compare`）
-- [ ] 涉及页面变更，已跑截图逐像素比对（`scripts/verify.ps1`）
-- [ ] 涉及配置 / 部署方式变更，已同步更新 `doc/` 文档
+- [ ] 如改动 API，已复跑历史契约基线（`contract-collect` + `contract-compare`，需要运行中的实例）
+- [ ] 涉及页面变更，已重建 `www/view/build` 并跑截图比对
+- [ ] 涉及配置 / 部署方式变更，已同步更新 `doc/`、`README*.md`、`LOCAL_DEPLOY.md` 等文档
 
 ## 兼容性说明
 

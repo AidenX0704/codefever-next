@@ -3,6 +3,7 @@ package httpapi
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"codefever-next/backend/internal/auth"
 	"codefever-next/backend/internal/contract"
@@ -102,6 +103,9 @@ func (s *Server) handleAPI(w http.ResponseWriter, r *http.Request) {
 	}
 	req := &Request{Parsed: p}
 	ctx := WithRequest(r.Context(), req)
+	// 把 request-id 写回请求本身，否则外层 logMiddleware / recoverMiddleware
+	// 读到的仍是原始 ctx，日志里的 request_id 恒为空，排障断链。
+	*r = *r.WithContext(ctx)
 
 	// 鉴权（PHP 侧在控制器构造函数中执行，先于 _remap 的动作查找）。
 	if err := s.authenticate(ctx, ctrl.Auth, p, r); err != nil {
@@ -158,6 +162,9 @@ func (s *Server) handleInternal(w http.ResponseWriter, r *http.Request) {
 	}
 	req := &Request{Parsed: p}
 	ctx := WithRequest(r.Context(), req)
+	// 把 request-id 写回请求本身，否则外层 logMiddleware / recoverMiddleware
+	// 读到的仍是原始 ctx，日志里的 request_id 恒为空，排障断链。
+	*r = *r.WithContext(ctx)
 
 	if err := s.authenticate(ctx, ctrl.Auth, p, r); err != nil {
 		contract.WriteError(w, p.ID, err)
@@ -227,6 +234,15 @@ func (s *Server) currentUser(ctx context.Context, p *contract.Parsed, r *http.Re
 	user, err := s.users.Get(ctx, sess.UKey)
 	if err != nil {
 		return nil, contract.NewError(contract.CodeInvalidCredential)
+	}
+	// 已软删除/禁用的账号立即失效，即使它手里还有未过期的会话 Cookie。
+	if user.Status == domain.CommonStatusDelete {
+		return nil, contract.NewError(contract.CodeInvalidCredential)
+	}
+	// 滑动续期：每 5 分钟最多刷新一次，避免每个请求都写库。
+	// 与 PHP CI2 会话的滑动过期语义对齐（持续活跃用户不会在第 10 天被强制登出）。
+	if time.Since(sess.LastSeen) > 5*time.Minute {
+		_ = s.sessions.Touch(ctx, sess.Key)
 	}
 	return user, nil
 }

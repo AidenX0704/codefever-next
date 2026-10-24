@@ -152,6 +152,13 @@ func (s *Server) Controller(name string) (*Controller, bool) {
 	return c, ok
 }
 
+// maxRequestBodyBytes 是单个请求体的硬上限。
+//
+// nginx 侧 app location 的 client_max_body_size 是 20m；这里留 2MB 余量给
+// multipart 边界与表单字段。MaxBytesReader 让 `contract.Parse` 的
+// io.ReadAll 在超限时立即失败，避免匿名请求把进程内存打满。
+const maxRequestBodyBytes = 22 << 20
+
 // Handler 返回可挂载到 http.Server 的处理器。
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
@@ -182,7 +189,51 @@ func (s *Server) Handler() http.Handler {
 	// （控制器存在 → 控制器不存在 → 404 HTML 页），见 web.go。
 	mux.HandleFunc("/", s.handleFallback)
 
-	return s.recoverMiddleware(s.logMiddleware(mux))
+	return s.recoverMiddleware(s.logMiddleware(limitRequestBody(normalizeAPIPath(mux))))
+}
+
+// normalizeAPIPath 复刻 CodeIgniter URI 的段处理：
+//
+//   - 丢弃空段（尾斜杠、连续斜杠）；
+//   - 多余段作为"方法参数"传入（PHP 用户函数允许多余实参，实际被忽略）。
+//
+// 不处理的话，`/api/user/info/` 会落到兜底 HTML 404，而 PHP 返回 200 JSON。
+// 只改路径，不碰 query 与大小写（控制器名仍区分大小写）。
+func normalizeAPIPath(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			segments := make([]string, 0, 3)
+			for _, seg := range strings.Split(r.URL.Path, "/") {
+				if seg != "" {
+					segments = append(segments, seg)
+				}
+			}
+			if len(segments) > 3 {
+				segments = segments[:3]
+			}
+			normalized := "/" + strings.Join(segments, "/")
+			if normalized != r.URL.Path {
+				r.URL.Path = normalized
+				r.URL.RawPath = ""
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// limitRequestBody 限制请求体大小，并在请求结束后清理 multipart 临时文件。
+func limitRequestBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil {
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodyBytes)
+		}
+		next.ServeHTTP(w, r)
+		// ParseMultipartForm 会把大文件落到临时目录；Go 不保证自动清理，
+		// 这里显式清掉，避免 /tmp 随上传次数累积。
+		if r.MultipartForm != nil {
+			_ = r.MultipartForm.RemoveAll()
+		}
+	})
 }
 
 // handleHealth 返回服务健康状态。

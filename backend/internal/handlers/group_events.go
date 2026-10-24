@@ -196,15 +196,6 @@ func (t *repoGroupTx) RemoveGroup(ctx context.Context, gKey string) error {
 	return t.groups.RemoveGroup(ctx, gKey)
 }
 
-// groupTxField 是 repo.GroupRepo 里保存事务对象的字段名。
-//
-// TODO(repo)：repo.GroupRepo.WithTx 只把"绑定到事务的仓储"交给调用方，
-// 没有像 repo.RepositoryWriteRepo.WithTx 那样把 raw *sql.Tx 一并交出来
-// （后者是事件总线能拿到事务对象的唯一原因）。
-// 等 repo 层补上 WithTxRaw(ctx, func(tx *GroupRepo, raw *sql.Tx) error) 之后，
-// 下面的 groupRawTx 就可以删掉，直接用 repo 给出的 raw。
-const groupTxField = "tx"
-
 // ---------------------------------------------------------------------------
 // 事件载荷
 // ---------------------------------------------------------------------------

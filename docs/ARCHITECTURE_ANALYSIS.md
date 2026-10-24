@@ -3,6 +3,12 @@
 > 采集方式：仓库全量静态阅读 + 运行态实测（容器 `codefever-app` / `codefever-db`）+ 内置浏览器 UI 取证 + MySQL 8.0.46 兼容性实测。
 > 证据均带 `文件:行号`，结论可逐条复核。
 
+> **文档状态（2026-10-23 晚）**：本文分析的是 **PHP 时代的旧架构**，用于解释“为什么要
+> 重写”。当前仓库已把 `http-gateway/`、`ssh-gateway/` 并入
+> `backend/cmd/`，把 `misc/` 迁移到 `backend/deploy/`，并移除了
+> `docker-compose.local.yml` 与 `CODEFEVER_BACKEND`。文中这些路径是**历史快照**；
+> 当前部署/目录以仓库根 `README.md` 与 `LOCAL_DEPLOY.md` 为准。
+
 ---
 
 ## 0. 结论摘要
@@ -212,9 +218,9 @@ ssh -p 2222 git@host  (git-upload-pack 'group/repo.git')
 | Go 网关**每请求重读 `env.yaml`**，且写入包级变量 → 并发写竞态 | `http-gateway/Request/main.go:90,115` |
 | Go 客户端**无超时、无重试**；gzip 解压失败直接 `panic` 终止整个网关进程 | `JsonHttpClient/main.go:25,45` |
 | `misc/hooks/main` 的 stdin 是**非阻塞读取**，大 payload 有截断风险 | `misc/hooks/main:26` |
-| `env.yaml` / `config.yaml` **不挂载卷** → 容器重建后回落模板值，session key 重新随机化 → 已存会话全部失效 | `docker-compose.local.yml` |
+| ~~`env.yaml` / `config.yaml` 不挂载卷~~ → 已修复：当前使用 `config-data` 命名卷持久化 | `docker-compose.yml` |
 | `path.git` 配置键**定义了但从未被读取**，代码硬编码 `/git-storage` | grep `YAML_PATH_GIT` → 0 命中 |
-| 仓库名字符集**三层不一致** | nginx `[0-9a-z_]+` ❌连字符 / Go `[a-zA-z0-9/.-]` ✅ / PHP `[\w\d_]+` ❌连字符 → **带连字符的仓库名经 HTTP 访问会拿到 SPA HTML**（已记录于 `LOCAL_DEPLOY.md:117-120`） |
+| 仓库名字符集**三层不一致**（历史缺陷，已修复） | 当前 nginx vhost、Go 网关/后端统一为 `[0-9a-z_.-]+`，带连字符的仓库名经 HTTP 可正常访问 |
 
 ---
 
@@ -376,7 +382,7 @@ set global sql_mode='ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_B
 | 提交身份归属 | `repository_model.php:644-645,1049-1052` | `GIT_COMMITTER_NAME`=邮箱 `@` 前段；`GIT_COMMITTER_EMAIL`=邮箱 |
 | Webhook 签名与载荷 | `backend/repository_webhook.php:8-16,123-126,67-76` | `md5(body . secret)` + `X-CodeFever-*` 头 |
 | 主键生成规则 | `Utility/UUID.php:16-18` | `md5(time()+rand()+rand()+rand()+uniqid())` → 32 位 hex |
-| 仓库磁盘布局 | `repository_model.php:641-642,918` | `<git-storage>/<32-hex>` 扁平单层；全部 bare；`hooks → ../../misc/hooks` |
+| 仓库磁盘布局 | `repository_model.php:641-642,918` | `<git-storage>/<32-hex>` 扁平单层；全部 bare；旧仓库为 `hooks → ../../misc/hooks`，新仓库为 `../../deploy/hooks`（镜像保留两者兼容软链） |
 | 展示限制阈值 | `constants.php:108-111` | `MAX_DISPLAY_DIFF_FILE=100`、`MAX_DISPLAY_DIFF_LINE=500`、`MAX_DISPLAY_DIFF_LENGTH=0x2000`、`MAX_DISPLAY_FILE_SIZE=0x200000` |
 | 分页默认值 | `constants.php:120-121` | `DEFAULT_PAGE_SIZE=20`、`DEFAULT_PAGE_SIZE_MAX=100` |
 | SSH 公钥指纹算法 | `Utility/Helper.php:44-47` | `hash('md5', base64_decode($sshKey))` |

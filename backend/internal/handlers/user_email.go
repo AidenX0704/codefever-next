@@ -224,14 +224,18 @@ func (h *UserHandler) sendVerifyCode(email string) {
 		return
 	}
 	code := auth.GenerateEmailCode(email, time.Now(), h.Cfg.Env.TOTP.Salt)
-	from := h.Cfg.Site.Email.Name + "<" + h.Cfg.Site.Email.From + ">"
+	from := h.Cfg.SiteConfig().Email.Name + "<" + h.Cfg.SiteConfig().Email.From + ">"
 	msg := mailer.Message{
 		To:      email,
 		Subject: verifyCodeMailTitle,
 		Body:    strings.ReplaceAll(verifyCodeMailTemplate, "%s", code),
 		From:    from,
 	}
-	if err := h.Mailer.Send(context.Background(), msg); err != nil {
+	// 发送是同步的（PHP 同语义），但必须有上限：SMTP/mail 卡住时不能
+	// 让 HTTP 请求跟着挂 30 秒以上。
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := h.Mailer.Send(ctx, msg); err != nil {
 		// 发送失败不改变接口语义（与 PHP 一致），但必须留下痕迹。
 		slog.Error("发送验证码邮件失败", "to", email, "error", err)
 	}

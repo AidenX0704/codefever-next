@@ -29,10 +29,11 @@ import (
 
 // HooksLinkTarget 是裸仓库 hooks 目录的软链接目标。
 //
-// 逐字对应 PHP 侧 GIT_COMMAND_INIT / GIT_COMMAND_FORK 的
-// `ln -s ../../misc/hooks hooks` —— **相对路径不可变**：
-// 钩子脚本（misc/hooks/main）依赖这个相对路径定位到 <base>/misc/hooks。
-const HooksLinkTarget = "../../misc/hooks"
+// 对应 PHP 侧 GIT_COMMAND_INIT / GIT_COMMAND_FORK 的
+// `ln -s ../../misc/hooks hooks`。源码收敛后规范目录是 <base>/deploy/hooks；
+// 镜像里同时保留 <base>/misc/hooks 软链，因此旧仓库已有的
+// `hooks -> ../../misc/hooks` 仍然可用。
+const HooksLinkTarget = "../../deploy/hooks"
 
 // MergeResult 是合并操作的结果。
 type MergeResult struct {
@@ -57,6 +58,9 @@ var conflictPattern = regexp.MustCompile(`\bconflicts\b`)
 // GIT_COMMITTER_* / GIT_AUTHOR_*）。其余行为完全一致：argv 直传、
 // 退出码精确判定、stderr 一并带回。
 func (s *Service) runWithEnv(ctx context.Context, dir string, extraEnv []string, args ...string) (string, error) {
+	ctx, cancel := commandContext(ctx)
+	defer cancel()
+
 	env, err := s.buildEnv()
 	if err != nil {
 		return "", err
@@ -123,7 +127,7 @@ func chmodRecursive(path string) error {
 //	cd {$repositoryPath}
 //	git init --bare
 //	rm -r hooks
-//	ln -s ../../misc/hooks hooks
+//	ln -s ../../deploy/hooks hooks
 //	chmod -R 0777 {$repositoryPath}
 //
 // 与 PHP 的差异：PHP 把这些命令塞进一条 shell 字符串、用 `&&` 串联，
@@ -154,7 +158,7 @@ func (s *Service) InitBare(ctx context.Context, repoPath string) error {
 //	git clone --bare {$source} .
 //	git remote remove origin
 //	rm -r hooks
-//	ln -s ../../misc/hooks hooks
+//	ln -s ../../deploy/hooks hooks
 //	chmod -R 0777 {$repositoryPath}
 //
 // 与 PHP 的关键差异：PHP 侧 `Repository_model::fork()` **丢弃了 execCommand
@@ -182,7 +186,8 @@ func (s *Service) CloneBare(ctx context.Context, repoPath, sourcePath string) er
 
 // InstallHooks 用相对软链接替换 hooks 目录。
 //
-// 逐字对应 PHP 侧的 `rm -r hooks` + `ln -s ../../misc/hooks hooks`。
+// 逐字对应 PHP 侧的 `rm -r hooks` + `ln -s ../../misc/hooks hooks`，
+// 只是目标目录随源码收敛改为 <base>/deploy/hooks（镜像保留 misc/hooks 兼容软链）。
 func (s *Service) InstallHooks(ctx context.Context, repoPath string) error {
 	if repoPath == "" {
 		return errors.New("仓库路径不能为空")
@@ -467,23 +472,13 @@ func (s *Service) CommitsSinceRemote(ctx context.Context, sourceRepoPath, source
 		return nil, err
 	}
 
-	workspace, err := os.MkdirTemp("", "codefever-mr-")
-	if err != nil {
-		return nil, err
-	}
-	defer os.RemoveAll(workspace)
-
-	if _, err := s.run(ctx, workspace, "clone", "--bare", sourceRepoPath, "."); err != nil {
-		return nil, err
-	}
-	if _, err := s.run(ctx, workspace, "remote", "add", "cf-target", targetRepoPath); err != nil {
-		return nil, err
-	}
-	if _, err := s.run(ctx, workspace, "fetch", "-q", "cf-target"); err != nil {
-		return nil, err
-	}
-	out, err := s.run(ctx, workspace, "log", "--cherry-pick", "--left-only",
-		"--format="+fmtCommit, sourceSHA+"..."+targetSHA)
+	var out string
+	err := s.withRemoteWorkspace(ctx, sourceRepoPath, targetRepoPath, func(workspace string) error {
+		var runErr error
+		out, runErr = s.run(ctx, workspace, "log", "--cherry-pick", "--left-only",
+			"--format="+fmtCommit, sourceSHA+"..."+targetSHA)
+		return runErr
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -493,6 +488,100 @@ func (s *Service) CommitsSinceRemote(ctx context.Context, sourceRepoPath, source
 		commits = append(commits, commitFromFields(r))
 	}
 	return commits, nil
+}
+
+// DiffWithRemote 计算跨仓库（fork MR）两个提交之间的 diff。
+//
+// 对应 PHP 的 getDiffWithRemote()：在源仓库的临时克隆里 fetch 目标仓库后
+// 执行 `git diff <source>...<target>`。返回的 unified diff 文本交给
+// ParseDiff 解析，与同仓库路径保持完全一致。
+func (s *Service) DiffWithRemote(ctx context.Context, sourceRepoPath, sourceSHA, targetRepoPath, targetSHA string) (string, error) {
+	if sourceSHA == "" || targetSHA == "" {
+		return "", errors.New("提交哈希不完整")
+	}
+	for _, v := range []string{sourceSHA, targetSHA} {
+		if err := rejectOptionLike(v); err != nil {
+			return "", err
+		}
+	}
+
+	var out string
+	err := s.withRemoteWorkspace(ctx, sourceRepoPath, targetRepoPath, func(workspace string) error {
+		var runErr error
+		if isZeroSHA(sourceSHA) {
+			out, runErr = s.run(ctx, workspace, "show", targetSHA)
+		} else {
+			out, runErr = s.run(ctx, workspace, "diff", sourceSHA+"..."+targetSHA)
+		}
+		return runErr
+	})
+	if err != nil {
+		return "", err
+	}
+	return out, nil
+}
+
+// DiffFileCountWithRemote 统计跨仓库两个提交之间变动的文件数。
+//
+// 与 DiffFileCount 的算法一致，只是在"源仓库 + 目标仓库"的临时工作区里执行。
+func (s *Service) DiffFileCountWithRemote(ctx context.Context, sourceRepoPath, sourceSHA, targetRepoPath, targetSHA string) (int, error) {
+	if sourceSHA == "" || targetSHA == "" {
+		return 0, errors.New("提交哈希不完整")
+	}
+	for _, v := range []string{sourceSHA, targetSHA} {
+		if err := rejectOptionLike(v); err != nil {
+			return 0, err
+		}
+	}
+
+	var out string
+	err := s.withRemoteWorkspace(ctx, sourceRepoPath, targetRepoPath, func(workspace string) error {
+		var runErr error
+		if isZeroSHA(sourceSHA) {
+			out, runErr = s.run(ctx, workspace, "show", targetSHA, "--name-only", "--pretty=%H")
+		} else {
+			out, runErr = s.run(ctx, workspace, "diff", sourceSHA+"..."+targetSHA, "--name-only")
+		}
+		return runErr
+	})
+	if err != nil {
+		return 0, err
+	}
+
+	trimmed := strings.TrimRight(out, "\n")
+	if trimmed == "" {
+		return 0, nil
+	}
+	count := len(strings.Split(trimmed, "\n"))
+	if isZeroSHA(sourceSHA) {
+		count -= 2
+	}
+	if count < 0 {
+		count = 0
+	}
+	return count, nil
+}
+
+// withRemoteWorkspace 创建一个临时裸克隆，fetch 目标仓库，然后执行 fn。
+//
+// 用临时目录而不是修改真实仓库的 remote 配置，避免并发请求互相污染。
+func (s *Service) withRemoteWorkspace(ctx context.Context, sourceRepoPath, targetRepoPath string, fn func(workspace string) error) error {
+	workspace, err := os.MkdirTemp("", "codefever-mr-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(workspace)
+
+	if _, err := s.run(ctx, workspace, "clone", "--bare", sourceRepoPath, "."); err != nil {
+		return err
+	}
+	if _, err := s.run(ctx, workspace, "remote", "add", "cf-target", targetRepoPath); err != nil {
+		return err
+	}
+	if _, err := s.run(ctx, workspace, "fetch", "-q", "cf-target"); err != nil {
+		return err
+	}
+	return fn(workspace)
 }
 
 // String 返回便于日志阅读的描述。

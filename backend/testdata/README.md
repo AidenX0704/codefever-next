@@ -7,10 +7,10 @@
 
 | 目录 | 内容 | 用途 |
 | --- | --- | --- |
-| `contract/` | 123 条 API 契约基线（每端点一个 JSON） | **生效基线**。`contract-compare -baseline testdata/contract` 的比对对象，也是 `contract-collect` 的默认输出目录 |
-| `contract-go/` | 同一套端点在 Go 后端上的采集快照 | `contract-compare -actual` 的默认目录；与 `contract/` 逐条比对得出 MATCH / DIFF |
+| `contract/` | 123 条 API 契约基线（每端点一个 JSON） | **只读基线**。`contract-compare -baseline testdata/contract` 的比对对象；采集器默认输出到 `testdata/contract-verify/`，不要覆盖它 |
+| `contract-go/` | Go 后端早期（admin/repository 写端点尚未实现时）的采集快照 | **历史快照，不是当前门禁**。直接用它比对会得到大量 NOT_IMPLEMENTED/DIFF；请先重新采集 |
 | `contract-php-now/` | PHP 后端下线前的最后一次采集 | **上游史料**。用于证明「Go 与 PHP 逐字节一致」的历史结论；`admin.systemStatus`、`repository.fileContent` 两条有意变更即以此为参照 |
-| `contract-go-linux/` | Go 后端在 Linux 容器内的采集快照 | **跨平台史料**。证明 Linux 与 Windows 上的响应一致 |
+| `contract-go-linux/` | Go 后端在 Linux 容器内的历史采集快照 | **跨平台史料**，同样不是当前门禁 |
 | `contract-cutover/` | 切流过程中（PHP 与 Go 并存）的过渡快照 | **切流史料**，用于回溯切流窗口的行为 |
 | `pages/` | 6 个服务端渲染页面的 PHP 产物快照 | `TestPagesMatchPHPSnapshots` 的比对对象（标签序列 / class / id / 资源路径 / HTML 逐字符 / JS 内容） |
 
@@ -41,9 +41,9 @@ go run ./cmd/contract-compare -baseline testdata/contract -actual testdata/contr
 
 ## ⚠️ 在全新安装上跑契约回归会得到 32 条 DIFF —— 这是环境问题，不是回归
 
-契约基线是在**上游的演示库**上采集的。那个库与 `misc/db_data.sql` 的种子数据**不是同一份**：
+契约基线是在**上游的演示库**上采集的。那个库与 `backend/deploy/sql/db_data.sql` 的种子数据**不是同一份**：
 
-| | 基线采集时的演示库 | `misc/db_data.sql` 种子库 |
+| | 基线采集时的演示库 | `backend/deploy/sql/db_data.sql` 种子库 |
 | --- | --- | --- |
 | 仓库组 | `rootteam`（id `29efb28ef9dd3018353eb5a02c018b28`） | `codefever`（id `e6508c1a66e86f697c96bdffb30c1ae3`） |
 | 仓库 | `demorepo`（id `1031c9342d6539fd36ff79f75ca4f8b7`） | `codefever`（id `2f941aef39bc8a048da55dd28c678655`） |

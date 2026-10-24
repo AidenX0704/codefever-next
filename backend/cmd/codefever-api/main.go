@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"codefever-next/backend/internal/appdir"
 	"codefever-next/backend/internal/config"
 	"codefever-next/backend/internal/db"
 	"codefever-next/backend/internal/events"
@@ -31,10 +32,11 @@ import (
 	"codefever-next/backend/internal/storage"
 )
 
-// defaultBaseDir 是容器内的应用根目录。
+// defaultBaseDir 是容器内的应用根目录（保留给文档与兼容说明）。
 //
-// 该路径不可变更：Go 网关通过 <base>/http-gateway/main 与
-// <base>/ssh-gateway/shell/main 的**相对路径**读取 <base>/env.yaml。
+// 实际默认值由 appdir.Resolve 计算：优先 CODEFEVER_BASE_DIR，其次从
+// 可执行文件位置向上找 env.yaml。因此容器内 <base>/bin/codefever-api 与
+// 源码安装 <src>/bin/codefever-api 都能自动定位到各自的根目录。
 const defaultBaseDir = "/data/www/codefever-community"
 
 // sessionTTL 与 PHP 侧 config.php 的 sess_expiration 保持一致（10 天）。
@@ -42,8 +44,8 @@ const sessionTTL = 10 * 24 * time.Hour
 
 func main() {
 	var (
-		baseDir = flag.String("base", envOr("CODEFEVER_BASE_DIR", defaultBaseDir), "应用根目录（env.yaml 所在目录）")
-		addr    = flag.String("addr", envOr("CODEFEVER_ADDR", ":9001"), "监听地址")
+		baseDir = flag.String("base", envOr("CODEFEVER_BASE_DIR", appdir.Resolve()), "应用根目录（env.yaml 所在目录）")
+		addr    = flag.String("addr", envOr("CODEFEVER_ADDR", "127.0.0.1:9001"), "监听地址")
 		logLvl  = flag.String("log-level", envOr("CODEFEVER_LOG_LEVEL", "info"), "日志级别 debug|info|warn|error")
 	)
 	flag.Parse()
@@ -74,6 +76,13 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 		"env", cfg.Env.Env,
 	)
 
+	// 内部网关令牌是 /apiv1/internal/* 的唯一凭据：空值会让
+	// CompareToken("", "") 成立（fail-open），模板占位符则是公开值。
+	// 生产环境必须显式配置随机令牌；Dockerfile 会在构建期生成。
+	if err := validateGatewayToken(cfg); err != nil {
+		return err
+	}
+
 	sqlDB, err := db.Open(cfg)
 	if err != nil {
 		return err
@@ -90,8 +99,11 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	users := repo.NewUserRepo(sqlDB)
 	notifications := repo.NewNotificationRepo(sqlDB)
 	disk := storage.NewDisk(cfg.FileStoragePath())
-	mail := mailer.NewLocalMailer()
+	mail := mailer.FromEnv(cfg.SiteConfig().Email.From)
 	sessions := session.NewStore(sqlDB, sessionTTL)
+	// 过期会话清理：旧实现只在"恰好有人拿过期 Cookie 访问"时才删，
+	// cc_sessions 会无限增长。这里每小时主动清一次。
+	go cleanupSessions(sessions, logger)
 
 	srv := httpapi.New(cfg, sessions, users, logger)
 
@@ -99,10 +111,10 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	srv.PageDataProvider = func() httpapi.PageData {
 		return httpapi.PageData{
 			Lang:          httpapi.NewTranslations("zh-cn"),
-			Host:          cfg.Site.Host,
+			Host:          cfg.SiteConfig().Host,
 			ReleaseNumber: cfg.Env.ReleaseNumber,
 			AppName:       handlers.AppName,
-			AllowRegister: cfg.Site.AllowRegister,
+			AllowRegister: cfg.SiteConfig().AllowRegister,
 		}
 	}
 
@@ -134,12 +146,26 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	defer gitSvc.Close()
 	eventBus := events.NewBus(sqlDB)
 
+	// 后台修复历史仓库的裸仓库 HEAD。
+	//
+	// 早期仓库由 `git init --bare` 创建，HEAD 固定指向 master；如果用户
+	// 首次推送 main，clone 会报 "remote HEAD refers to nonexistent ref"。
+	// 这里按 DB 默认分支（或 main/master/第一个分支）重建 HEAD。
+	go repairDefaultBranchHEADS(
+		repo.NewRepositoryRepo(sqlDB),
+		repo.NewRepositoryWriteRepo(sqlDB),
+		gitSvc,
+		logger,
+	)
+
 	// 仓库组域（13 个端点）。
 	handlers.NewGroupHandler(
 		repo.NewGroupRepo(sqlDB),
 		guard,
 		handlers.WithGroupUserRepo(users),
 		handlers.WithGroupSiteConfig(cfg),
+		handlers.WithGroupEventBus(eventBus),
+		handlers.WithGroupGit(gitSvc, repo.NewRepositoryRepo(sqlDB)),
 	).Register(srv)
 
 	// 仓库域：只读端点 + 写端点（同一控制器）。
@@ -173,14 +199,21 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	// 管理端禁用账号 / 重置口令时需要吊销会话。
+	admin.Sessions = sessions
 	admin.Register(srv)
 
 	// 内部网关回调（Go 网关与 git 钩子的唯一通道）。
+	//
+	// 注入事件总线是为了补齐 post-receive：push 成功后必须写入
+	// HOOK_POST_RECEIVE 事件，否则活动流与 webhook 都会缺记录。
 	handlers.NewInternalHandler(
 		cfg,
 		guard,
 		repo.NewInternalRepo(sqlDB),
 		users,
+		handlers.WithInternalEventBus(sqlDB, eventBus),
+		handlers.WithInternalGit(gitSvc),
 	).Register(srv)
 
 	// 预先声明全部控制器名。
@@ -282,10 +315,10 @@ func renderLoginPage(w http.ResponseWriter, r *http.Request, cfg *config.Config,
 	}
 	data := httpapi.PageData{
 		Lang:          httpapi.NewTranslations("zh-cn"),
-		Host:          cfg.Site.Host,
+		Host:          cfg.SiteConfig().Host,
 		ReleaseNumber: cfg.Env.ReleaseNumber,
 		AppName:       handlers.AppName,
-		AllowRegister: cfg.Site.AllowRegister,
+		AllowRegister: cfg.SiteConfig().AllowRegister,
 		Email:         strings.TrimSpace(r.URL.Query().Get("email")),
 	}
 	if err := httpapi.RenderLogin(w, data); err != nil {
@@ -341,12 +374,96 @@ func newLogger(level string) *slog.Logger {
 	return slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: lvl}))
 }
 
+// repairDefaultBranchHEADS 修复历史裸仓库的 HEAD 指向。
+//
+// 只读 DB 列表 + 逐仓库 `git symbolic-ref`，不阻塞 API 启动；单个仓库失败
+// 只记录日志，不影响其它仓库。
+func repairDefaultBranchHEADS(repos *repo.RepositoryRepo, writes *repo.RepositoryWriteRepo, git *gitsvc.Service, logger *slog.Logger) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	list, err := repos.ListDefaultBranches(ctx)
+	if err != nil {
+		logger.Warn("读取仓库默认分支失败，跳过 HEAD 修复", "error", err)
+		return
+	}
+	fixed := 0
+	for _, item := range list {
+		repoCtx, repoCancel := context.WithTimeout(ctx, 15*time.Second)
+		repoPath, err := git.RepoPath(item.Path)
+		if err != nil {
+			repoCancel()
+			logger.Warn("解析裸仓库路径失败", "repo", item.Key, "path", item.Path, "error", err)
+			continue
+		}
+		// 种子数据里可能存在"有 DB 行、没有裸仓库"的仓库（例如演示库），
+		// 这类记录直接跳过，不要每次启动都打 WARN。
+		if _, statErr := os.Stat(repoPath); statErr != nil {
+			repoCancel()
+			continue
+		}
+		chosen, err := git.EnsureHEAD(repoCtx, repoPath, item.Branch)
+		if err == nil && chosen != "" && chosen != item.Branch {
+			if err := writes.SetDefaultBranch(repoCtx, item.Key, chosen); err != nil {
+				logger.Warn("回写仓库默认分支失败", "repo", item.Key, "branch", chosen, "error", err)
+			} else {
+				fixed++
+			}
+		}
+		repoCancel()
+		if err != nil {
+			logger.Warn("修复裸仓库 HEAD 失败", "repo", item.Key, "branch", item.Branch, "error", err)
+		}
+	}
+	if fixed > 0 {
+		logger.Info("已修复仓库默认分支 HEAD", "count", fixed)
+	}
+}
+
+// cleanupSessions 每小时清理一次过期会话。
+func cleanupSessions(store *session.Store, logger *slog.Logger) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+	for range ticker.C {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		n, err := store.Cleanup(ctx)
+		cancel()
+		if err != nil {
+			logger.Warn("清理过期会话失败", "error", err)
+			continue
+		}
+		if n > 0 {
+			logger.Info("已清理过期会话", "count", n)
+		}
+	}
+}
+
 // envOr 读取环境变量，没有则返回默认值。
 func envOr(key, def string) string {
 	if v := os.Getenv(key); v != "" {
 		return v
 	}
 	return def
+}
+
+// validateGatewayToken 校验内部网关令牌。
+//
+// 空令牌会让 ConstantTimeCompare("", "") 成立，等价于关闭内部端点鉴权；
+// 模板占位符是仓库里的公开值，生产环境同样不可接受。
+// 本地开发（env: development）允许占位符，但会打印告警。
+func validateGatewayToken(cfg *config.Config) error {
+	token := strings.TrimSpace(cfg.Env.Gateway.Token)
+	if token == "" {
+		return errors.New("env.yaml 的 gateway.token 不能为空：内部网关端点将无法安全鉴权")
+	}
+	if token == "<codefever_community_api_token>" {
+		if cfg.Env.Env == "development" {
+			slog.Warn("gateway.token 仍是模板占位符，仅限本地开发使用")
+			return nil
+		}
+		return errors.New("env.yaml 的 gateway.token 仍是模板占位符，请生成随机令牌（openssl rand -hex 32）")
+	}
+	return nil
 }
 
 // itoa 把整数转成字符串。

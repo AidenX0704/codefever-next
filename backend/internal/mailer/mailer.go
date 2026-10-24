@@ -61,6 +61,17 @@ func (m *LocalMailer) Send(ctx context.Context, msg Message) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
+	// 邮件头字段不允许换行（头注入）；收件人不能以 "-" 开头（会被 mail
+	// 当成命令行选项）。
+	for name, value := range map[string]string{"From": msg.From, "To": msg.To, "Subject": msg.Subject} {
+		if err := validateHeaderField(name, value); err != nil {
+			return err
+		}
+	}
+	if strings.HasPrefix(strings.TrimSpace(msg.To), "-") {
+		return errors.New("收件人地址非法")
+	}
+
 	args := []string{"-r", msg.From, "-s", msg.Subject, msg.To}
 	cmd := exec.CommandContext(ctx, bin, args...)
 	cmd.Stdin = strings.NewReader(msg.Body)

@@ -49,6 +49,13 @@ func (h *UserHandler) addSSHKey(ctx context.Context, req *httpapi.Request) (any,
 		return nil, contract.NewError(contract.CodeMissingParameter)
 	}
 
+	// authorized_keys 是一行一个键；任何字段里的换行都等于注入一条新记录。
+	// 在入库前就拒绝，避免"库里存了恶意 key、某个同步进程把它写进文件"。
+	if strings.ContainsAny(name, "\r\n\x00") ||
+		strings.ContainsAny(key, " \t\r\n\x00") {
+		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+
 	keyType := auth.SSHKeyType(key)
 	keyHash := auth.SSHKeyHash(key)
 
@@ -271,6 +278,12 @@ func (h *UserHandler) updatePassword(ctx context.Context, req *httpapi.Request) 
 		"u_updated":  time.Now(),
 	}); err != nil {
 		return nil, err
+	}
+
+	// 改密后吊销该用户的全部会话（含当前会话）：防止旧 Cookie 在
+	// 口令泄露/设备丢失后继续可用。前端会收到 403 并跳转登录页。
+	if h.Sessions != nil {
+		_ = h.Sessions.DeleteByUser(ctx, u.Key)
 	}
 	return []any{}, nil
 }

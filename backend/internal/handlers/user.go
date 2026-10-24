@@ -93,7 +93,7 @@ func (h *UserHandler) info(ctx context.Context, req *httpapi.Request) (any, erro
 		return nil, err
 	}
 
-	return domain.NormalizeUser(u, emails, true, unRead, h.Cfg.Site.Host, h.Cfg.Site.SSH), nil
+	return domain.NormalizeUser(u, emails, true, unRead, h.Cfg.SiteConfig().Host, h.Cfg.SiteConfig().SSH), nil
 }
 
 // listKey 实现 GET /api/user/listKey。

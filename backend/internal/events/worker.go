@@ -27,6 +27,12 @@ const (
 // MaxAttempts 是单个事件的最大处理次数，超过后进入死信状态。
 const MaxAttempts = 5
 
+// EventLease 是"处理中"事件的租约时长。
+//
+// worker 崩溃后，超过租约的 Processing 事件会被其它 worker 重新领取，
+// 避免事件永久卡在 Processing（activity/notification/webhook 静默丢失）。
+const EventLease = 2 * time.Minute
+
 // Worker 消费事件队列并派发给各个 handler。
 //
 // 对应 PHP 侧的 service\Event\EventDispatcher：按事件类型匹配 handler
@@ -130,10 +136,12 @@ func (w *Worker) claim(ctx context.Context) ([]queuedEvent, error) {
 	rows, err := tx.QueryContext(ctx, `
 		SELECT ev_key, ev_type, ev_data, ev_generated_by, ev_timestamp, ev_language
 		FROM cc_events
-		WHERE ev_status = ? AND ev_attempts < ?
+		WHERE (ev_status = ?
+		       OR (ev_status = ? AND (ev_lease_until IS NULL OR ev_lease_until < NOW())))
+		  AND ev_attempts < ?
 		ORDER BY ev_created ASC
 		LIMIT ?
-		FOR UPDATE SKIP LOCKED`, EventStatusPending, MaxAttempts, w.BatchSize)
+		FOR UPDATE SKIP LOCKED`, EventStatusPending, EventStatusProcessing, MaxAttempts, w.BatchSize)
 	if err != nil {
 		return nil, err
 	}
@@ -162,13 +170,14 @@ func (w *Worker) claim(ctx context.Context) ([]queuedEvent, error) {
 	// 注意占位符与参数的对应关系：IN 列表里每个 key 一个占位符，
 	// 因此参数必须**逐个展开**（args...），不能把切片当单个参数传 ——
 	// 后者会得到 "unsupported type []interface {}"，导致事件永远无法被消费。
-	args := make([]any, 0, len(batch)+1)
-	args = append(args, EventStatusProcessing)
+	args := make([]any, 0, len(batch)+2)
+	args = append(args, EventStatusProcessing, time.Now().Add(EventLease))
 	for _, q := range batch {
 		args = append(args, q.key)
 	}
 	if _, err := tx.ExecContext(ctx, `
-		UPDATE cc_events SET ev_status = ?, ev_attempts = ev_attempts + 1
+		UPDATE cc_events
+		SET ev_status = ?, ev_attempts = ev_attempts + 1, ev_lease_until = ?
 		WHERE ev_key IN (`+placeholders(len(batch))+`)`, args...); err != nil {
 		return nil, err
 	}
@@ -180,7 +189,17 @@ func (w *Worker) claim(ctx context.Context) ([]queuedEvent, error) {
 }
 
 // handleOne 处理单个事件。
-func (w *Worker) handleOne(ctx context.Context, key, evType, raw, generated string, timestamp int64, language string) error {
+//
+// 带 panic 兜底：某个 handler 的 bug 不应让事件永久停在 Processing，
+// 也不应让整个 worker 进程退出（supervisor 重启会造成下一批事件也中断）。
+func (w *Worker) handleOne(ctx context.Context, key, evType, raw, generated string, timestamp int64, language string) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("处理事件时 panic: %v", r)
+			w.markFailed(ctx, key, evType, err)
+		}
+	}()
+
 	var payload domain.EventPayload
 	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
 		// 载荷损坏无法恢复，直接进死信。
@@ -214,7 +233,7 @@ func (w *Worker) handleOne(ctx context.Context, key, evType, raw, generated stri
 	// 没有匹配到 handler 时同样视为已处理（对应 PHP：没有 handler 订阅则什么都不做）。
 	_ = matched
 	if _, err := w.db.ExecContext(ctx,
-		"UPDATE cc_events SET ev_status = ?, ev_processed = ? WHERE ev_key = ?",
+		"UPDATE cc_events SET ev_status = ?, ev_processed = ?, ev_lease_until = NULL WHERE ev_key = ?",
 		EventStatusDone, time.Now(), key); err != nil {
 		return err
 	}
@@ -234,7 +253,7 @@ func (w *Worker) markFailed(ctx context.Context, key, evType string, cause error
 		status = EventStatusFailed
 	}
 	if _, err := w.db.ExecContext(ctx,
-		"UPDATE cc_events SET ev_status = ? WHERE ev_key = ?", status, key); err != nil {
+		"UPDATE cc_events SET ev_status = ?, ev_lease_until = NULL WHERE ev_key = ?", status, key); err != nil {
 		w.log.Error("更新事件状态失败", "key", key, "error", err)
 	}
 	if status == EventStatusFailed {

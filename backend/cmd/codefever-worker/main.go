@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"codefever-next/backend/internal/appdir"
 	"codefever-next/backend/internal/config"
 	"codefever-next/backend/internal/db"
 	"codefever-next/backend/internal/events"
@@ -28,7 +29,7 @@ import (
 
 func main() {
 	var (
-		baseDir = flag.String("base", envOr("CODEFEVER_BASE_DIR", "/data/www/codefever-community"), "应用根目录")
+		baseDir = flag.String("base", envOr("CODEFEVER_BASE_DIR", appdir.Resolve()), "应用根目录")
 		logLvl  = flag.String("log-level", envOr("CODEFEVER_LOG_LEVEL", "info"), "日志级别 debug|info|warn|error")
 	)
 	flag.Parse()
@@ -74,7 +75,7 @@ func run(baseDir string, logger *slog.Logger) error {
 
 	// webhook 投递与事件消费并行跑：事件消费负责入队，
 	// 投递器负责把已入队的事件真正发出去（对应 PHP 的 cron 控制器）。
-	deliverer := webhook.NewDeliverer(sqlDB, cfg.Site.Host, webhook.NewHTTPSender(webhook.DefaultTimeout), logger)
+	deliverer := webhook.NewDeliverer(sqlDB, cfg.SiteConfig().Host, webhook.NewHTTPSender(webhook.DefaultTimeout), logger)
 	go func() {
 		if err := deliverer.Run(ctx); err != nil {
 			logger.Error("webhook 投递器退出", "error", err)
