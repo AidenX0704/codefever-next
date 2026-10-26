@@ -130,7 +130,7 @@ handler（业务写）
 | 路径 | 职责 |
 |---|---|
 | `vite.config.ts` | 构建配置：产物 `web/build`、`assetsDir=static/js`（对齐 nginx 一年 immutable）、现代目标 es2022、`/api` 等路径 dev 代理到 Go 9001 |
-| `src/theme/theme.css` | **全仓库唯一的视觉字面值来源**（颜色/间距/圆角/阴影/字号），逐项抄自旧 `@pgyer/mui-theme-preset` 与 `theme1.js` |
+| `src/theme/theme.css` | **全仓库唯一的视觉字面值来源**（颜色/间距/圆角/阴影/字号），逐项抄自旧 `@pgyer/mui-theme-preset` 与 `theme1.js`；另有 `--cf-field-surface`（**输入区表面色的唯一来源**，2026-10-25 新增，用于中和 Chrome 自动填充的 UA 蓝底并按变体给出正确盖色） |
 | `src/theme/tokens.ts` | 令牌的类型化引用 + `space(n)`（等价旧 `theme.spacing`） |
 | `src/theme/global.css` | 全局基础样式与工具类（对应旧 `App.styl`） |
 | `src/components/unit/` | 自研组件库（磁盘上 **27** 个目录）：Button / IconButton / SquareIconButton / Icon / TextField / SelectField / Choices / Form / Table(+DataTable/Pagination) / Dialog / Confirm / Dropdown / Tabs / Tooltip / Toast / Avatar / Tag / Marker / Card / Loading / EmptyState / CopyButton / AppLink / FormattedTime / CodeViewer / DiffViewer（文件级 diff：汇总条 + inline·side-by-side 布局切换 + 逐文件折叠 + 复制路径 / 查看 @hash / 展开完整文件）/ FilterBar（页签+搜索+排序的工具条，分支·标签·活动三处共用）。⚠️ `TextareaField` / `Checkbox` / `Switch` **尚未实现**（此前清单误列，2026-10-25 校正），Release / Issue 表单落地前须先补齐（见 `docs/GOGS_PARITY_DEVELOPMENT_PLAN.md` R13） |
@@ -239,3 +239,9 @@ Dockerfile（两阶段）
 - 2026-10-25：校正 `src/components/unit/` 清单 —— `TextareaField` / `Checkbox` / `Switch`
   此前被误列为已存在，磁盘上**并不存在**；实际存在的 `Choices` 此前漏列。
   按本节约定以追加方式更正，未删改原始描述之外的内容。
+
+- 2026-10-25：输入框表面色统一 —— 新增设计令牌 `--cf-field-surface`
+  （`src/theme/theme.css`），并在组件层（`src/styles/components.css`）全局中和
+  Chrome / Edge 自动填充的 UA 强制蓝底（此前多邮箱页邮件+密码框会出现
+  「文字底部一条蓝带、输入区被割裂成三段」）。影响**全站所有输入框**，
+  修复落在组件层而非单个页面。

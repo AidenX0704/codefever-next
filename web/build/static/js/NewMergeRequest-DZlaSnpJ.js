@@ -1,0 +1,1 @@
+import{t as e}from"./vendor-Cwr4aY6H.js";import t from"./MergeRequestCreate-q9G0rQEe.js";var n=e();function r(){return(0,n.jsx)(t,{global:!0})}export{r as default};

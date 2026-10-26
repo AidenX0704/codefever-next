@@ -421,6 +421,25 @@
 
 ### 修复
 
+- **输入框自动填充时文字底部出现蓝色背景带（多邮箱页的邮件 / 密码输入框最明显）**：
+  Chrome / Edge 的 UA 样式表对 `:-internal-autofill-selected` 强制
+  `background-color: rgb(232,240,254) !important`（浅蓝）。本仓库的输入框是
+  **两层结构** —— 外层 `.cf-field__box`（32px，有底色）+ 内层 `.cf-field__input`
+  （19px，`background: transparent`）—— UA 的背景色只作用在 19px 的 input 盒子上，
+  于是自动填充时**只有文字所在那一行变蓝**，上下内边距仍是原底色，
+  视觉上输入区被割裂成三段。
+  - 修复落在**组件层**（`web/src/styles/components.css`）而非某个页面，
+    对 `.cf-field__input` / `.cf-field__select` 全局中和自动填充样式：
+    用 `box-shadow: 0 0 0 1000px var(--cf-field-surface) inset`
+    （inset 阴影绘制在背景色之上、文字之下）盖住 Chrome 的 `!important` 蓝底，
+    并复位 `-webkit-text-fill-color` / `caret-color`，
+    用 `transition: background-color 0s 600000s` 消除填充瞬间的闪烁；
+  - 新增设计令牌 `--cf-field-surface`（`web/src/theme/theme.css`）作为
+    **输入区表面色的唯一来源**，并按变体分别给出正确盖色：
+    `--cf-field--underline` 用 `--cf-auth-panel-bg`（认证页输入框落在 auth 面板上）、
+    `--cf-field--disabled` 用 `--cf-color-bg-main`；
+  - 影响面：**全站所有输入框**（登录、注册、设置、多邮箱等），
+    此前各页面对 Chrome 自动填充的视觉表现不一致。
 - **admin 端点访问日志双写**：17 个管理端点此前被注册为 page route 并二次分发，
   每个请求走两层中间件，同一 `request_id` 出现两条完全相同的日志
   （请求体限制与 panic 恢复也各套两层）。根因（`contract.Parse` 先读完请求体

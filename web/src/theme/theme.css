@@ -125,6 +125,14 @@
   --cf-list-item-min-width: 160px; /* MuiListItem minWidth = spacing(20) */
   --cf-list-icon-width: 32px; /* MuiListItemIcon minWidth = spacing(4) */
 
+  /* ---------- 输入区表面色 ---------- */
+  /* .cf-field__box 的底色，也是输入框内容区"应该"呈现的颜色。
+     单独列一项的原因：浏览器自动填充（Chrome autofill）会以 UA 层 !important
+     强制给 input 铺 rgb(232,240,254)，作者层无法用 background-color 覆盖，
+     只能用 inset box-shadow 盖住 —— 盖色必须与输入区表面色一致，
+     否则"盖住了"也会变成另一种色差。认证页 underline 变体另有覆盖。 */
+  --cf-field-surface: var(--cf-color-bg);
+
   /* ---------- 组件内部复合值（同样是"现值"，不许在组件 CSS 里重写） ---------- */
   --cf-btn-padding: 2px 24px; /* MuiButton contained/outlined: spacing(0.25) spacing(3) */
   --cf-btn-text-padding: 4px 8px; /* MuiButton text: spacing(0.5) spacing(1) */

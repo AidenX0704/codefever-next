@@ -225,6 +225,8 @@
 .cf-field--disabled .cf-field__box {
   background: var(--cf-color-bg-main);
   cursor: not-allowed;
+  /* 禁用态的输入框底色不同，autofill 盖色要跟着换。 */
+  --cf-field-surface: var(--cf-color-bg-main);
 }
 
 .cf-field__input {
@@ -243,6 +245,52 @@
 
 .cf-field__input::placeholder {
   color: var(--cf-color-text-lighter);
+}
+
+/* ---------- 浏览器自动填充（autofill）中性化 ----------
+ *
+ * Chrome / Edge 的 UA 样式表对被自动填充的输入框强制
+ *   background-color: rgb(232, 240, 254) !important
+ *   color: -internal-light-dark(black, white) !important
+ *
+ * 本项目的输入框是"外层 .cf-field__box（32px，有底色）+ 内层
+ * .cf-field__input（19px，background: transparent）"两层结构，
+ * 而 UA 的 background-color 只作用在 input 自身的盒子上 ——
+ * 于是自动填充时只有文字所在的那 19px 变成蓝底，上下内边距仍是原底色，
+ * 视觉上就是"文字底部压着一条蓝色背景"，输入区被割裂成三段。
+ *
+ * UA 的 !important 在 CSS 级联里优先级高于作者样式（即使作者也写 !important），
+ * 因此不能靠 background-color 覆盖，只能用两件套：
+ *   1. inset box-shadow 用 --cf-field-surface 盖满输入框自身的盒子 —— 蓝色被盖住，
+ *      且盖色就是输入框的真实底色，肉眼与未填充时完全一致；
+ *      （inset 阴影绘制在背景色之上、文字之下，所以能压住 UA 的背景色，
+ *        同时不影响文字本身。）
+ *   2. -webkit-text-fill-color / caret-color 复位文字与光标颜色
+ *      （UA 的 color !important 同样盖不掉，但 text-fill-color 独立于 color）。
+ *
+ * 另加 background-color !important 是为了 Firefox —— 它的 autofill 背景色
+ * 可以被作者 !important 覆盖，不需要阴影也能生效；两者并存互不冲突。
+ *
+ * transition 的超长延迟用于消除自动填充瞬间的背景闪烁。
+ *
+ * 作用域放在组件层（而非页面层），保证全站所有输入框口径一致。
+ */
+.cf-field__input:autofill,
+.cf-field__input:autofill:hover,
+.cf-field__input:autofill:focus,
+.cf-field__input:autofill:active,
+.cf-field__input:-webkit-autofill,
+.cf-field__input:-webkit-autofill:hover,
+.cf-field__input:-webkit-autofill:focus,
+.cf-field__input:-webkit-autofill:active,
+.cf-field__select:autofill,
+.cf-field__select:-webkit-autofill {
+  background-color: var(--cf-field-surface) !important;
+  -webkit-text-fill-color: var(--cf-color-text);
+  caret-color: var(--cf-color-text);
+  -webkit-box-shadow: 0 0 0 1000px var(--cf-field-surface) inset;
+  box-shadow: 0 0 0 1000px var(--cf-field-surface) inset;
+  transition: background-color 0s 600000s;
 }
 
 textarea.cf-field__input {
@@ -303,6 +351,9 @@ textarea.cf-field__input {
   border-bottom: 1px solid var(--cf-color-border);
   border-radius: 0;
   background: transparent;
+  /* 认证页输入框直接落在 .auth-card__panel 上（不是应用底色），
+     autofill 盖色必须跟着换成面板色，否则会出现新的色差。 */
+  --cf-field-surface: var(--cf-auth-panel-bg);
 }
 
 .cf-field--underline .cf-field__box:focus-within {
