@@ -5,6 +5,7 @@
 
 ### 通用约定
 
+- **只接受 `GET` 与 `HEAD`**：其余方法返回 `405` + `Allow: GET, HEAD`（`HEAD` 便于探活）；
 - 成功响应是**裸 JSON**：单个对象或数组，没有信封包装；
 - 响应头固定为 `Content-Type: application/json; charset=utf-8` 与 `Cache-Control: no-cache, must-revalidate`；
 - 出错时状态码非 `200`，响应体为 `{"message": "...", "url": "..."}`（见 [错误、限制与约定](errors.md)）；

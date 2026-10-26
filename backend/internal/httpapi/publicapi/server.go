@@ -117,6 +117,14 @@ type RepositoryBrief struct {
 // 端点
 // ---------------------------------------------------------------------------
 
+// notFound 处理未命中任何端点的公开 API 路径（由路由表兜底注册）。
+//
+// 为什么要显式兜底：Go 的 ServeMux 默认回 `text/plain` 的 "404 page not found"，
+// 调用方按 `{message,url}` 解析会直接失败 —— 而"路径拼错"恰恰是最常见的错误。
+func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
+	WriteError(w, http.StatusNotFound, "未知的 API 端点，请查阅文档确认路径")
+}
+
 // GetUser 处理 GET /api/v1/user。
 //
 // 返回当前令牌所属用户的信息。

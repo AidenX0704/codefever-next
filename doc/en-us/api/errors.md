@@ -33,20 +33,36 @@ A few real bodies:
 {"message":"读取仓库列表失败","url":"https://git.example.com/doc/cn/api/overview.md"}
 ```
 
+```json
+{"message":"未知的 API 端点，请查阅文档确认路径","url":"https://git.example.com/doc/cn/api/overview.md"}
+```
+
+```json
+{"message":"该端点只支持 GET 请求","url":"https://git.example.com/doc/cn/api/overview.md"}
+```
+
+> **Every error is one of these shapes**, including a mistyped path (`404`) and a wrong method
+> (`405`). There are no `text/plain` error responses, so callers can always parse JSON.
+>
+> `message` values are Chinese in the current implementation (they are not localised yet); the
+> two examples above mean "unknown API endpoint, check the path" and "this endpoint only
+> supports GET".
+
 ### Status codes
 
 | Status | Meaning | When it happens |
 |---|---|---|
 | `200` | OK | Plain JSON object or array |
 | `401` | Unauthenticated | Missing token, invalid token, disabled or soft-deleted owning account. Only on token-required endpoints: `/api/v1/user`, `/api/v1/user/repos` |
-| `404` | Not found | No such user; no such repository; a private repository the caller cannot read (**`404` rather than `403`**, so existence is not disclosed) |
+| `404` | Not found | No such user; no such repository; a private repository the caller cannot read (**`404` rather than `403`**, so existence is not disclosed); and a path that does not exist (mistyped endpoint) |
+| `405` | Method not allowed | The public API only accepts `GET` and `HEAD`; anything else returns `405` with `Allow: GET, HEAD` |
 | `422` | Unprocessable | `{username}`, `{owner}` or `{repo}` is blank, for example `/api/v1/users/%20` |
 | `500` | Internal error | For example failing to read the repository list |
 
 ### Limits
 
-- Only four **read-only** endpoints. Branches, tags, commits, file contents, releases and
-  access-token management are not implemented yet;
+- Only four **read-only** endpoints, `GET` / `HEAD` only. Branches, tags, commits, file contents,
+  releases and access-token management are not implemented yet;
 - **No pagination** and no `Link` header: list endpoints return everything in one response, and
   callers are responsible for handling the size themselves;
 - **No rate limiting** and **no scope granularity**: a token is exactly as powerful as its user;

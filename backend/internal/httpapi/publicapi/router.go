@@ -7,7 +7,7 @@ import (
 
 // Router 是公开 API（/api/v1）的路由表。
 //
-// 路径风格对齐 GitHub 等常见约定：
+// 路径风格对齐 GitHub 等常见约定；**全部只读**，非 GET/HEAD 一律 405：
 //
 //	GET    /api/v1/user
 //	GET    /api/v1/users/{username}
@@ -39,11 +39,45 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 // register 注册全部公开端点。
+//
+// 【为什么方法约束写在包装器里，而不是用 Go 1.22 的 "GET /api/v1/..." 模式】
+//
+// 方法模式会让 Go 的 ServeMux 自己回 405，但响应体是 **text/plain** 的
+// "Method Not Allowed\n"（实测），直接打破公开 API "错误永远是 {message,url} JSON"
+// 的约定；要保住 JSON 就得在子 mux 外再包一层、并自己维护"路径是否存在"来区分
+// 404/405，反而更绕。requireGet 只有几行，错误体形态与 Allow 头完全可控，
+// 与既有的 requireUser 包装器同一风格。
 func (r *Router) register() {
-	r.mux.HandleFunc("/api/v1/user", r.server.requireUser(r.server.GetUser))
-	r.mux.HandleFunc("/api/v1/user/repos", r.server.requireUser(r.server.GetMyRepos))
-	r.mux.HandleFunc("/api/v1/users/{username}", r.server.GetUserByName)
-	r.mux.HandleFunc("/api/v1/repos/{owner}/{repo}", r.server.GetRepo)
+	r.mux.HandleFunc("/api/v1/user", requireGet(r.server.requireUser(r.server.GetUser)))
+	r.mux.HandleFunc("/api/v1/user/repos", requireGet(r.server.requireUser(r.server.GetMyRepos)))
+	r.mux.HandleFunc("/api/v1/users/{username}", requireGet(r.server.GetUserByName))
+	r.mux.HandleFunc("/api/v1/repos/{owner}/{repo}", requireGet(r.server.GetRepo))
+
+	// 兜底：未命中的公开 API 路径返回 JSON 404。
+	//
+	// Go 的 ServeMux 默认回 text/plain 的 "404 page not found" —— 调用方按
+	// {message,url} 解析会直接失败。两个模式都要注册："/api/v1/" 只管子树，
+	// 裸的 "/api/v1" 不在其内（不注册则 ServeMux 会 301 到 "/api/v1/"，对 API 无意义）。
+	r.mux.HandleFunc("/api/v1", r.server.notFound)
+	r.mux.HandleFunc("/api/v1/", r.server.notFound)
+}
+
+// requireGet 只放行 GET 与 HEAD，其余方法回 405（JSON 错误体 + Allow 头）。
+//
+// 方法判定放在鉴权**之前**：方法不匹配时不该走令牌校验（也不该因为"没带令牌"
+// 而回 401 —— 那样调用方会误以为是凭据问题）。
+//
+// HEAD 一并放行：Go 的 http.Server 对 HEAD 自动丢弃响应体，探活脚本常用它；
+// 若只放 GET，监控会看到 405。
+func requireGet(h http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			w.Header().Set("Allow", "GET, HEAD")
+			WriteError(w, http.StatusMethodNotAllowed, "该端点只支持 GET 请求")
+			return
+		}
+		h(w, r)
+	}
 }
 
 // Wrap 把公开 API 分流到自己的 mux，其余请求交给 next。

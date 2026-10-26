@@ -56,7 +56,7 @@
 | 包 | 职责 |
 |---|---|
 | `httpapi` | HTTP 服务器装配、路由、中间件链（recover → log → limit → normalize）、API 分发、**SPA 壳下发**（`spa.go`）。页面模板层 `pages.go` / `templates/` / `pages_test.go` **已删除 2026-10-24**（前端重写） |
-| `httpapi/publicapi` | **公开 REST API `/api/v1`**（2026-10-25 新增）：面向外部 CI / 脚本，与内部 `/api/*` **完全隔离** —— 自建 mux + `Wrap()` 前置分流、裸 JSON 响应、错误体 `{"message","url"}`、令牌鉴权（令牌 ≡ 用户）、私有资源越权返回 **404**（不泄露存在性）。**不复用 `contract.Envelope`**（PHP 兼容契约，123 条基线锁定）。错误体的 `url` 自 2026-10-26 起指向文档中心的 API 文档页（`DefaultDocPath = /doc/cn/api/overview.md`），此前误指向 `/api/v1` 前缀本身（浏览器访问是 404 死链） |
+| `httpapi/publicapi` | **公开 REST API `/api/v1`**（2026-10-25 新增）：面向外部 CI / 脚本，与内部 `/api/*` **完全隔离** —— 自建 mux + `Wrap()` 前置分流、裸 JSON 响应、错误体 `{"message","url"}`、令牌鉴权（令牌 ≡ 用户）、私有资源越权返回 **404**（不泄露存在性）。**不复用 `contract.Envelope`**（PHP 兼容契约，123 条基线锁定）。错误体的 `url` 自 2026-10-26 起指向文档中心的 API 文档页（`DefaultDocPath = /doc/cn/api/overview.md`），此前误指向 `/api/v1` 前缀本身（浏览器访问是 404 死链）。**方法约束**自 2026-10-26 起由路由层包装器 `requireGet` 承担（只放行 GET / HEAD，其余 405 + `Allow`，且先于鉴权），命名空间根与未知子路径兜底为 JSON 404 —— 此前任意方法都会进 handler、未知路径回 Go 默认的 `text/plain` 404 |
 | `contract` | 请求解析（JSON / form / multipart）、PHP 兼容的错误码与响应信封 |
 | `handlers` | 各域 HTTP handler（user / admin / group / repository / internal / login / webvitals / doc） |
 | `repo` | 数据访问层；事务封装（`WithTx`）、批量查询、保留期清理 |

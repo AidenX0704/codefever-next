@@ -6,6 +6,8 @@ Four endpoints exist today, all read-only. In the examples `$API` is your deploy
 
 ### General conventions
 
+- **`GET` and `HEAD` only**; any other method returns `405` with `Allow: GET, HEAD`
+  (`HEAD` is accepted so health checks keep working);
 - Success bodies are **plain JSON**: a single object or an array, never wrapped in an envelope;
 - Responses carry `Content-Type: application/json; charset=utf-8` and
   `Cache-Control: no-cache, must-revalidate`;

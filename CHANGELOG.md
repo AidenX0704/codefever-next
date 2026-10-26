@@ -466,6 +466,18 @@
 
 ### 修复
 
+- **公开 API 的方法与未知路径不再"静默放行"**：`/api/v1` 的路由此前是纯路径模式，
+  方法完全不设限 —— 带合法令牌的 `POST /api/v1/user` 会正常返回 `200` 与数据，而文档
+  写的是 `GET`；未命中的路径则回 Go 默认的 `text/plain` `404 page not found`，调用方
+  按 `{message,url}` 解析会直接失败。
+  - 四个端点统一加 `requireGet` 闸门：只放行 `GET` / `HEAD`，其余方法回
+    `405` + `Allow: GET, HEAD` + JSON 错误体，且**方法判定先于鉴权**
+    （否则调用方会把"方法不对"误读成"令牌有问题"）；
+  - 命名空间根与未知子路径兜底为 JSON `404`（`/api/v1`、`/api/v1/`、`/api/v1/nope`）；
+  - 为什么不用 Go 1.22 的 `"GET /api/v1/..."` 模式：它自带的 405 响应体是
+    `text/plain`，会打破"错误永远是 JSON"的契约，要保住 JSON 反而更绕；
+  - `doc/{zh-cn,en-us}/api/` 同步补充 `405` 与"路径不存在"的语义。
+
 - **输入框自动填充时文字底部出现蓝色背景带（多邮箱页的邮件 / 密码输入框最明显）**：
   Chrome / Edge 的 UA 样式表对 `:-internal-autofill-selected` 强制
   `background-color: rgb(232,240,254) !important`（浅蓝）。本仓库的输入框是
