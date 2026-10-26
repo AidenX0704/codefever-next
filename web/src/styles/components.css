@@ -1,0 +1,1071 @@
+/*
+ * CodeFever Next 组件库样式（AGENTS §4：通用 UI 原子件只在这里定义一次）。
+ *
+ * 硬约束（AGENTS §5）：
+ *   - 只允许引用 var(--cf-*)，不出现颜色/间距/圆角/阴影字面值；
+ *   - 例外仅结构性数值（0 / 100% / 1px 边框 / 50% 圆形）。
+ * 视觉口径来源：旧主题 preset（见 theme.css 顶部注释）。
+ */
+
+/* ============================== Button ============================== */
+/* preset MuiButton：高 32px、min-width 104px、圆角 4、contained/outlined padding 2px 24px */
+.cf-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cf-space-half);
+  height: var(--cf-control-height);
+  min-width: var(--cf-control-min-width);
+  padding: var(--cf-btn-padding);
+  border: 1px solid transparent;
+  border-radius: var(--cf-radius);
+  background: transparent;
+  color: var(--cf-color-text-button);
+  font-family: inherit;
+  font-size: var(--cf-font-size);
+  font-weight: var(--cf-font-weight-normal);
+  line-height: 1;
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease,
+    border-color 0.12s ease;
+}
+
+.cf-btn:disabled,
+.cf-btn[aria-disabled='true'] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cf-btn--block {
+  width: 100%;
+}
+
+.cf-btn--sm {
+  height: var(--cf-control-height-sm);
+  min-width: var(--cf-control-min-width-sm);
+}
+
+/* 大号按钮：认证页提交按钮（旧 .btn-lg + .btn-self-primary） */
+.cf-btn--lg {
+  height: var(--cf-control-height-lg);
+  font-size: var(--cf-font-size-lg);
+}
+
+/* 认证页主色：旧 .btn-self-primary 用的是 #0035EC（与内壳 #3455db 不同，保持原样） */
+.cf-btn--contained.cf-btn--auth {
+  border-color: var(--cf-color-auth-primary);
+  background: var(--cf-color-auth-primary);
+}
+
+.cf-btn--contained.cf-btn--auth:hover:not(:disabled) {
+  border-color: var(--cf-color-auth-primary-light);
+  background: var(--cf-color-auth-primary-light);
+}
+
+.cf-btn--contained.cf-btn--auth:active:not(:disabled) {
+  border-color: var(--cf-color-auth-primary-dark);
+  background: var(--cf-color-auth-primary-dark);
+}
+
+.cf-btn--contained {
+  border-color: var(--cf-color-primary);
+  background: var(--cf-color-primary);
+  color: var(--cf-color-on-primary);
+}
+
+.cf-btn--contained:hover:not(:disabled) {
+  border-color: var(--cf-color-primary-light);
+  background: var(--cf-color-primary-light);
+}
+
+.cf-btn--contained:active:not(:disabled) {
+  border-color: var(--cf-color-primary-dark);
+  background: var(--cf-color-primary-dark);
+}
+
+.cf-btn--contained.cf-btn--danger {
+  border-color: var(--cf-color-danger);
+  background: var(--cf-color-danger);
+}
+
+.cf-btn--contained.cf-btn--danger:hover:not(:disabled) {
+  border-color: var(--cf-color-danger-light);
+  background: var(--cf-color-danger-light);
+}
+
+.cf-btn--contained.cf-btn--danger:active:not(:disabled) {
+  border-color: var(--cf-color-danger-dark);
+  background: var(--cf-color-danger-dark);
+}
+
+.cf-btn--outlined {
+  border-color: var(--cf-color-border);
+  color: var(--cf-color-text-light);
+}
+
+.cf-btn--outlined:hover:not(:disabled) {
+  border-color: var(--cf-color-primary-dark);
+  color: var(--cf-color-primary-dark);
+}
+
+.cf-btn--outlined:active:not(:disabled) {
+  border-color: var(--cf-color-primary-light);
+  color: var(--cf-color-primary-light);
+}
+
+.cf-btn--outlined.cf-btn--danger:hover:not(:disabled) {
+  border-color: var(--cf-color-danger-dark);
+  color: var(--cf-color-danger-dark);
+}
+
+.cf-btn--text {
+  min-width: var(--cf-btn-text-min-width);
+  padding: var(--cf-btn-text-padding-4); /* 4px 24px 4px 8px（旧版实测） */
+  border-color: transparent;
+  background: transparent;
+}
+
+.cf-btn--text:hover:not(:disabled),
+.cf-btn--text:active:not(:disabled) {
+  color: var(--cf-color-primary);
+  background: var(--cf-color-primary-lighter);
+}
+
+.cf-btn--text.cf-btn--danger:hover:not(:disabled) {
+  color: var(--cf-color-danger);
+  background: var(--cf-color-danger-lighter);
+}
+
+.cf-btn__spinner {
+  width: 14px;
+  height: 14px;
+}
+
+/* ============================== IconButton ============================== */
+/* preset MuiIconButton.colorPrimary：hover 文字 primary + 底色 primary-light → 这里取 lighter 保证对比度 */
+.cf-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--cf-control-height);
+  height: var(--cf-control-height);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--cf-color-text-light);
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.cf-icon-btn:hover:not(:disabled) {
+  color: var(--cf-color-primary);
+  background: var(--cf-color-primary-lighter);
+}
+
+.cf-icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cf-icon-btn--bordered {
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+}
+
+/* ============================== Field（Input / Select / Textarea） ============================== */
+/* preset MuiOutlinedInput：padding 6.5px 16px、边框 #dee2ec、圆角 4、行高 19px */
+.cf-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+  min-width: 0;
+}
+
+.cf-field__label {
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+  line-height: var(--cf-line-height-tight);
+}
+
+.cf-field__required {
+  margin-left: 2px;
+  color: var(--cf-color-danger);
+}
+
+.cf-field__box {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  /* 旧版输入框盒子实测 32px；用 border-box + 固定高度精确复刻
+     （只靠 padding 会得到 34px：19 行高 + 13 内边距 + 2 边框）。 */
+  box-sizing: border-box;
+  height: var(--cf-input-height);
+  padding: var(--cf-input-padding-y) var(--cf-input-padding-x);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+  transition: border-color 0.12s ease;
+}
+
+.cf-field__box:focus-within {
+  border-color: var(--cf-color-primary);
+}
+
+.cf-field--error .cf-field__box {
+  border-color: var(--cf-color-danger);
+}
+
+.cf-field--disabled .cf-field__box {
+  background: var(--cf-color-bg-main);
+  cursor: not-allowed;
+}
+
+.cf-field__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--cf-input-line-height);
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--cf-color-text);
+  font-family: inherit;
+  font-size: var(--cf-font-size);
+  line-height: var(--cf-input-line-height);
+}
+
+.cf-field__input::placeholder {
+  color: var(--cf-color-text-lighter);
+}
+
+textarea.cf-field__input {
+  height: auto;
+  min-height: calc(var(--cf-input-line-height) * 3);
+  padding: 0;
+  resize: vertical;
+}
+
+.cf-field__select {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--cf-input-line-height);
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--cf-color-text);
+  font-family: inherit;
+  font-size: var(--cf-font-size);
+  cursor: pointer;
+  appearance: none;
+}
+
+.cf-field__caret {
+  flex: 0 0 auto;
+  width: 0;
+  height: 0;
+  border-top: 5px solid var(--cf-color-text-light);
+  border-right: 5px solid transparent;
+  border-left: 5px solid transparent;
+  pointer-events: none;
+}
+
+.cf-field__adornment {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+  white-space: nowrap;
+}
+
+.cf-field__help {
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+  line-height: var(--cf-line-height-tight);
+}
+
+.cf-field--error .cf-field__help {
+  color: var(--cf-color-danger);
+}
+
+/* 认证页输入框：只有底边框、无圆角、大号字（旧 `.login-wrap input.form-control`） */
+.cf-field--underline .cf-field__box {
+  padding: var(--cf-space) 0;
+  border: 0;
+  border-bottom: 1px solid var(--cf-color-border);
+  border-radius: 0;
+  background: transparent;
+}
+
+.cf-field--underline .cf-field__box:focus-within {
+  border-bottom-color: var(--cf-color-auth-primary);
+}
+
+.cf-field--underline .cf-field__input {
+  height: var(--cf-auth-input-height);
+  font-size: var(--cf-auth-input-size);
+}
+
+.cf-field--underline.cf-field--error .cf-field__box {
+  border-bottom-color: var(--cf-color-danger);
+}
+
+/* 认证页"获取验证码"内联按钮（旧 `.get_code_button`） */
+.cf-auth-code-btn {
+  height: auto;
+  min-width: 0;
+  padding: 0 0 0 var(--cf-space);
+  border: 0;
+  border-left: 1px solid var(--cf-color-border);
+  border-radius: 0;
+  color: var(--cf-color-auth-primary);
+  font-size: var(--cf-font-size);
+}
+
+.cf-auth-code-btn:hover:not(:disabled) {
+  background: transparent;
+  color: var(--cf-color-auth-primary-light);
+}
+
+/* ============================== Checkbox / Switch ============================== */
+.cf-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+  cursor: pointer;
+}
+
+.cf-check input {
+  width: var(--cf-checkbox-size);
+  height: var(--cf-checkbox-size);
+  margin: 0;
+  accent-color: var(--cf-color-primary);
+  cursor: pointer;
+}
+
+.cf-check:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cf-switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+  cursor: pointer;
+}
+
+.cf-switch__input {
+  position: absolute;
+  width: 0;
+  height: 0;
+  opacity: 0;
+}
+
+.cf-switch__track {
+  position: relative;
+  width: var(--cf-switch-width);
+  height: var(--cf-switch-height);
+  border-radius: var(--cf-radius-pill);
+  background: var(--cf-color-text-lighter);
+  transition: background-color 0.16s ease;
+}
+
+.cf-switch__track::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: var(--cf-switch-thumb);
+  height: var(--cf-switch-thumb);
+  border-radius: 50%;
+  background: var(--cf-color-bg);
+  transition: transform 0.16s ease;
+}
+
+.cf-switch__input:checked + .cf-switch__track {
+  background: var(--cf-color-primary);
+}
+
+.cf-switch__input:checked + .cf-switch__track::after {
+  transform: translateX(14px);
+}
+
+.cf-switch__input:focus-visible + .cf-switch__track {
+  outline: var(--cf-focus-ring) solid var(--cf-color-primary-light);
+  outline-offset: var(--cf-focus-ring);
+}
+
+/* 只读（disabled）开关：功能禁用时也要看得出来，否则用户会反复点。 */
+.cf-switch:has(input:disabled) {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.cf-switch__input:disabled + .cf-switch__track {
+  cursor: not-allowed;
+}
+
+/* ============================== Form ============================== */
+/* 旧版设置页的"保存"按钮与表单左对齐（不是右对齐）。 */
+.cf-form {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cf-space) * 2);
+}
+
+.cf-form__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cf-space);
+}
+
+.cf-form__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--cf-space-half);
+  padding-top: var(--cf-space-half);
+}
+
+/* ============================== Table ============================== */
+/* preset MuiTable/MuiTableCell/MuiTableRow：外框 1px、圆角 4、行高 40px、表头 bg-main */
+.cf-table-wrap {
+  overflow: hidden;
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+}
+
+.cf-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cf-th,
+.cf-td {
+  height: var(--cf-table-row-height);
+  padding: 0 var(--cf-table-cell-padding-x);
+  border-bottom: 1px solid var(--cf-color-border);
+  font-size: var(--cf-font-size);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.cf-th {
+  background: var(--cf-color-bg-main);
+  color: var(--cf-color-text);
+  font-weight: var(--cf-font-weight-medium);
+  white-space: nowrap;
+}
+
+.cf-th:last-child,
+.cf-td:last-child {
+  text-align: right;
+}
+
+.cf-tbody tr:last-child .cf-td {
+  border-bottom: 0;
+}
+
+.cf-tbody tr:hover {
+  background: var(--cf-color-bg-dark);
+}
+
+.cf-tr--clickable {
+  cursor: pointer;
+}
+
+.cf-table__state {
+  padding: 0;
+  border-bottom: 0;
+}
+
+/* ============================== Pagination ============================== */
+.cf-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cf-space-half);
+  padding: var(--cf-space-half) 0;
+}
+
+.cf-pagination__info {
+  margin-right: var(--cf-space-half);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+.cf-pagination__btn {
+  min-width: var(--cf-control-height);
+  height: var(--cf-control-height);
+  padding: 0 var(--cf-space-half);
+  border: 0;
+  border-radius: var(--cf-radius);
+  background: transparent;
+  color: var(--cf-color-text-light);
+  font-family: inherit;
+  font-size: var(--cf-font-size);
+  cursor: pointer;
+}
+
+.cf-pagination__btn:hover:not(:disabled) {
+  color: var(--cf-color-primary);
+  background: var(--cf-color-primary-lighter);
+}
+
+.cf-pagination__btn--active {
+  color: var(--cf-color-primary);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+.cf-pagination__btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ============================== Dialog ============================== */
+.cf-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--cf-z-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cf-dialog-backdrop-padding);
+  background: var(--cf-color-backdrop);
+}
+
+.cf-dialog {
+  z-index: var(--cf-z-dialog);
+  display: flex;
+  flex-direction: column;
+  width: min(100%, var(--cf-dialog-max-width));
+  max-height: 90vh;
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+  box-shadow: var(--cf-shadow-dialog);
+}
+
+.cf-dialog__title {
+  padding: var(--cf-dialog-title-padding);
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size-h4);
+  font-weight: var(--cf-font-weight-bold);
+  text-align: center;
+}
+
+.cf-dialog__content {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: var(--cf-dialog-content-padding);
+}
+
+.cf-dialog__actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cf-space-half);
+  padding: var(--cf-dialog-actions-padding);
+}
+
+/* ============================== Toast ============================== */
+.cf-toast-stack {
+  position: fixed;
+  top: var(--cf-toast-stack-top);
+  left: 50%;
+  z-index: var(--cf-z-toast);
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.cf-toast {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  min-width: var(--cf-toast-min-width);
+  max-width: var(--cf-toast-max-width);
+  padding: var(--cf-space);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+  box-shadow: var(--cf-shadow-bar);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+  pointer-events: auto;
+}
+
+.cf-toast--success {
+  border-left: 3px solid var(--cf-color-success);
+}
+
+.cf-toast--danger {
+  border-left: 3px solid var(--cf-color-danger);
+}
+
+.cf-toast--warning {
+  border-left: 3px solid var(--cf-color-warning);
+}
+
+.cf-toast--info {
+  border-left: 3px solid var(--cf-color-primary);
+}
+
+.cf-toast__close {
+  margin-left: auto;
+  padding: 0 var(--cf-space-half);
+  border: 0;
+  background: transparent;
+  color: var(--cf-color-text-lighter);
+  font-size: var(--cf-font-size-h4);
+  line-height: 1;
+  cursor: pointer;
+}
+
+/* ============================== Tabs ============================== */
+/* preset MuiTab/MuiTabs：高 40px、padding 0 24px、选中 600 + 2px 指示条 */
+.cf-tabs {
+  display: flex;
+  align-items: center;
+  min-height: var(--cf-tab-height);
+  border-bottom: 1px solid var(--cf-color-border);
+  background: var(--cf-color-bg);
+}
+
+.cf-tab {
+  position: relative;
+  height: var(--cf-tab-height);
+  padding: 0 var(--cf-tab-padding-x);
+  border: 0;
+  background: transparent;
+  color: var(--cf-color-text-light);
+  font-family: inherit;
+  font-size: var(--cf-font-size);
+  cursor: pointer;
+}
+
+.cf-tab:hover {
+  color: var(--cf-color-text);
+}
+
+.cf-tab--active {
+  color: var(--cf-color-text);
+  font-weight: 600;
+}
+
+.cf-tab--active::after {
+  content: '';
+  position: absolute;
+  right: 0;
+  bottom: -1px;
+  left: 0;
+  height: 2px;
+  background: var(--cf-color-primary);
+}
+
+/* ============================== Tooltip ============================== */
+.cf-tooltip-wrap {
+  position: relative;
+  display: inline-flex;
+}
+
+.cf-tooltip {
+  position: absolute;
+  z-index: var(--cf-z-tooltip);
+  padding: var(--cf-tooltip-padding);
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-color-text);
+  color: var(--cf-color-bg);
+  font-size: var(--cf-font-size-small);
+  line-height: 13px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+
+.cf-tooltip::after {
+  content: '';
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: var(--cf-color-text);
+  transform: rotate(45deg);
+}
+
+.cf-tooltip--top {
+  bottom: calc(100% + var(--cf-space-half));
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.cf-tooltip--top::after {
+  top: 100%;
+  left: 50%;
+  margin-top: -9px;
+  margin-left: -6px;
+}
+
+.cf-tooltip--bottom {
+  top: calc(100% + var(--cf-space-half));
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.cf-tooltip--bottom::after {
+  top: -6px;
+  left: 50%;
+  margin-left: -6px;
+}
+
+.cf-tooltip-wrap:hover > .cf-tooltip,
+.cf-tooltip-wrap:focus-within > .cf-tooltip {
+  opacity: 1;
+}
+
+/* ============================== Avatar ============================== */
+/* preset MuiAvatar.square：圆角 4 */
+.cf-avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: var(--cf-avatar-size);
+  height: var(--cf-avatar-size);
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--cf-color-bg-dark);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+  text-transform: uppercase;
+}
+
+.cf-avatar--square {
+  border-radius: var(--cf-radius);
+}
+
+.cf-avatar--sm {
+  width: var(--cf-avatar-size-sm);
+  height: var(--cf-avatar-size-sm);
+}
+
+.cf-avatar--lg {
+  width: var(--cf-avatar-size-lg);
+  height: var(--cf-avatar-size-lg);
+}
+
+.cf-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ============================== Tag ============================== */
+.cf-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  padding: var(--cf-tag-padding);
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-color-bg-main);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+  line-height: 16px;
+  white-space: nowrap;
+}
+
+.cf-tag--primary {
+  background: var(--cf-color-primary-lighter);
+  color: var(--cf-color-primary);
+}
+
+.cf-tag--success {
+  background: var(--cf-color-success-lighter);
+  color: var(--cf-color-success-dark);
+}
+
+.cf-tag--danger {
+  background: var(--cf-color-danger-lighter);
+  color: var(--cf-color-danger-dark);
+}
+
+.cf-tag--warning {
+  background: var(--cf-color-warning-light);
+  color: var(--cf-color-warning-dark);
+}
+
+/* 旧版 MUI 的 `info` 色（#319ffc）：合并请求"已合并"等状态徽标沿用该色。 */
+.cf-tag--info {
+  background: var(--cf-color-secondary-lighter);
+  color: var(--cf-color-secondary-dark);
+}
+
+/* ============================== Card ============================== */
+/* preset boxShadow.card / cardHover */
+.cf-card {
+  padding: var(--cf-card-padding);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+  box-shadow: var(--cf-shadow-card);
+}
+
+.cf-card--hoverable {
+  cursor: pointer;
+  transition: box-shadow 0.16s ease;
+}
+
+.cf-card--hoverable:hover {
+  box-shadow: var(--cf-shadow-card-hover);
+}
+
+/* ============================== EmptyState / Loading ============================== */
+/* EmptyListNotice：图 160px、标题 bold、说明 text-light、maxWidth 480px */
+.cf-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cf-space-half);
+  padding: var(--cf-empty-padding);
+  text-align: center;
+}
+
+.cf-empty__img {
+  width: var(--cf-empty-image-width);
+  height: auto;
+  margin-bottom: var(--cf-space-half);
+}
+
+.cf-empty__title {
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+.cf-empty__notice {
+  max-width: var(--cf-empty-text-max-width);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+.cf-spinner {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--cf-color-primary-lighter);
+  border-top-color: var(--cf-color-primary);
+  border-radius: 50%;
+  animation: cf-spin 0.8s linear infinite;
+}
+
+@keyframes cf-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cf-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--cf-space-half);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+.cf-page-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--cf-page-loading-min-height);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+/* ============================== CopyButton / Link ============================== */
+.cf-copy-btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px;
+  border: 0;
+  background: transparent;
+  color: var(--cf-color-text-light);
+  cursor: pointer;
+}
+
+.cf-copy-btn:hover {
+  color: var(--cf-color-primary);
+}
+
+.cf-link {
+  color: var(--cf-color-primary);
+  cursor: pointer;
+}
+
+.cf-link:hover {
+  text-decoration: underline;
+}
+
+/* ============================== Icon ============================== */
+.cf-icon {
+  display: inline-block;
+  flex: 0 0 auto;
+  vertical-align: middle;
+}
+
+/* ============================== Dropdown / Menu ============================== */
+.cf-dropdown {
+  position: relative;
+  display: inline-flex;
+}
+
+.cf-dropdown__trigger {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.cf-menu {
+  position: absolute;
+  top: calc(100% + var(--cf-space-half));
+  left: 0;
+  z-index: var(--cf-z-dialog);
+  min-width: var(--cf-menu-min-width);
+  max-height: var(--cf-menu-max-height);
+  overflow: auto;
+  padding: var(--cf-space-half) 0;
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+  box-shadow: var(--cf-shadow-default);
+}
+
+.cf-menu--right {
+  right: 0;
+  left: auto;
+}
+
+.cf-menu__item {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  width: 100%;
+  height: var(--cf-control-height);
+  padding: 0 calc(var(--cf-space) * 2);
+  border: 0;
+  background: transparent;
+  color: var(--cf-color-text);
+  font-family: inherit;
+  font-size: var(--cf-font-size);
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cf-menu__item:hover:not(:disabled) {
+  background: var(--cf-color-bg-main);
+}
+
+.cf-menu__item:disabled {
+  color: var(--cf-color-text-light);
+  cursor: default;
+}
+
+.cf-menu__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--cf-list-icon-width);
+  color: var(--cf-color-text-light);
+}
+
+.cf-menu__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cf-menu__divider {
+  margin: var(--cf-space-half) 0;
+  border-top: 1px solid var(--cf-color-border);
+}
+
+/* ============================== Marker（行内角色徽标） ============================== */
+/* 旧 InlineMarker：padding 4px、fontSize 12px、lineHeight 1.5、圆角 4px */
+.cf-marker {
+  display: inline;
+  padding: var(--cf-space-half);
+  border-radius: var(--cf-radius);
+  font-size: var(--cf-font-size-small);
+  font-weight: var(--cf-font-weight-normal);
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.cf-marker--info {
+  background: var(--cf-color-secondary-lighter);
+  color: var(--cf-color-secondary);
+}
+
+.cf-marker--containedInfo {
+  background: var(--cf-color-secondary);
+  color: var(--cf-color-on-primary);
+}
+
+/* ============================== 图标按钮（页头方形按钮 + 未读角标） ============================== */
+/* 旧 SquareIconButton：minWidth spacing(3)、padding 7px 8px、图标 18px、角标 #FF3F35 */
+.cf-square-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 34px;
+  height: var(--cf-control-height); /* 32px（旧版 SquareIconButton 实测为 34×32） */
+  padding: 7px 8px;
+  border: 0;
+  border-radius: var(--cf-radius);
+  background: transparent;
+  color: var(--cf-color-text-button); /* 旧版图标按钮实测 rgba(0,0,0,.87) */
+  cursor: pointer;
+  transition:
+    background-color 0.12s ease,
+    color 0.12s ease;
+}
+
+.cf-square-btn:hover:not(:disabled) {
+  color: var(--cf-color-primary);
+  background: var(--cf-color-primary-lighter);
+}
+
+.cf-square-btn__badge {
+  position: absolute;
+  top: -5px;
+  right: 0;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--cf-space) * 2);
+  height: calc(var(--cf-space) * 2);
+  padding: 0 2px;
+  border: var(--cf-badge-border) solid var(--cf-color-bg);
+  border-radius: var(--cf-radius-pill);
+  background: var(--cf-badge-bg);
+  color: var(--cf-color-on-primary);
+  font-size: var(--cf-font-size-small);
+  line-height: calc(var(--cf-space) * 2);
+}

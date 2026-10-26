@@ -86,11 +86,6 @@ type Server struct {
 	// pageRoutesCI 是 pageRoutes 的小写索引，用于让 /user/LOGIN 这类
 	// 大小写变体命中同一个页面处理器。
 	pageRoutesCI map[string]http.HandlerFunc
-
-	// PageDataProvider 构造服务端渲染页面所需的数据。
-	//
-	// 由 main 在装配时注入；缺省时 404 页退回到自包含的 HTML 实现。
-	PageDataProvider func() PageData
 }
 
 // New 创建 HTTP 服务。

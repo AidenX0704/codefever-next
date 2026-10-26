@@ -1,0 +1,118 @@
+/*
+ * diff 视图样式。
+ * 颜色取旧主题 preset 的 diff 专用底色（theme.css 的 --cf-color-diff-*）：
+ *   新增行 #e6ffed、删除行 #ffeef0、hunk 头 #f1f8ff。
+ * 行号列宽 40px，等宽 12px 字号。
+ */
+
+.cf-diff {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cf-space) * 2);
+}
+
+.cf-diff__file {
+  overflow: hidden;
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+}
+
+.cf-diff__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space);
+  padding: var(--cf-space) calc(var(--cf-space) * 2);
+  background: var(--cf-color-bg-main);
+  font-size: var(--cf-font-size);
+}
+
+.cf-diff__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cf-color-text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-diff__old {
+  color: var(--cf-color-text-light);
+  text-decoration: line-through;
+}
+
+.cf-diff__arrow {
+  color: var(--cf-color-text-lighter);
+}
+
+.cf-diff__stats {
+  display: inline-flex;
+  gap: var(--cf-space);
+  flex: 0 0 auto;
+  font-size: var(--cf-font-size-small);
+}
+
+.cf-diff__add {
+  color: var(--cf-color-success-dark);
+}
+
+.cf-diff__del {
+  color: var(--cf-color-danger-dark);
+}
+
+.cf-diff__oversize {
+  padding: calc(var(--cf-space) * 2);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+.cf-diff__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+}
+
+.cf-diff__no {
+  width: calc(var(--cf-space) * 5);
+  padding: 0 var(--cf-space);
+  color: var(--cf-color-text-lighter);
+  line-height: calc(var(--cf-space) * 2);
+  text-align: right;
+  vertical-align: top;
+  user-select: none;
+}
+
+.cf-diff__code {
+  padding: 0 var(--cf-space);
+  line-height: calc(var(--cf-space) * 2);
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cf-diff__row--add {
+  background: var(--cf-color-diff-addition);
+}
+
+.cf-diff__row--add .cf-diff__no {
+  background: var(--cf-color-diff-addition-dark);
+}
+
+.cf-diff__row--del {
+  background: var(--cf-color-diff-deletion);
+}
+
+.cf-diff__row--del .cf-diff__no {
+  background: var(--cf-color-diff-deletion-dark);
+}
+
+.cf-diff__row--hunk {
+  background: var(--cf-color-diff-label);
+}
+
+.cf-diff__row--hunk .cf-diff__code {
+  color: var(--cf-color-text-light);
+}

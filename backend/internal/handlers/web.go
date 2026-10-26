@@ -67,20 +67,6 @@ func redirect(w http.ResponseWriter, location string) {
 	httpapi.Redirect(w, location)
 }
 
-// pageData 构造页面模板数据。
-//
-// 逐字对应 Base::__construct() 的 $this->load->vars() 与各控制器的 $data 组装：
-// Host/ReleaseNumber/AppName/AllowRegister 来自配置，语言来自会话。
-func pageData(cfg *config.Config, lang string) httpapi.PageData {
-	return httpapi.PageData{
-		Lang:          httpapi.NewTranslations(lang),
-		Host:          cfg.SiteConfig().Host,
-		ReleaseNumber: cfg.Env.ReleaseNumber,
-		AppName:       AppName,
-		AllowRegister: cfg.SiteConfig().AllowRegister,
-	}
-}
-
 // sessionUser 解析当前请求的登录用户。
 //
 // 对应 PHP 侧 Base::getLoggedUserInfo()（application/controllers/base.php:36-51）：
@@ -178,7 +164,12 @@ func (h *NopageHandler) RegisterWeb(s *httpapi.Server) {
 
 // index 实现 nopage/index。
 func (h *NopageHandler) index(w http.ResponseWriter, r *http.Request) {
-	_ = httpapi.RenderNotFound(w, pageData(h.Cfg, currentLang(r)))
+	// 前端切换后：未知控制器统一交给 SPA 的 NotFound（前端有对应路由）。
+	if httpapi.ServeSPAStatus(w, r, http.StatusNotFound) {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	w.WriteHeader(http.StatusNotFound)
 }
 
 // RegisterBaseController 注册 base 控制器。

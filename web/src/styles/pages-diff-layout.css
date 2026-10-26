@@ -1,0 +1,132 @@
+/*
+ * DiffViewer 的汇总条 / 折叠面板 / 双列布局样式。
+ *
+ * 与 `diff.css` 分文件的原因：`diff.css` 是既有的文件级 diff 视觉口径
+ * （新增/删除底色、行号列宽等），本文件只放**新增能力**的样式，
+ * 两者不重叠；覆盖既有类时用双类选择器提高优先级，避免依赖 CSS 加载顺序。
+ *
+ * 口径来源（旧版）：
+ *   components/view/MergeRequestDiff.js        —— 汇总条 sticky、左右分栏；
+ *   components/unit/FileDiffExpansionPanel.js  —— 折叠面板 summary 背景 bg-main、边框 border；
+ *   components/unit/CodeDiffViewer.js          —— side-by-side 双列、mode 变更提示。
+ */
+
+.cf-diff__summary {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  padding: var(--cf-space) calc(var(--cf-space) * 2);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg-main);
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+}
+
+.cf-diff__summary-files {
+  font-weight: var(--cf-font-weight-medium);
+}
+
+.cf-diff__layout {
+  margin-left: auto;
+  padding: 0 var(--cf-space);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+  color: var(--cf-color-primary);
+  cursor: pointer;
+  font-size: var(--cf-font-size-small);
+  line-height: var(--cf-control-height-sm);
+}
+
+.cf-diff__layout:hover {
+  background: var(--cf-color-primary-lighter);
+}
+
+/* 折叠面板头：文件名可点展开/收起，操作按钮靠右。 */
+.cf-diff__head.cf-diff__head--panel {
+  justify-content: flex-start;
+}
+
+.cf-diff__toggle {
+  display: inline-flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: var(--cf-space-half);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.cf-diff__mode {
+  flex: 0 0 auto;
+  color: var(--cf-color-text-light);
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+}
+
+.cf-diff__actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cf-space-half);
+  margin-left: auto;
+  color: var(--cf-color-text-light);
+}
+
+.cf-diff__actions a {
+  display: inline-flex;
+  align-items: center;
+}
+
+/* 双列（side-by-side）布局：左旧右新，两侧各自着色。 */
+.cf-diff__table.cf-diff__table--split .cf-diff__code {
+  width: 45%;
+}
+
+.cf-diff__row.cf-diff__row--split {
+  background: transparent;
+}
+
+.cf-diff__code--del {
+  background: var(--cf-color-diff-deletion);
+}
+
+.cf-diff__code--add {
+  background: var(--cf-color-diff-addition);
+}
+
+.cf-diff__no--del {
+  background: var(--cf-color-diff-deletion-dark);
+}
+
+.cf-diff__no--add {
+  background: var(--cf-color-diff-addition-dark);
+}
+
+.cf-diff__hunk {
+  padding: 0 var(--cf-space);
+  background: var(--cf-color-diff-label);
+  color: var(--cf-color-text-light);
+}
+
+/* "展开完整文件"的内容区。 */
+.cf-diff__full {
+  max-height: calc(var(--cf-space) * 40);
+  overflow: auto;
+}
+
+.cf-diff__full--image {
+  padding: calc(var(--cf-space) * 2);
+  text-align: center;
+}
+
+.cf-diff__full--image img {
+  max-width: 80%;
+  border: 1px solid var(--cf-color-border);
+}

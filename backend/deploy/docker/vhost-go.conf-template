@@ -6,8 +6,11 @@
 # 要点：
 #   1. 应用层路径（/api /apiv1 /user /file /doc /lang /captcha 等）全部反向代理
 #      到 Go 后端 http://127.0.0.1:9001。
-#   2. 静态资源与 SPA 回退由 nginx 直接托管 www/view/build（PHP 时代也是如此）。
-#   3. 仓库名正则放宽，允许连字符 —— 与 Go 后端及 Go 网关统一；
+#   2. 静态资源与 SPA 回退由 nginx 托管 www/app（新前端 web/build 的产物；
+#      2026-10 前端重写后由 Dockerfile 直接 COPY 成真实目录，不再经 view/build 软链）。
+#   3. 应用层 GET（/user/login、/doc/* 等）**不再返回 SSR HTML** —— Go 侧统一下发
+#      SPA 壳（www/app/index.html），见 backend/internal/httpapi/spa.go。
+#   4. 仓库名正则放宽，允许连字符 —— 与 Go 后端及 Go 网关统一；
 #      PHP 版的三层正则不一致（nginx 拒绝 `-`、Go 网关接受、PHP 拒绝）
 #      是已知缺陷，见 docs/ARCHITECTURE_ANALYSIS.md §4.6。
 #
@@ -133,6 +136,7 @@ server {
     #
     # index.html 必须每次回源校验（no-cache = 可缓存但每次协商），
     # 否则前端发布后用户会长期持有旧壳，而旧壳引用的哈希文件已不存在。
+    # 注：/user/*、/doc/* 等应用层 GET 走上面的 proxy_pass，由 Go 下发同一份壳（自带 no-cache）。
     location / {
         add_header Cache-Control "no-cache" always;
         try_files $uri /app/index.html;

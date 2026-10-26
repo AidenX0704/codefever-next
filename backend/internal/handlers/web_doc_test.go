@@ -50,7 +50,16 @@ func TestDocHandlerRendersRepoContent(t *testing.T) {
 		}
 	})
 
-	t.Run("详情页", func(t *testing.T) {
+	t.Run("详情页下发 SPA 壳", func(t *testing.T) {
+		// 2026-10 前端重写后，文档页由 SPA 渲染（正文走 /api/doc/content），
+		// 服务端只下发壳 —— 这里断言壳被正确下发，正文是否渲染由前端负责。
+		index := filepath.Join(t.TempDir(), "index.html")
+		if err := os.WriteFile(index, []byte("<!doctype html><div id=\"root\"></div>"), 0o644); err != nil {
+			t.Fatalf("写入临时壳失败: %v", err)
+		}
+		httpapi.ConfigureSPA(index)
+		defer httpapi.ConfigureSPA("")
+
 		rec := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, "/doc/cn/start/welcome.md", nil)
 		h.cn(rec, req)
@@ -58,13 +67,11 @@ func TestDocHandlerRendersRepoContent(t *testing.T) {
 		if rec.Code != http.StatusOK {
 			t.Fatalf("状态码 = %d, 期望 200", rec.Code)
 		}
-		body := rec.Body.String()
-		if !strings.Contains(body, "var doc = `") {
-			t.Errorf("详情页缺少文档正文: %s", body)
+		if !strings.Contains(rec.Body.String(), `id="root"`) {
+			t.Errorf("未下发 SPA 壳: %s", rec.Body.String())
 		}
-		// 正文里的反引号被 PHP 侧转义成 \`（doc.php:117）。
-		if !strings.Contains(body, "欢迎使用 CodeFever Next") {
-			t.Errorf("详情页正文不正确: %s", body)
+		if got := rec.Header().Get("Cache-Control"); got != "no-cache" {
+			t.Errorf("Cache-Control = %q, 期望 no-cache（壳不可缓存）", got)
 		}
 	})
 

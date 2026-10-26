@@ -1,0 +1,1 @@
+function e(e){return e.replace(/[^\w]/g,`_`)}export{e as t};

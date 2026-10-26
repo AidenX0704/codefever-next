@@ -1,0 +1,106 @@
+/*
+ * 提交行样式（口径来自旧 components/unit/CommitItem.js）：
+ *   主标题 14px 主色链接，次行 12px 次要色，头像 24px，右侧 8 位短哈希等宽胶囊。
+ */
+
+.commit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  padding: var(--cf-space) 0;
+  border-bottom: 1px solid var(--cf-color-border);
+}
+
+.commit-row:last-child {
+  border-bottom: 0;
+}
+
+.commit-row__main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+  min-width: 0;
+}
+
+/* 提交标题：旧版是默认链接色（全局 a = primary），所以取主色而非正文色。 */
+.commit-row__message {
+  color: var(--cf-color-primary);
+  font-size: var(--cf-font-size);
+  text-decoration: none;
+}
+
+.commit-row__message:hover {
+  color: var(--cf-color-primary-dark);
+  text-decoration: underline;
+}
+
+.commit-row__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+.commit-row__author {
+  color: var(--cf-color-text-light);
+}
+
+.commit-row__time {
+  color: var(--cf-color-text-light);
+}
+
+/* 短哈希 + 复制按钮（口径来自旧版 CommitHashChip：边框哈希块 + 无左边框的复制块拼成一体）。 */
+.commit-row__hash-group {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.commit-row__hash {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 var(--cf-space);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius) 0 0 var(--cf-radius);
+  background: var(--cf-color-bg);
+  color: var(--cf-color-text);
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+  text-decoration: none;
+}
+
+.commit-row__hash:hover {
+  color: var(--cf-color-primary);
+  text-decoration: none;
+}
+
+.commit-row__hash-group .cf-copy-btn {
+  padding: 0 var(--cf-space-half);
+  border: 1px solid var(--cf-color-border);
+  border-left: 0;
+  border-radius: 0 var(--cf-radius) var(--cf-radius) 0;
+}
+
+/* 提交列表的日期分组盒（口径来自旧版 TitleList：1px 边框圆角盒 + bg-main 灰底标题条，
+   标题行高 40px、左右内边距 24px）。 */
+.commit-group {
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+}
+
+.commit-group__title {
+  padding: 0 calc(var(--cf-space) * 3);
+  background: var(--cf-color-bg-main);
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+  font-weight: var(--cf-font-weight-medium);
+  line-height: var(--cf-table-row-height);
+}
+
+/* 组内提交行：左右内边距与标题条对齐（旧版 CommitItem showBorder 的 spacing(3)）。 */
+.commit-group .commit-row {
+  padding: var(--cf-space) calc(var(--cf-space) * 3);
+}

@@ -1,0 +1,12 @@
+# dependencies
+/node_modules
+
+# 构建产物**入库**（与旧 `www/view/build` 的约定一致）：
+# 镜像只 COPY、不在容器内构建前端，见 Dockerfile 与 AGENTS §9。
+# 因此这里刻意不忽略 /build。
+
+# misc
+.DS_Store
+*.local
+.vite
+npm-debug.log*

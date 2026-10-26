@@ -1,5 +1,6 @@
 # 排除与镜像构建无关的内容, 减小构建上下文
 .git
+**/.git
 .gitignore
 .gitattributes
 .editorconfig
@@ -16,8 +17,15 @@ LOCAL_DEPLOY.md
 README.md
 README_EN.md
 
-# 前端源码 (构建产物 www/view/build 已随仓库提交, 运行时不需要 src)
+# 前端源码 (构建产物已随仓库提交, 运行时不需要 src)
 www/view/src/
+
+# 新前端（2026-10 重写）：只需要 web/build 与 web/public
+web/node_modules/
+web/src/
+web/scripts/
+web/.tmp-lang/
+web/package-lock.json
 www/view/config/
 www/view/scripts/
 www/view/package.json

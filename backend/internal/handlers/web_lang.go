@@ -62,9 +62,9 @@ const (
 func (h *LangHandler) selectLang(w http.ResponseWriter, r *http.Request) {
 	lang := r.URL.Query().Get("l")
 	if lang == "" || lang == "0" {
-		data := pageData(h.Cfg, currentLang(r))
-		data.Message = "参数错误"
-		_ = httpapi.RenderErrorMessage(w, data)
+		// 前端切换后不再有"参数错误"静态页：直接回首页，由 SPA 决定去向
+		// （未登录 → /user/login，已登录 → /repositories）。
+		redirect(w, "/")
 		return
 	}
 	if lang == "cn" {

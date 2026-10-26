@@ -87,10 +87,14 @@ RUN set -eux; \
 RUN set -eux; ssh-keygen -A
 
 # -- 3) 应用源码 -------------------------------------------------------------
-#    只保留前端静态产物（www/view/build）与 www/static；PHP 源码不在仓库里。
+#    前端产物由 web/build 提供（COPY 到 www/app）。
 #    backend/deploy 收敛了数据库脚本、nginx/supervisor 模板与入口脚本。
 WORKDIR /data/www/codefever-community
-COPY www/ ./www/
+# 前端只有一份来源：web/public（图标/PWA/站点地图）+ web/build（产物）。
+# 旧的 www/ 目录（含 www/view、www/static 与 www/app 软链）已在 2026-10 前端重写中删除。
+RUN mkdir -p ./www
+COPY web/public/ ./www/
+COPY web/build/ ./www/app/
 # 应用内文档中心（/doc/zh-cn、/doc/en-us）从 <BASE>/doc 读取文件。
 COPY doc/ ./doc/
 COPY LICENSE ./LICENSE
@@ -137,15 +141,13 @@ RUN set -eux; \
     done
 
 # -- 7) 软链骨架 -------------------------------------------------------------
-#    - www/app -> view/build（前端静态产物）
+#    注意：www/app 不再是软链 —— 新前端产物在上一段直接 COPY 成真实目录。
 #    - deploy/hooks      -> 新裸仓库的 hooks 目标（../../deploy/hooks）
 #    - misc/hooks        -> 兼容旧裸仓库的 hooks -> ../../misc/hooks
 #    - git-storage/hooks -> 命名卷初始化用的骨架
 #    - ssh-gateway/shell/main -> 兼容旧 authorized_keys 里的 forced command
 RUN set -eux; \
     cd /data/www/codefever-community; \
-    rm -f www/app; \
-    ln -s view/build www/app; \
     mkdir -p deploy/hooks misc/hooks git-storage/hooks ssh-gateway/shell file-storage; \
     for d in deploy/hooks misc/hooks git-storage/hooks; do \
         rm -f "$d/main" "$d/pre-receive" "$d/post-receive" "$d/update"; \

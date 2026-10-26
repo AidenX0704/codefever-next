@@ -1,0 +1,1 @@
+import{t as e}from"./vendor-Cwr4aY6H.js";import{n as t,t as n}from"./lib-CwwDllBw.js";var r=e(),i=[n];function a({raw:e}){return(0,r.jsx)(`div`,{className:`markdown-body`,children:(0,r.jsx)(t,{remarkPlugins:i,children:e})})}export{a as default};

@@ -4,6 +4,9 @@
 .idea
 .DS_Store
 
+# Agent 运行时状态（会话 hook 快照、任务评审报告等），仅本机使用，不入库
+/.mimosa/
+
 # 运行时配置 (由 template 复制而来, 含随机 session key / gateway token, 不入库)
 /env.yaml
 /config.yaml

@@ -1,4 +1,9 @@
 <div align="center">
+
+> **注意（2026-10-24）**：本文档中出现的 `www/view/`、`www/static/` 与 MUI v4 相关描述
+> 属于**历史记录**——旧前端已在 2026-10 前端重写中删除。当前前端为 `web/`
+> （React 19 + TypeScript + Vite + 自研令牌与组件库），见 `docs/FRONTEND_REWRITE_PLAN.md`。
+
   <br />
   <img src="www/static/images/logo-community.png" alt="CodeFever" height="42" />
   <br /><br />

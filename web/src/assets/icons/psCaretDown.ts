@@ -1,0 +1,14 @@
+/**
+ * 图标 `caretDown`（1024×1024）。
+ *
+ * 自动生成，请勿手改：来源 @pgyer/icons@0.0.16 的 icons/psCaretDown.js。
+ * 重新生成：cd web && node scripts/extract-icons.mjs
+ */
+const data = {
+  name: "caretDown",
+  width: 1024,
+  height: 1024,
+  paths: ["M454,830.5L16.5,285.9c-25.7-31.7-20.9-78.3,10.8-104c13.3-10.7,29.8-16.6,46.9-16.5h875.7c40.8-0.1,74,32.8,74.1,73.6 c0.1,17-5.8,33.6-16.5,46.8L570,830.5c-25.3,32-71.8,37.5-103.8,12.2C461.7,839.1,457.6,835,454,830.5z", ""],
+} as const
+
+export default data

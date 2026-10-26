@@ -1,0 +1,44 @@
+/*
+ * 代码查看器样式（口径来自旧 components/unit/CodeViewer.js）：
+ *   行号列宽 32px、左右内边距 8px、右对齐、12px、文字色 text-lighter、底色 bg-main，
+ *   行高 16px，代码单元允许换行。
+ * Prism token 的配色由 prism-coy 主题提供（第三方固定值，见 helpers/prism.ts）。
+ */
+
+.cf-code {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+}
+
+.cf-code__lineno {
+  width: calc(var(--cf-space) * 4);
+  padding: 0 var(--cf-space);
+  color: var(--cf-color-text-lighter);
+  background: var(--cf-color-bg-main);
+  line-height: calc(var(--cf-space) * 2);
+  text-align: right;
+  vertical-align: top;
+  user-select: none;
+}
+
+.cf-code__cell {
+  padding: 0 var(--cf-space);
+  line-height: calc(var(--cf-space) * 2);
+  overflow-wrap: break-word;
+  vertical-align: top;
+}
+
+.cf-code__code {
+  font-family: inherit;
+  font-size: inherit;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cf-code__row--focus .cf-code__lineno,
+.cf-code__row--focus .cf-code__cell {
+  background: var(--cf-color-primary-lighter);
+}

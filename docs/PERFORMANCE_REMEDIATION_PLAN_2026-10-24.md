@@ -1,5 +1,10 @@
 # CodeFever Next —— 性能问题整改方案
 
+> **注意（2026-10-24）**：本文档中出现的 `www/view/`、`www/static/` 与 MUI v4 相关描述
+> 属于**历史记录**——旧前端已在 2026-10 前端重写中删除。当前前端为 `web/`
+> （React 19 + TypeScript + Vite + 自研令牌与组件库），见 `docs/FRONTEND_REWRITE_PLAN.md`。
+
+
 - **编制日期**：2026-10-24
 - **输入**：`docs/PERFORMANCE_AUDIT_2026-10-24.md`（审查报告，874 行）
 - **方法**：对报告逐条源码复核 + 对运行中容器（`codefever-next-app` / `codefever-next-db`）重新实测 + 三方独立验证（后端 / 前端 / 传输层）

@@ -90,11 +90,13 @@
 3. 落位规则：
    | 内容 | 位置 |
    |---|---|
-   | 通用 UI 原子件（按钮组、输入、空态、加载、复制、确认框） | `www/view/src/components/unit/` |
-   | 业务域内共用件（仓库卡片、提交行、成员项） | `www/view/src/components/view/unit/` |
-   | 纯逻辑（格式化、过滤、权限判定、请求封装） | `www/view/src/helpers/` |
-   | 常量与映射表（扩展名→语言、枚举、状态码） | `www/view/src/config/` |
-   | 数据访问 | `www/view/src/data_providers/` |
+   | 通用 UI 原子件（按钮组、输入、空态、加载、复制、确认框） | `web/src/components/unit/` |
+   | 业务域内共用件（仓库卡片、提交行、成员项） | `web/src/components/view/unit/` |
+   | 纯逻辑（格式化、过滤、权限判定） | `web/src/helpers/` |
+   | 常量与映射表（扩展名→语言、枚举、状态码、导航配置） | `web/src/config/` |
+   | 数据访问（请求封装 + 端点） | `web/src/api/` |
+   | 共享服务端状态 | `web/src/features/` |
+   | 设计令牌（颜色/间距/圆角/阴影/字号的**唯一**字面值来源） | `web/src/theme/theme.css` |
 4. 典型违规（本项目历史上真实出现过）：
    - 每个页面各写一遍"表格 + 分页 + 空态"；
    - 每个列表页各写一遍 200ms 搜索防抖；
@@ -111,9 +113,13 @@
 
 1. 下列视觉维度必须全站一致：**颜色、字体、字号、间距、圆角、边框、阴影、
    表格密度、按钮样式、弹窗样式、表单样式**。
-2. 本项目的事实标准：MUI v4 主题 + `withStyles`。
-   - 颜色取 `theme.palette.*`；间距取 `theme.spacing(n)`；栅格取 `Grid`；
-     断点取 `theme.breakpoints`；高度/工具栏取 `theme.mixins`。
+2. 本项目的事实标准：**自研设计令牌 + 自研组件库**（2026-10 前端重写后：
+   不再使用任何 UI 框架，MUI 已随旧 `www/view` 一起删除）。
+   - 颜色/间距/圆角/阴影/字号**只允许**出现在 `web/src/theme/theme.css` 的 `:root`，
+     组件与页面通过 `var(--cf-*)` 引用（TS 侧用 `web/src/theme/tokens.ts` 的类型化引用）；
+   - 通用能力一律走 `web/src/components/unit/`，页面不得自绘按钮/输入框/表格/弹窗；
+   - 间距用 `space(n)`（8px 单位，等价旧 `theme.spacing`）；栅格用现有 `group-grid` /
+     `FormGrid`；断点写在组件 CSS 的 `@media` 里并复用既有断点值。
 3. **禁止**硬编码视觉值：`#3455db`、`padding: 13px`、`border-radius: 5px`、
    自造阴影或表格行高等。需要新值时，先加到主题 / 样式变量，再在页面引用。
 4. 按钮、弹窗、表单、表格一律复用既有组件或既有变体，**不要**为单个页面
@@ -130,7 +136,7 @@
 
 **要求**
 
-1. 页面组件（`www/view/src/components/view/**`）只负责三件事：
+1. 页面组件（`web/src/pages/**` 与 `web/src/components/view/**`）只负责三件事：
    - **业务字段**：这个页面展示哪些字段、怎么组装；
    - **业务动作**：提交什么、跳转到哪、调用哪些 data provider；
    - **模块差异**：该页与同族页面的不同之处。
@@ -188,25 +194,20 @@
    cd .. && docker compose config > /dev/null              # 6. compose 校验
    ```
 
-   > `verify.ps1` **不覆盖前端**。有 `www/view/**` 改动时必须另行执行第 3 条。
+   > `verify.ps1` **不覆盖前端**。有 `web/**` 改动时必须另行执行第 3 条。
 
-3. 前端（若有 `www/view/src`、`www/view/config`、`public/` 改动）：
+3. 前端（若有 `web/src`、`web/public`、`web/vite.config.ts` 等改动）：
 
    ```bash
-   cd www/view
-   GENERATE_SOURCEMAP=false NODE_OPTIONS=--openssl-legacy-provider yarn build
+   cd web
+   npm run typecheck && npm run lint && npm run build
    ```
 
-   **以 `yarn build` 为权威门禁**：构建期的 ESLint（`ESLintPlugin` +
-   `eslint-config-react-app/base`）会真正跑 lint 并 `failOnError`，同时产出
-   可用于回归的产物。
+   **三条缺一不可**：`typecheck`（TS strict）+ `lint`（ESLint flat config）+
+   `build`（Vite，产出 `web/build`）。旧版把 lint 藏在 webpack 构建期，
+   换 Vite 后必须显式恢复成独立门禁，否则等于没有 lint。
 
-   ⚠️ **不要**用 `yarn lint` 当门禁：它读的是 `package.json` 里的
-   `standard` / `standard-react` 配置，与构建期使用的 react-app 配置不一致，
-   会对 JSX 中使用的组件误报 `no-unused-vars`（在**未改动**的文件上同样报错，
-   属既有问题，见 §9）。该脚本待单独修复。
-
-   并且**必须把重建后的 `www/view/build` 一并提交**（见 §9）。
+   并且**必须把重建后的 `web/build` 一并提交**（见 §9）。
 
 4. 涉及部署、镜像、数据库迁移的改动，额外要求：
    - `pwsh -File scripts/verify.ps1 -BuildImage` 成功；
@@ -235,12 +236,14 @@
 
 | 陷阱 | 正确做法 |
 |---|---|
-| 改了 `www/view/src` 却没重建 `build/` | `www/view/build` 是**入库产物**，Dockerfile 只 `COPY` 不构建前端；改 src 后必须重建并提交 |
-| 前端构建报 `ERR_OSSL_EVP_UNSUPPORTED` | webpack 4 + Node ≥17：加 `NODE_OPTIONS=--openssl-legacy-provider` |
-| **图标一片空白** | 图标必须从 `APPSRC/config/icons` 引入。直接 `import x from '@pgyer/icons/icons/x'` 拿到的是**原始数据数组**，`<FontAwesomeIcon>` 无法渲染；包装逻辑见 `helpers/pgyerIcon.js`。回退到 `import { x } from '@pgyer/icons'` 则会把全部 154 个图标打进产物 |
-| `yarn lint` 报大量 `no-unused-vars`（JSX 组件被报「未使用」） | 既有配置不一致问题（lint 用 standard，构建用 react-app）。**以 `yarn build` 为门禁**，不要据 `yarn lint` 下结论 |
+| 改了 `web/src` 却没重建 `build/` | `web/build` 是**入库产物**，Dockerfile 只 `COPY` 不构建前端；改 src 后必须 `npm run build` 并提交 |
+| 从 `web/src/assets/icons/` 造 barrel 全量导入 | 会把 154 个图标全部打进产物（旧版踩过）。图标一律从 `web/src/config/icons.ts` 按需 import |
+| 在页面/组件里写颜色、间距、圆角字面值 | 违反 §5：唯一允许的地方是 `web/src/theme/theme.css`；其他位置用 `var(--cf-*)` |
+| 改了 Go 的页面 GET 却忘了 SPA 壳 | `/user/*`、`/doc/*` 的 GET 现在统一下发 `web/build/index.html`（`httpapi/spa.go`）；新增页面 GET 时直接调 `httpapi.ServeSPA` |
+| 用 `view.type === 'tree'` 判断目录 | `repository/object` 在 `parent` 是**提交**时返回 `type: 'commit'`（最常见），只有 tree SHA 才返回 `'tree'`。判目录请用 `api/types.ts` 的 `isDirectoryView()`，否则文件列表会是空的（2026-10 真实踩过） |
+| 壳被缓存导致发布白屏 | 壳必须 `Cache-Control: no-cache`（引用的是带哈希的资源名）；`/static/js|css` 才是一年 immutable |
 | 把新索引写进 `backend/deploy/sql/db_structure.sql` | 该文件只在**全新安装**时导入；对已部署实例无效。新迁移必须放 `backend/internal/db/migrations/*.sql` |
-| 为了让测试通过而修改 `testdata/pages/php-*.html` 快照 | 那是 PHP→Go 迁移的保真基线。有意偏离请在 `pages_test.go` 的 `normalizePerfDeviations` 里**显式登记**并写明理由 |
+| 想改 `testdata/pages/php-*.html` 让页面测试通过 | 该快照与 `pages_test.go` 已随 SSR 页面在 2026-10 前端重写中删除（`（已废弃 2026-10-24：前端重写）`）。API 契约基线仍在 `backend/internal/contract` + `testdata/contract*`，那才是现在的功能回归网，不要动它 |
 | 用 `curl` 单点采样当性能基线 | 用 `backend/cmd/stress`；且必须先关 `general_log`（开启会把延迟放大 4–8 倍） |
 | 在事务里做 git / 网络 / 大文件 IO | 会独占连接池（`MaxOpenConns=25`）导致全站阻塞；耗时操作必须在事务外 |
 | 直接使用用户传入的 `pagesize` | 必须经 `domain.ClampPaging` 收敛（上限 100），否则可能拼出无上限 `LIMIT` |
@@ -262,7 +265,7 @@
 - [ ] 视觉值取自主题 / 样式变量，无硬编码颜色、间距、圆角
 - [ ] 页面只含业务字段、业务动作、模块差异
 - [ ] §8 的六个后端门禁本地全绿
-- [ ] 前端改动：`yarn build` 通过（构建期 lint 一并生效），`build/` 已重建并纳入提交
+- [ ] 前端改动：`npm run typecheck && npm run lint && npm run build` 全绿，`web/build` 已重建并纳入提交
 - [ ] 涉及数据库：迁移落在 `migrations/`，集成用例本地跑过
 - [ ] 涉及部署：`docker compose build` 成功且容器冒烟通过
 - [ ] 若有偏离规则之处，已在说明中写清"哪一条 / 为什么 / 代价"

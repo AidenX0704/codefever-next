@@ -1,5 +1,10 @@
 # CodeFever Next —— 性能分析报告（待审核）
 
+> **注意（2026-10-24）**：本文档中出现的 `www/view/`、`www/static/` 与 MUI v4 相关描述
+> 属于**历史记录**——旧前端已在 2026-10 前端重写中删除。当前前端为 `web/`
+> （React 19 + TypeScript + Vite + 自研令牌与组件库），见 `docs/FRONTEND_REWRITE_PLAN.md`。
+
+
 - **分析日期**：2026-10-24
 - **分析范围**：`backend/`（Go 1.23，128 个 .go，~39.8k LOC）、`www/view/`（React 17 + Redux + MUI v4 + webpack 4）、`www/static/`、`backend/deploy/`（nginx / Docker / SQL）
 - **分析手段**：源码走查 + **对运行中容器做实测**（`codefever-next-app` / `codefever-next-db` 已在运行）+ 产物字节级归因（source map VLQ 解码）

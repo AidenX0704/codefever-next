@@ -1,0 +1,25 @@
+/*
+ * 样式总入口。
+ *
+ * 约定（AGENTS §5）：
+ *   - 设计令牌（颜色/间距/圆角/阴影/字号的唯一字面值来源）在 `src/theme/theme.css`；
+ *   - 其余样式按用途集中在 `src/styles/`：组件库、布局、页面域；
+ *   - 组件与页面不各自 import CSS，全部由本文件按固定顺序引入，
+ *     以保证层叠顺序稳定（tokens → global → components → layout → pages）。
+ */
+
+@import '../theme/theme.css';
+@import './global.css';
+@import './components.css';
+@import './layout.css';
+@import './pages-list.css';
+@import './pages-commit-row.css';
+@import './pages-code.css';
+@import './pages-diff.css';
+@import './pages-diff-layout.css';
+@import './pages-filter-bar.css';
+@import './pages-repository.css';
+@import './pages-merge-request.css';
+@import './pages-auth.css';
+@import './pages-doc.css';
+@import './markdown-body.css';

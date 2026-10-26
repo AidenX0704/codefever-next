@@ -1,0 +1,123 @@
+/*
+ * 合并请求列表 / 看板的行与工具条样式。
+ *
+ * 口径来源（旧版）：
+ *   components/unit/MergeRequestItem.js        —— 行 padding spacing(1.5)=12px / spacing(3)=24px、
+ *     顶部 1px 边框、标题字重 600、右侧"更新时间" body2；
+ *   components/unit/MergeRequestReviewers.js   —— 头像 32px(spacing 4)、相互叠压 -8px、
+ *     角标 12px 圆形 + 2px 背景描边、已评审用 success 色；
+ *   components/view/MergeRequest.js            —— "查看更多" 按钮区 paddingTop spacing(2)；
+ *   components/unit/MergeRequestDiff.js        —— 排序图标升序时 rotateX(180deg)。
+ *
+ * 颜色 / 间距 / 圆角一律取 theme.css 的 --cf-* 令牌（AGENTS §5）。
+ */
+
+.cf-mr-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space);
+  padding: calc(var(--cf-space) * 1.5) calc(var(--cf-space) * 3);
+  border-top: 1px solid var(--cf-color-border);
+}
+
+.cf-mr-row:hover {
+  background: var(--cf-color-bg-dark);
+}
+
+.cf-mr-row__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+  min-width: 0;
+}
+
+.cf-mr-row__title {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  min-width: 0;
+  color: var(--cf-color-text);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+.cf-mr-row__title a {
+  overflow: hidden;
+  color: var(--cf-color-text);
+  font-weight: var(--cf-font-weight-bold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-mr-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cf-space-half);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+.cf-mr-row__merge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+}
+
+.cf-mr-row__side {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--cf-space-half);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+/* 评审人头像组：右对齐、互相叠压 8px（旧版 marginLeft -8px）。 */
+.cf-mr-reviewers {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+.cf-mr-reviewer {
+  position: relative;
+  display: inline-flex;
+}
+
+.cf-mr-reviewer + .cf-mr-reviewer {
+  margin-left: calc(var(--cf-space) * -1);
+}
+
+.cf-mr-reviewer__badge {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--cf-space) * 1.5);
+  height: calc(var(--cf-space) * 1.5);
+  border: var(--cf-badge-border) solid var(--cf-color-bg);
+  border-radius: var(--cf-radius-pill);
+  background: var(--cf-color-bg);
+  color: var(--cf-color-text-light);
+}
+
+.cf-mr-reviewer__badge--done {
+  color: var(--cf-color-success);
+}
+
+/* 排序按钮：升序时把"降序"图标翻转（旧版 rotateX(180deg)）。 */
+.cf-mr-sort--asc {
+  transform: rotateX(180deg);
+}
+
+/* "查看更多" 按钮区（旧版 paddingTop spacing(2)、居中）。 */
+.cf-mr-more {
+  display: flex;
+  justify-content: center;
+  padding-top: calc(var(--cf-space) * 2);
+}

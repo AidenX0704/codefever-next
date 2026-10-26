@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -190,12 +191,15 @@ func (h *DocHandler) detail(w http.ResponseWriter, r *http.Request, docLang stri
 		h.show404(w, r)
 		return
 	}
-	data := pageData(h.Cfg, currentLang(r))
-	data.DocSegments = segments
-	data.DocMenu = menu
-	// PHP 用 str_replace('`', '\`', ...) 转义反引号（模板里是 JS 模板字符串）。
-	data.Doc = strings.ReplaceAll(string(content), "`", "\\`")
-	_ = httpapi.RenderDocDetail(w, data)
+	// 前端切换后：文档正文由 SPA 通过 /api/doc/content 拉取，服务端只下发壳。
+	_ = content
+	_ = segments
+	_ = menu
+	if httpapi.ServeSPA(w, r) {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
 // docRoot 返回文档根目录的绝对路径；目录不存在时返回空串。
@@ -283,7 +287,11 @@ func (h *DocHandler) serveAsset(w http.ResponseWriter, r *http.Request, docRoot,
 //
 // 注意这与"控制器不存在"时的 404 页（nopage/index.php）是**两个不同的页面**。
 func (h *DocHandler) show404(w http.ResponseWriter, r *http.Request) {
-	_ = httpapi.RenderError404(w, pageData(h.Cfg, currentLang(r)))
+	if httpapi.ServeSPAStatus(w, r, http.StatusNotFound) {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	w.WriteHeader(http.StatusNotFound)
 }
 
 // resolveDocPath 解析文档路径并防止目录穿越。
@@ -317,4 +325,119 @@ func resolveDocPath(docRoot, path string, allowDirectory bool) (string, bool) {
 		return "", false
 	}
 	return resolved, true
+}
+
+// ---------------------------------------------------------------------------
+// 文档中心的 JSON 端点（供新前端 React 文档页使用）
+// ---------------------------------------------------------------------------
+//
+// 旧前端（SSR）把 Markdown 原文塞进模板的 `<script>var doc = ...` 里，由浏览器用
+// marked 渲染。React 版需要结构化数据，因此新增两个只读端点：
+//
+//	GET /api/doc/tree?lang=cn|en              → 菜单树（含二级）
+//	GET /api/doc/content?lang=cn|en&path=…    → 单篇 Markdown 原文
+//
+// 两者都**复用**既有的 docRoot / extractMenu / withSubmenu / resolveDocPath，
+// 因此目录解析与路径穿越校验与 SSR 页面完全同源（安全边界不打折）。
+// 它们通过 `RegisterPage` 注册为字面量路由（与 /api/web-vitals 同一手法），
+// 从而绕过 /api/{ctrl}/{action} 分发器的鉴权与 Content-Type 校验 —— 文档是公开内容。
+
+// docAPIItem 是菜单项的 JSON 形态（字段名小写，前端直接消费）。
+type docAPIItem struct {
+	Name    string       `json:"name"`
+	Path    string       `json:"path"`
+	Submenu []docAPIItem `json:"submenu,omitempty"`
+}
+
+// docAPILang 把前端语言标识（cn/en）映射为文档目录名（zh-cn/en-us）。
+//
+// 与旧 URL 语义一致：`/doc/cn/…` 对应 zh-cn，`/doc/en/…` 对应 en-us。
+func docAPILang(raw string) string {
+	if strings.EqualFold(raw, "en") || strings.EqualFold(raw, "en-us") {
+		return "en-us"
+	}
+	return "zh-cn"
+}
+
+// toDocAPIItems 把内部菜单（含 Submenu）转成 JSON 形态。
+func toDocAPIItems(menu []httpapi.DocMenuItem) []docAPIItem {
+	out := make([]docAPIItem, 0, len(menu))
+	for i := range menu {
+		item := docAPIItem{Name: menu[i].Name, Path: menu[i].Path}
+		if len(menu[i].Submenu) > 0 {
+			item.Submenu = toDocAPIItems(menu[i].Submenu)
+		}
+		out = append(out, item)
+	}
+	return out
+}
+
+// writeDocJSON 输出与 /api/* 同形的信封（`request-id` 留空：文档接口不进访问链路统计）。
+func writeDocJSON(w http.ResponseWriter, status int, data any) {
+	w.Header().Set("Content-Type", "application/json; charset=UTF-8")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.WriteHeader(status)
+	if data == nil {
+		data = []any{}
+	}
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"request-id": "",
+		"code":       map[bool]int{true: 0, false: 1}[status == http.StatusOK],
+		"message":    map[bool]string{true: "Success", false: "Not Found"}[status == http.StatusOK],
+		"data":       data,
+	})
+}
+
+// RegisterAPI 注册文档中心的 JSON 端点。
+func (h *DocHandler) RegisterAPI(s *httpapi.Server) {
+	s.RegisterPage("/api/doc/tree", h.apiTree)
+	s.RegisterPage("/api/doc/content", h.apiContent)
+}
+
+// apiTree 返回文档菜单树。
+func (h *DocHandler) apiTree(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeDocJSON(w, http.StatusNotFound, nil)
+		return
+	}
+	docRoot := h.docRoot(docAPILang(r.URL.Query().Get("lang")))
+	if docRoot == "" {
+		writeDocJSON(w, http.StatusNotFound, nil)
+		return
+	}
+	rootDir := docRoot + string(os.PathSeparator)
+	menu := h.withSubmenu(docRoot, rootDir, h.extractMenu(docRoot, rootDir+"index.md"))
+	writeDocJSON(w, http.StatusOK, map[string]any{"menu": toDocAPIItems(menu)})
+}
+
+// apiContent 返回单篇文档的 Markdown 原文。
+//
+// path 是相对文档根目录的路径（例如 `quickstart/install.md`），
+// 由 resolveDocPath 做符号链接与穿越校验，非 .md 一律 404。
+func (h *DocHandler) apiContent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeDocJSON(w, http.StatusNotFound, nil)
+		return
+	}
+	docRoot := h.docRoot(docAPILang(r.URL.Query().Get("lang")))
+	if docRoot == "" {
+		writeDocJSON(w, http.StatusNotFound, nil)
+		return
+	}
+	rel := strings.TrimPrefix(strings.TrimSpace(r.URL.Query().Get("path")), "/")
+	if rel == "" {
+		writeDocJSON(w, http.StatusNotFound, nil)
+		return
+	}
+	resolved, ok := resolveDocPath(docRoot, docRoot+string(os.PathSeparator)+rel, false)
+	if !ok || strings.ToLower(filepath.Ext(resolved)) != ".md" {
+		writeDocJSON(w, http.StatusNotFound, nil)
+		return
+	}
+	content, err := os.ReadFile(resolved)
+	if err != nil {
+		writeDocJSON(w, http.StatusNotFound, nil)
+		return
+	}
+	writeDocJSON(w, http.StatusOK, map[string]any{"path": rel, "content": string(content)})
 }

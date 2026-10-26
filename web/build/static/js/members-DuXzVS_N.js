@@ -1,0 +1,1 @@
+function e(e,t){let n=(t??``).toLowerCase();if(n){for(let t of e??[])if([t.email,...t.emails??[]].map(e=>e.toLowerCase()).includes(n))return{name:t.name,icon:t.icon,email:t.email,temporary:!1}}return{name:t??``,email:t??``,temporary:!0}}export{e as t};

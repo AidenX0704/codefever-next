@@ -1,5 +1,10 @@
 # CodeFever Community 后端重写方案（Go 1.23+）
 
+> **注意（2026-10-24）**：本文档中出现的 `www/view/`、`www/static/` 与 MUI v4 相关描述
+> 属于**历史记录**——旧前端已在 2026-10 前端重写中删除。当前前端为 `web/`
+> （React 19 + TypeScript + Vite + 自研令牌与组件库），见 `docs/FRONTEND_REWRITE_PLAN.md`。
+
+
 > 决策依据：`docs/ARCHITECTURE_ANALYSIS.md`（架构分析）+ 运行态实测 + MySQL 8.0.46 兼容性实测 + 浏览器 UI 取证。
 
 > **文档状态（2026-10-23 晚）**：本文是重写方案的历史记录。`backend/go.mod` 当前声明

@@ -1,0 +1,198 @@
+/*
+ * CodeFever Next —— 设计令牌（Design Tokens）
+ *
+ * 本文件是**全仓库唯一**存放颜色 / 间距 / 圆角 / 阴影 / 字号字面值的地方（AGENTS §5）。
+ * 组件与页面只能引用 var(--cf-*)，TS 侧通过 src/theme/tokens.ts 取类型化引用。
+ *
+ * 数值出处（均为改造前旧前端的现值，逐项抄录，未做"重新设计"）：
+ *   www/view/node_modules/@pgyer/mui-theme-preset/color-presets/CodeFever.js
+ *   www/view/node_modules/@pgyer/mui-theme-preset/style/{Typography,BoxShadow}.js
+ *   www/view/node_modules/@pgyer/mui-theme-preset/component/*.js（33 个组件 overrides）
+ *   www/view/src/config/colors/theme1.js（对 preset 的覆盖：primary=#3455db、caption=14px）
+ * MUI v4 默认 spacing = 8px、shape.borderRadius = 4px，故所有 padding/height 均按 8 的倍数推导。
+ */
+
+:root {
+  /* ============================ 颜色 ============================ */
+  /* 主色：theme1.js 把 preset 的 #0035ec 覆盖为 #3455db */
+  --cf-color-primary: #3455db;
+  --cf-color-primary-light: #4d72f2; /* hover */
+  --cf-color-primary-dark: #002dbd; /* active */
+  --cf-color-primary-lighter: #e5ebfd; /* text 按钮 hover 底色、分页 hover 底色 */
+  --cf-color-on-primary: #ffffff; /* contrastText */
+
+  /* 次色（与 info 同值） */
+  --cf-color-secondary: #319ffc;
+  --cf-color-secondary-light: #5ab2fc;
+  --cf-color-secondary-dark: #226fb0;
+  --cf-color-secondary-lighter: #eaf5ff;
+
+  /* 语义色 */
+  --cf-color-success: #25bd21;
+  --cf-color-success-light: #50ca4d;
+  --cf-color-success-dark: #198417;
+  --cf-color-success-lighter: #ebfaea;
+
+  --cf-color-warning: #f6b811;
+  --cf-color-warning-light: #f7c640;
+  --cf-color-warning-dark: #ac800b;
+
+  /* MUI 的 error，本项目按"危险/删除"语义使用 */
+  --cf-color-danger: #ea4848;
+  --cf-color-danger-light: #ee6c6c;
+  --cf-color-danger-dark: #a33232;
+  --cf-color-danger-lighter: #fdecec;
+
+  /* 中性色 */
+  --cf-color-border: #dee2ec; /* 表格、输入框、分割线、抽屉右边框 */
+  --cf-color-text: #2f354d;
+  --cf-color-text-light: #7a859e;
+  --cf-color-text-lighter: #b1b6c3;
+  --cf-color-bg: #ffffff;
+  --cf-color-bg-main: #f1f3f7; /* 页面底、表头、抽屉、手风琴标题 */
+  --cf-color-bg-dark: #e9edf4; /* 表格行 hover */
+  --cf-color-backdrop: rgba(75, 79, 74, 0.4); /* MuiBackdrop */
+
+  /* diff 专用（code-diff 视图） */
+  --cf-color-diff-addition: #e6ffed;
+  --cf-color-diff-addition-dark: #cdffd8;
+  --cf-color-diff-addition-darker: #acf2bd;
+  --cf-color-diff-deletion: #ffeef0;
+  --cf-color-diff-deletion-dark: #ffdce0;
+  --cf-color-diff-deletion-darker: #fdb8c0;
+  --cf-color-diff-label: #f1f8ff;
+  --cf-color-diff-label-dark: #dbedff;
+
+  /* ============================ 字体 ============================ */
+  /* theme1.js 在 preset 基础上追加了 system-ui 回退栈，取 theme1 的全量 */
+  --cf-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+    "Segoe UI Symbol", "Noto Color Emoji", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft Yahei", "WenQuanYi Micro Hei";
+  --cf-font-family-mono: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+
+  --cf-font-size: 14px; /* typography.fontSize 基准 */
+  --cf-font-size-h1: 20px; /* h1~h3 = 20/700 */
+  --cf-font-size-h4: 16px; /* h4~h6 = 16/700 */
+  --cf-font-size-small: 12px; /* caption 在 theme1 被提到 14px，此处 12 仅用于 ListSubheader/Tooltip/代码 */
+  --cf-font-weight-bold: 700;
+  --cf-font-weight-medium: 500;
+  --cf-font-weight-normal: 400;
+  --cf-line-height: 1.5;
+  --cf-line-height-tight: 1.14;
+
+  /* ============================ 间距 ============================ */
+  --cf-space: 8px; /* MUI v4 spacing 单位 */
+  --cf-space-half: 4px;
+
+  /* ============================ 圆角 ============================ */
+  --cf-radius: 4px; /* shape.borderRadius */
+  --cf-radius-sm: 2px;
+  --cf-radius-pill: 999px;
+
+  /* ============================ 阴影（仅 4 档 + 弹窗） ============================ */
+  --cf-shadow-default: 0px 8px 16px 0px rgba(63, 70, 62, 0.2); /* Paper elevation2/8、Popover */
+  --cf-shadow-card: 0px 2px 8px 0px rgba(122, 133, 158, 0.2);
+  --cf-shadow-card-hover: 0px 10px 30px 0px rgba(122, 133, 158, 0.2);
+  --cf-shadow-bar: 0px 2px 10px 0px rgba(122, 133, 158, 0.15); /* Toast / Snackbar */
+  /* 弹窗：preset 未覆盖 elevation24，沿用 MUI v4 Dialog 的原值 */
+  --cf-shadow-dialog: 0px 11px 15px -7px rgba(0, 0, 0, 0.2), 0px 24px 38px 3px rgba(0, 0, 0, 0.14),
+    0px 9px 46px 8px rgba(0, 0, 0, 0.12);
+
+  /* ============================ 组件尺寸（表格密度等） ============================ */
+  --cf-control-height: 32px; /* Button / Input / MenuItem：spacing(4) */
+  --cf-control-height-sm: 26px;
+  --cf-control-min-width: 104px; /* Button：spacing(13) */
+  --cf-control-min-width-sm: 64px; /* spacing(8) */
+  --cf-input-padding-y: 6.5px; /* MuiOutlinedInput.input padding */
+  --cf-input-padding-x: 16px; /* spacing(2) */
+  --cf-input-line-height: 19px; /* MuiInputBase.input height/lineHeight */
+  /* 输入框盒子高度：旧版实测 **32px**（padding 6.5+6.5 + 行高 19 = 32）。
+     注意别再凭感觉放大 —— 曾误设为 52px 导致"输入框太大、整页被撑高"。 */
+  --cf-input-height: 32px;
+  --cf-table-row-height: 40px; /* MuiTableCell height = spacing(5)，表格密度由此决定 */
+  --cf-table-cell-padding-x: 16px;
+  --cf-tab-height: 40px; /* MuiTab/MuiTabs minHeight */
+  --cf-tab-padding-x: 24px;
+  --cf-dialog-title-padding: 20px 24px; /* spacing(2.5) spacing(3) */
+  --cf-dialog-content-padding: 8px 24px;
+  --cf-dialog-actions-padding: 8px 24px 16px;
+  --cf-dialog-max-width: 600px;
+  --cf-sidebar-width: 240px; /* 侧边抽屉 */
+  --cf-header-height: 64px; /* MUI v4 Toolbar 桌面端 min-height */
+  --cf-empty-image-width: 160px; /* EmptyListNotice: spacing(20) */
+  --cf-empty-text-max-width: 480px; /* spacing(60) */
+  --cf-list-item-min-width: 160px; /* MuiListItem minWidth = spacing(20) */
+  --cf-list-icon-width: 32px; /* MuiListItemIcon minWidth = spacing(4) */
+
+  /* ---------- 组件内部复合值（同样是"现值"，不许在组件 CSS 里重写） ---------- */
+  --cf-btn-padding: 2px 24px; /* MuiButton contained/outlined: spacing(0.25) spacing(3) */
+  --cf-btn-text-padding: 4px 8px; /* MuiButton text: spacing(0.5) spacing(1) */
+  --cf-btn-text-min-width: 16px; /* spacing(2) */
+  --cf-card-padding: 16px; /* spacing(2) */
+  --cf-empty-padding: 48px 8px; /* spacing(6) spacing(1) */
+  --cf-page-loading-min-height: 240px; /* spacing(30) */
+  --cf-dialog-backdrop-padding: 16px; /* spacing(2) */
+  --cf-toast-min-width: 288px; /* spacing(36) */
+  --cf-toast-max-width: 560px; /* spacing(70) */
+  --cf-toast-stack-top: 24px; /* spacing(3) */
+  --cf-tooltip-padding: 6px 16px;
+  --cf-tag-padding: 2px 8px;
+  --cf-avatar-size: 32px; /* = control height */
+  --cf-avatar-size-sm: 24px;
+  --cf-avatar-size-lg: 40px; /* spacing(5) */
+  --cf-switch-width: 34px;
+  --cf-switch-height: 20px;
+  --cf-switch-thumb: 16px;
+  --cf-checkbox-size: 16px;
+  --cf-focus-ring: 2px;
+  --cf-menu-min-width: 144px; /* spacing(18) */
+  --cf-menu-max-height: 50vh; /* preset MuiMenu.paper maxHeight: 50% */
+  --cf-menu-width-user: 240px; /* 用户菜单旧版 width: spacing(30) */
+  --cf-badge-bg: #ff3f35; /* 旧版未读角标（第三方品牌色之外的项目内固定值） */
+  --cf-badge-border: 2px;
+  --cf-icon-btn-size: 34px;
+  --cf-color-sidebar-control: #64728c; /* 旧 Drawer 折叠按钮颜色 */
+  /* 文本按钮的文字色：旧版实测为 MUI 默认 text.primary = rgba(0,0,0,0.87)
+     （preset 的 typography.button 色并未作用于实际按钮，实测以浏览器为准）。 */
+  --cf-color-text-button: rgba(0, 0, 0, 0.87);
+  /* text 变体按钮的左右内边距：旧版实测 4px 24px 4px 8px（右侧 24px 是 MUI 的留白）； */
+  --cf-btn-text-padding-4: 4px 24px 4px 8px;
+
+  /* ---------- 认证页（登录/注册/二次验证/重置口令）专属现值 ----------
+     出处：www/static/css/main.css（.login-body / .section-body / .activityBox /
+     .login-top / .login-wrap）与 www/static/css/common.css（.btn-self-primary）。
+     注意：认证页的主色是 #0035EC，**与应用内壳的 #3455db 不同**（旧版就是两套），
+     重写保持原样，不要统一。 */
+  --cf-color-auth-primary: #0035ec;
+  --cf-color-auth-primary-light: #4d72f2; /* .btn-self-primary:hover */
+  --cf-color-auth-primary-dark: #002dbd; /* .btn-self-primary:active */
+  --cf-color-auth-title: #2f3950; /* .color-2F3950 / .login-top-des */
+  --cf-color-auth-subtitle: #687089; /* .color-687089 */
+  --cf-color-auth-muted: #aab0c4; /* .color-AAB0C4 */
+  --cf-color-bg-auth: #f7f8fa; /* .login-body */
+  --cf-shadow-auth-card: 0px 10px 20px 0px rgba(96, 104, 120, 0.1); /* .section-body */
+  --cf-auth-card-width: 1184px;
+  --cf-auth-card-height: 644px;
+  --cf-auth-hero-width: 644px; /* .activityBox */
+  --cf-auth-logo-height: 60px; /* .login-logo img */
+  --cf-auth-title-size: 26px; /* .font-26 */
+  --cf-auth-input-size: 15px; /* 占位符字号（.login-wrap input::placeholder） */
+  --cf-auth-card-padding: 60px 0; /* .login-wrap-inner */
+  --cf-auth-top-gap: 50px; /* .login-top margin-bottom */
+  --cf-auth-link-gap-top: 20px; /* .forget-sign margin-top */
+  --cf-auth-link-gap-bottom: 30px; /* .forget-sign margin-bottom */
+  --cf-auth-form-width: 360px; /* .login-wrap-inner 的 col-lg-8：(1184-644)*8/12 */
+  --cf-auth-panel-bg: #ffffff; /* .login-wrap */
+  --cf-auth-input-height: 44px; /* .form-control-lg 输入框高度 */
+  --cf-control-height-lg: 46px; /* .btn-lg 提交按钮高度 */
+  --cf-font-size-lg: 20px; /* .btn-lg 字号 */
+
+  /* ============================ 层级 ============================ */
+  --cf-z-header: 100;
+  --cf-z-drawer: 200;
+  --cf-z-backdrop: 1200;
+  --cf-z-dialog: 1300;
+  --cf-z-toast: 1400;
+  --cf-z-tooltip: 1500;
+}

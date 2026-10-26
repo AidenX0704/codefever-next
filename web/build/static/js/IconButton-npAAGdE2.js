@@ -1,0 +1,1 @@
+import{t as e}from"./vendor-Cwr4aY6H.js";import{t}from"./cn-hZG6twJP.js";var n=e();function r({label:e,bordered:r=!1,className:i,children:a,type:o=`button`,...s}){return(0,n.jsx)(`button`,{type:o,"aria-label":e,className:t(`cf-icon-btn`,r&&`cf-icon-btn--bordered`,i),...s,children:a})}export{r as t};

@@ -1,0 +1,531 @@
+/*
+ * 布局层样式（外壳 / 页头 / 内容容器 / 页面通用节奏）。
+ * 只允许引用 var(--cf-*)，不写字面值（AGENTS §5）。
+ *
+ * 口径来源（旧版）：
+ *   components/App.js + components/Main.js —— 内容区白底、Toolbar 64px 占位、
+ *     主内容内边距 spacing(3) spacing(6) = 24px 48px
+ *   components/Header.js —— AppBar 固定顶部、下边框 1px、logo 高 32px、
+ *     左右各组元素间距 spacing(2)
+ */
+
+.app-content {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  /* 页头是 fixed，这里用等高内边距让开（等价旧版 theme.mixins.toolbar 占位块） */
+  padding-top: var(--cf-header-height);
+  overflow: auto;
+  background: var(--cf-color-bg);
+}
+
+/* 页面内边距统一由 `.page` 提供（这样带侧栏的页面可以用 `.page--full` 满幅铺开）。 */
+.app-main {
+  padding: 0;
+}
+
+.app-header {
+  position: fixed;
+  top: 0;
+  right: 0;
+  left: 0;
+  z-index: var(--cf-z-header);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space);
+  height: var(--cf-header-height);
+  padding: 0 calc(var(--cf-space) * 3);
+  border-bottom: 1px solid var(--cf-color-border);
+  background: var(--cf-color-bg);
+}
+
+.app-header__left,
+.app-header__right {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cf-space) * 2);
+}
+
+.app-header__logo {
+  height: calc(var(--cf-space) * 4);
+  margin-right: calc(var(--cf-space) * 4);
+  cursor: pointer;
+}
+
+.app-header__user {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space);
+  cursor: pointer;
+  color: var(--cf-color-text-light);
+}
+
+.app-header__avatar {
+  display: inline-flex;
+  width: calc(var(--cf-space) * 4);
+  height: calc(var(--cf-space) * 4);
+  overflow: hidden;
+  border-radius: 50%;
+  background: var(--cf-color-bg-dark);
+  object-fit: cover;
+}
+
+/* 页面通用节奏：内边距 24px 48px（与旧版 Main.js 的 spacing(3) spacing(6) 一致） */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cf-space) * 3);
+  padding: calc(var(--cf-space) * 3) calc(var(--cf-space) * 6);
+}
+
+/* 带左侧导航的页面：整体满幅，内边距交给右侧内容列（侧栏因此能贴左、满高）。 */
+.page--full {
+  padding: 0;
+  gap: 0;
+}
+
+.page__title {
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size-h1);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+.page__subtitle {
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+/* 区块容器：**扁平**样式（与旧版设置页一致：白底 + 底部 1px 分隔线，不加卡片阴影）。
+   需要"卡片"外观时用 `<Card>`（`.cf-card`），不要给 section 加阴影。 */
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+  padding: 0 0 calc(var(--cf-space) * 3);
+  border-bottom: 1px solid var(--cf-color-border);
+  background: transparent;
+}
+
+.section:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.section__title {
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size-h4);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cf-space);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+}
+
+/* ------------------------------ 左侧导航（仓库/组/设置/管理上下文） ------------------------------ */
+/* 口径：旧 Drawer 展开 320px(spacing 40)、收起 88px(spacing 11)、折叠按钮距顶 96px 跨出 12px */
+.cf-repo-layout {
+  display: flex;
+  align-items: stretch;
+  /* 侧栏要像旧版 Drawer 一样从页头下沿一直铺到视口底部 */
+  min-height: calc(100vh - var(--cf-header-height) - 1px);
+}
+
+.cf-sidebar {
+  position: relative;
+  flex: 0 0 auto;
+  width: calc(var(--cf-space) * 40);
+  padding: calc(var(--cf-space) * 2) calc(var(--cf-space) * 3);
+  border-right: 1px solid var(--cf-color-border);
+  background: var(--cf-color-bg-main);
+  transition: width 0.2s ease;
+}
+
+.cf-sidebar--collapsed {
+  width: calc(var(--cf-space) * 11);
+  padding: calc(var(--cf-space) * 2) var(--cf-space-half);
+}
+
+.cf-sidebar--collapsed .cf-sidebar__label,
+.cf-sidebar--collapsed .cf-sidebar__count {
+  display: none;
+}
+
+/* 收起后只剩图标：在整条侧栏内居中（旧版收起态是 40px 的窄 item + 文本高度归零，
+   这里等价对齐为"图标在 88px 内水平居中"）；子菜单纯文字，收起时一并隐藏。 */
+.cf-sidebar--collapsed .cf-sidebar__item {
+  justify-content: center;
+  gap: 0;
+  padding: 0;
+}
+
+.cf-sidebar--collapsed .cf-sidebar__children {
+  display: none;
+}
+
+.cf-sidebar__collapse {
+  position: absolute;
+  top: calc(var(--cf-space) * 12);
+  right: -12px;
+  z-index: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--cf-space) * 3);
+  height: calc(var(--cf-space) * 3);
+  border: 1px solid var(--cf-color-border);
+  border-radius: 50%;
+  background: var(--cf-color-bg);
+  color: var(--cf-color-sidebar-control);
+  cursor: pointer;
+}
+
+.cf-sidebar__collapse-icon--flip {
+  transform: rotate(180deg);
+}
+
+.cf-sidebar__nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+}
+
+.cf-sidebar__item {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  height: calc(var(--cf-space) * 5);
+  padding: 0 var(--cf-space);
+  border-radius: var(--cf-radius);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+  text-decoration: none;
+}
+
+.cf-sidebar__item:hover {
+  background: var(--cf-color-bg-dark);
+  color: var(--cf-color-text);
+  text-decoration: none;
+}
+
+.cf-sidebar__item--active {
+  color: var(--cf-color-primary);
+  background: var(--cf-color-primary-lighter);
+}
+
+.cf-sidebar__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-sidebar__count {
+  color: var(--cf-color-text-lighter);
+  font-size: var(--cf-font-size-small);
+}
+
+.cf-sidebar__children {
+  display: flex;
+  flex-direction: column;
+  padding-left: calc(var(--cf-space) * 3);
+}
+
+.cf-sidebar__child {
+  display: flex;
+  align-items: center;
+  height: calc(var(--cf-space) * 4);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+  text-decoration: none;
+}
+
+.cf-sidebar__child:hover {
+  color: var(--cf-color-text);
+  text-decoration: none;
+}
+
+.cf-sidebar__child--active {
+  color: var(--cf-color-primary);
+}
+
+.cf-repo-main {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: calc(var(--cf-space) * 3) calc(var(--cf-space) * 6);
+}
+
+/* MR 详情：左内容 + 右侧（评审人 / 活动）栏。
+   旧版是 9/12 + 3/12 的 MUI 栅格，这里用 flex 复刻同样的比例；
+   宽度全部走 --cf-space 令牌，不写字面值。 */
+.cf-mr-layout {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(var(--cf-space) * 3);
+}
+
+.cf-mr-layout__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.cf-mr-layout__side {
+  flex: 0 0 auto;
+  width: calc(var(--cf-space) * 30);
+}
+/* 侧栏布局里的子页面：内边距已由 .cf-repo-main 提供，避免二次叠加
+   （否则内容会被多推 48px，实测比旧版偏右 64px）。 */
+.cf-repo-main > .page {
+  padding: 0;
+}
+
+/* ------------------------------ 仓库页头部 ------------------------------ */
+
+.repo-head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+  padding-bottom: calc(var(--cf-space) * 2);
+}
+
+.repo-head__title {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size-h1);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+.repo-head__group {
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-h1);
+  font-weight: var(--cf-font-weight-normal);
+}
+
+.repo-head__desc {
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+/* ------------------------------ 文件浏览 ------------------------------ */
+
+.file-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space);
+  padding: var(--cf-space) 0;
+  border-bottom: 1px solid var(--cf-color-border);
+}
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  min-width: 0;
+  font-size: var(--cf-font-size);
+}
+
+.breadcrumb__link {
+  color: var(--cf-color-primary);
+  text-decoration: none;
+}
+
+.breadcrumb__sep {
+  color: var(--cf-color-text-lighter);
+}
+
+.breadcrumb__current {
+  color: var(--cf-color-text);
+}
+
+/* 分支/标签选择器（口径来自旧版 RevisionSelector：outlined 外框控件） */
+.file-toolbar__rev {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  height: var(--cf-control-height);
+  padding: 0 var(--cf-space);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+  cursor: pointer;
+}
+
+/* 仓库页顶部"当前路径最近提交"卡片（口径来自旧版 FileTree.classes.commit：1px 边框圆角盒）。 */
+.commit-card {
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+}
+
+.commit-card .commit-row {
+  padding: var(--cf-space) calc(var(--cf-space) * 2);
+  border-bottom: 0;
+}
+
+/* 文件列表：旧版 TableList（表头 名称 30% / 最近提交 / 最近更新，末列右对齐）。
+   fixed 布局保证长提交信息在列内省略，而不是把表格撑破。 */
+.cf-table--file {
+  table-layout: fixed;
+}
+
+.file-table__name-cell,
+.file-table__commit-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-table__name {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space);
+  max-width: 100%;
+  color: var(--cf-color-text);
+  text-decoration: none;
+}
+
+.file-table__name:hover {
+  color: var(--cf-color-primary);
+  text-decoration: none;
+}
+
+.file-table__name-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-table__name--static {
+  cursor: default;
+}
+
+.file-table__submodule {
+  flex: 0 0 auto;
+  color: var(--cf-color-text-light);
+}
+
+.file-table__commit {
+  color: var(--cf-color-text-light);
+  text-decoration: none;
+}
+
+.file-table__commit:hover {
+  color: var(--cf-color-primary);
+  text-decoration: none;
+}
+
+/* 设计系统预览页用的色板栅格 */
+.swatch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(calc(var(--cf-space) * 22), 1fr));
+  gap: var(--cf-space);
+}
+
+.swatch {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+.swatch__chip {
+  height: calc(var(--cf-space) * 5);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+}
+
+/* ------------------------------ 通知抽屉 ------------------------------ */
+.notification-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--cf-z-backdrop);
+  background: var(--cf-color-backdrop);
+}
+
+.notification-panel {
+  position: fixed;
+  top: var(--cf-header-height);
+  right: 0;
+  bottom: 0;
+  z-index: var(--cf-z-dialog);
+  display: flex;
+  flex-direction: column;
+  width: calc(var(--cf-space) * 50);
+  max-width: 100%;
+  border-left: 1px solid var(--cf-color-border);
+  background: var(--cf-color-bg);
+  box-shadow: var(--cf-shadow-default);
+}
+
+.notification-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--cf-space);
+  border-bottom: 1px solid var(--cf-color-border);
+}
+
+.notification-panel__body {
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.notification-item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cf-space);
+  padding: var(--cf-space);
+  border-bottom: 1px solid var(--cf-color-border);
+}
+
+.notification-item--unread {
+  background: var(--cf-color-primary-lighter);
+}
+
+.notification-item__main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.notification-item__text {
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+  line-height: var(--cf-line-height);
+  word-break: break-word;
+}
+
+.notification-item__meta {
+  margin-top: var(--cf-space-half);
+  color: var(--cf-color-text-lighter);
+  font-size: var(--cf-font-size-small);
+}
+
+/* 系统设置页的 JSON 编辑器（等宽、灰底、可滚动） */
+.config-editor {
+  width: 100%;
+  min-height: calc(var(--cf-space) * 60);
+  padding: var(--cf-space);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg-main);
+  color: var(--cf-color-text);
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+  line-height: var(--cf-line-height);
+  resize: vertical;
+}

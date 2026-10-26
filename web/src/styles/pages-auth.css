@@ -1,0 +1,158 @@
+/*
+ * 认证页布局（登录 / 注册 / 二次验证 / 重置口令）。
+ *
+ * 尺寸与视觉口径逐项来自旧 SSR 页样式：
+ *   www/static/css/main.css   .login-body / .section-body / .activityBox /
+ *                             .login-top / .login-wrap / .login-wrap-inner
+ *   www/static/css/common.css .btn-self-primary / .font-26 / .color-*
+ * 卡片 1184×644、左图 644 宽、右侧表单列 360 宽、≤1184px 隐藏左图。
+ * 所有取值走 var(--cf-*)，此处不写字面值。
+ */
+
+.auth-body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--cf-color-bg-auth);
+}
+
+.auth-card {
+  display: flex;
+  width: var(--cf-auth-card-width);
+  height: var(--cf-auth-card-height);
+  overflow: hidden;
+  border-radius: var(--cf-radius);
+  background: var(--cf-auth-panel-bg);
+  box-shadow: var(--cf-shadow-auth-card);
+}
+
+.auth-card__hero {
+  flex: 0 0 var(--cf-auth-hero-width);
+  width: var(--cf-auth-hero-width);
+  height: 100%;
+}
+
+.auth-card__hero img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.auth-card__panel {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cf-auth-card-padding);
+  background: var(--cf-auth-panel-bg);
+}
+
+.auth-card__inner {
+  width: 100%;
+  max-width: var(--cf-auth-form-width);
+}
+
+/* 表单头部：logo + 欢迎语 + 品牌名 */
+.auth-head {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: var(--cf-auth-top-gap);
+}
+
+.auth-head__logo {
+  height: var(--cf-auth-logo-height);
+  width: auto;
+}
+
+.auth-head__text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+}
+
+.auth-head__title {
+  color: var(--cf-color-auth-title);
+  font-size: var(--cf-auth-title-size);
+  font-weight: var(--cf-font-weight-normal);
+  line-height: var(--cf-line-height-tight);
+}
+
+.auth-head__subtitle {
+  color: var(--cf-color-auth-subtitle);
+  font-size: var(--cf-font-size);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+}
+
+.auth-form__links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: var(--cf-auth-link-gap-top);
+  margin-bottom: var(--cf-auth-link-gap-bottom);
+}
+
+.auth-link {
+  color: var(--cf-color-auth-primary);
+  font-size: var(--cf-font-size);
+  cursor: pointer;
+}
+
+.auth-link:hover {
+  text-decoration: underline;
+}
+
+.auth-footnote {
+  color: var(--cf-color-auth-muted);
+  font-size: var(--cf-font-size);
+}
+
+.auth-submit {
+  margin-top: 20px;
+  margin-bottom: 20px;
+}
+
+.auth-message {
+  color: var(--cf-color-danger);
+  font-size: var(--cf-font-size);
+  line-height: var(--cf-line-height);
+  text-align: center;
+}
+
+.auth-hint {
+  color: var(--cf-color-auth-subtitle);
+  font-size: var(--cf-font-size);
+  line-height: var(--cf-line-height);
+}
+
+@media (max-width: 1184px) {
+  .auth-card__hero {
+    display: none;
+  }
+
+  /* 旧样式：.section-body{ width:80%; max-width:540px }，高度仍固定 644px */
+  .auth-card {
+    width: 80%;
+    max-width: 540px;
+  }
+}
+
+@media (max-width: 768px) {
+  .auth-card {
+    width: 90%;
+  }
+}
+
+@media (max-width: 576px) {
+  /* 旧样式：.login-wrap-inner{ padding: 60px 20px } */
+  .auth-card__panel {
+    padding: var(--cf-auth-card-padding) calc(var(--cf-space) * 2.5);
+  }
+}

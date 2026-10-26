@@ -1,0 +1,1 @@
+import{t as e}from"./vendor-Cwr4aY6H.js";import{t}from"./cn-hZG6twJP.js";var n=e();function r({hoverable:e=!1,className:r,children:i,...a}){return(0,n.jsx)(`div`,{className:t(`cf-card`,e&&`cf-card--hoverable`,r),...a,children:i})}export{r as t};

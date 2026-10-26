@@ -23,11 +23,11 @@ func (s *Server) handleFallback(w http.ResponseWriter, r *http.Request) {
 // 优先使用页面模板层移植的 nopage/index.php 等价模板；
 // 未注入 PageDataProvider 时退回到自包含实现，保证行为始终正确。
 func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
-	if s.PageDataProvider != nil {
-		if err := RenderNotFound(w, s.PageDataProvider()); err == nil {
-			return
-		}
+	// 新前端切换后：404 也交给 SPA（前端有 NotFound 路由，样式与站内一致）。
+	if ServeSPAStatus(w, r, http.StatusNotFound) {
+		return
 	}
+	// 没有壳时退回内置的静态 404（与旧 nopage 页面同构）。
 	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
 	w.Header().Set("Cache-Control", "no-cache, must-revalidate")
 	w.WriteHeader(http.StatusNotFound)

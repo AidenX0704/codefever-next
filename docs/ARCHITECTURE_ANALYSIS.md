@@ -1,5 +1,10 @@
 # CodeFever Community 架构分析与可优化点清单
 
+> **注意（2026-10-24）**：本文档中出现的 `www/view/`、`www/static/` 与 MUI v4 相关描述
+> 属于**历史记录**——旧前端已在 2026-10 前端重写中删除。当前前端为 `web/`
+> （React 19 + TypeScript + Vite + 自研令牌与组件库），见 `docs/FRONTEND_REWRITE_PLAN.md`。
+
+
 > 采集方式：仓库全量静态阅读 + 运行态实测（容器 `codefever-app` / `codefever-db`）+ 内置浏览器 UI 取证 + MySQL 8.0.46 兼容性实测。
 > 证据均带 `文件:行号`，结论可逐条复核。
 

@@ -80,14 +80,18 @@ func (h *WebUserHandler) register(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// GET 分支：user.php:184-200。
-	email := trimGet(r, "email")
+	// 注：旧版会用 query 里的 email 回填表单；SPA 版由前端自己读 query，这里不再需要。
+	_ = trimGet(r, "email")
 	if _, ok := sessionUser(r.Context(), r, h.Sessions, h.Users, h.Cfg.Env.Session.Name); ok {
 		redirect(w, "/repositories")
 		return
 	}
-	data := pageData(h.Cfg, currentLang(r))
-	data.Email = email
-	_ = httpapi.RenderRegister(w, data)
+	// 前端切换后：注册页由 SPA 渲染；email 回填由前端从 query 读取。
+	if httpapi.ServeSPA(w, r) {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
 // registerPost 实现 POST /user/register。
@@ -186,9 +190,12 @@ func (h *WebUserHandler) verify(w http.ResponseWriter, r *http.Request) {
 		redirect(w, "/repositories")
 		return
 	}
-	data := pageData(h.Cfg, currentLang(r))
-	data.Key = key
-	_ = httpapi.RenderVerify(w, data)
+	// 前端切换后：二次验证页由 SPA 渲染（key 从 query 读取）。
+	if httpapi.ServeSPA(w, r) {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
 // verifyPost 实现 POST /user/verify。
@@ -246,15 +253,18 @@ func (h *WebUserHandler) resetPassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// GET 分支：user.php:270-288。
-	mode := trimGet(r, "mode")
+	// mode/key 由前端（SPA）自己读 query，这里仅保留 key 的合法性校验语义。
+	_ = trimGet(r, "mode")
 	key := trimGet(r, "key")
 	if !keyPattern.MatchString(key) {
 		key = ""
 	}
-	data := pageData(h.Cfg, currentLang(r))
-	data.Key = key
-	data.Mode = mode
-	_ = httpapi.RenderResetPassword(w, data)
+	// 前端切换后：找回密码页由 SPA 渲染（mode/key 从 query 读取）。
+	if httpapi.ServeSPA(w, r) {
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+	w.WriteHeader(http.StatusInternalServerError)
 }
 
 // resetPasswordPost 实现 POST /user/resetPassword。

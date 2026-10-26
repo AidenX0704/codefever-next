@@ -53,9 +53,265 @@
 - **README/安装/管理/安全文档按当前结构重写**：删除 `misc/`、`http-gateway/`、
   `ssh-gateway/`、`Dockerfile.local`、`docker-compose.local.yml`、`CODEFEVER_BACKEND`
   等旧路径/旧开关；英文安装文档与 Webhook 页面同步更新。
+- **新前端批 8：逐页核对旧版后修正的语义偏差**（与旧版行为对齐，见
+  `docs/FRONTEND_FIELD_DIFF_2026-10-24.md`）：
+  - **个人资料的 `role` 恢复为可编辑**并随 `user/updateBasicInfo` 提交
+    （旧版资料页可编辑 `role`；新版一度改成只读）；
+  - **保护分支「允许 Push / Merge 角色」恢复角色集合语义**：
+    旧版表达的是「最低角色及以上全部可操作」，新版压扁成了单个角色标签；
+  - **MR 详情的「使用 Squash」恢复为可选**：新版此前硬编码为压缩合并。
+    顺带修掉旧版的一个隐藏缺陷 —— 旧前端把 `usingSquash` 以布尔下发，
+    PHP 侧 `trim(false) === ''` 导致「取消勾选」实际无效；新版传字符串
+    `'false'`，后端 `PHPTrim(...) != "false"` 才能真正识别；
+  - **通知开关恢复双向**：此前只能"打开"不能"关闭"；
+  - **MR 列表搜索改回回车/点按钮触发**（旧版 `searchMergeRequests()`），
+    不再逐键打后端；
+  - **提交列表每页 10 → 20 条**（旧版 `CommitList.js` 的 pageSize）；
+  - **合并请求状态徽标配色回到旧版**：待合并=success、已合并=info、已关闭=warning
+    （为此给 `Tag` 组件补了 `info` tone，色值取主题令牌 `--cf-color-secondary`）；
+  - **仓库组设置的组名校验**（5–30 字 + 字符集）、描述 200 字计数与上限、
+    `0x0404` 组名重复提示。
+- **新前端批 9：仓库文件页与侧边栏对齐旧版视觉**：
+  - **文件列表恢复为带表头的表格**（名称 30% / 最近提交 / 最近更新右对齐，外框圆角），
+    并复用组件库 `Table` 原语，不再自绘 div 行；提交信息列恢复为**可点击的详情链接**
+    （旧版 `TableList` 行为，此前只是纯文本）；
+  - **文件页顶部"当前路径最近提交"恢复卡片外观**（1px 边框圆角盒）、提交标题恢复
+    旧版默认链接主色、短哈希旁补回**一键复制**按钮（对齐旧版 `CommitHashChip`）；
+  - **分支/标签选择器恢复 outlined 外框**（对齐旧版 `RevisionSelector`）；
+    空仓库不再渲染文件工具条（旧版语义）；
+  - **侧边栏收起后图标在 88px 内水平居中**（此前贴左）；收起时隐藏设置子菜单
+    （纯文字子项此前会溢出侧栏），与旧版 `DrawerList` 的收起行为一致；
+  - **修复侧边栏激活态不随页面切换**：「文件」项的 active 正则误带了 `(/.*)?`
+    通配后缀，导致它在仓库的所有子页（提交/分支/标签等）都命中高亮；
+    现按旧版 `DrawerConfig` 的模式逐条对齐（仓库根 / files / blame），
+    并顺带对齐组导航的「仓库」项（`/groups/{组}/repositories/new` 也应命中）；
+  - **提交列表页布局对齐旧版 `CommitList` + `TitleList`**：
+    每个日期组恢复为 1px 边框盒 + 灰底标题条（`yyyy-MM-dd [N 提交]`，行高 40px、
+    左右内边距与行对齐），组内提交行补回左右 24px 内边距；标题格式从圆括号改回
+    旧版的方括号（补充词表新增 `label._N_commit`，自动表里是轻量 t() 渲染不了的
+    ICU 复数串；英文放弃单复数区分，n=1 显示 "1 commits"）；
+  - **提交列表分页恢复旧版「查看更多」**：页码分页改回居中的「查看更多 / 处理中 /
+    没有更多」按钮，跨页同日期合并进同一组；分支/标签下拉改为写 URL
+    （`/commits/{rev}`，旧版行为），换 ref / 子目录时重置页码与搜索；
+  - **提交列表工具条对齐旧版**：分支选择器补 outlined 外框；搜索框改回**回车提交**
+    （旧版 onKeyDown Enter，此前逐键请求后端），去掉旧版没有的「重置」按钮；
+    空仓库不再渲染工具条；子目录提交列表点提交恢复跳「该提交的目录视图」
+    （`/files/{子路径}?rev={sha}`，旧版 linkPathBase='files'+path 语义）；
+  - 预览 mock（`web/scripts/serve-preview.mjs`）的 `commitList` 端点改为按
+    `page`/`pagesize`/`keyword`（GET query）真实切片，并补足一页以上的数据量，
+    使「查看更多」的追加与跨页日期合并可被视觉验证。
+  - 预览 mock（`web/scripts/serve-preview.mjs`）的 `repository/object` 响应补上
+    真实后端本就返回的 `commit` 字段，文件页顶部卡片可被视觉验证覆盖。
 
 ### 新增
 
+- **新前端骨架 `web/`（React 19 + TypeScript + Vite）**：与旧前端并存的第二批前端，
+  按 `docs/FRONTEND_REWRITE_PLAN.md` 分批替代 `www/view`（React 17 + webpack 4）与
+  `www/static`（jQuery/Bootstrap 的 SSR 页面资源）。本批只搭骨架，不影响线上：
+  - 设计令牌层 `web/src/theme/theme.css` 成为**全仓库唯一的视觉字面值来源**
+    （颜色/间距/圆角/阴影/字号逐项抄自旧 `@pgyer/mui-theme-preset` 与 `theme1.js`，
+    例如 `--cf-color-primary: #3455db`、表格行高 40px、圆角 4px），
+    组件与页面一律引用 `var(--cf-*)`；
+  - 自研组件库首批 21 个原子件（按钮/输入/选择/复选/开关/表单/表格+分页/弹窗/确认/
+    页签/气泡/消息/头像/标签/卡片/加载/空态/复制/链接），**零 UI 框架依赖**；
+  - 统一请求层 `web/src/api/client.ts` 复刻旧版线上契约（multipart 的 `key[sub]`/`key[]`
+    编码、剥 `_SAFE`/`_BINARY`、GET 追加 `requestTime`、`codefever-end-*` 头、
+    错误码文案表、`0x0101` 跳登录）；
+  - 设计系统预览页 `/__design`，作为后续每批的视觉比对基准。
+  - 为什么这么做：旧前端 webpack 4 + CRA fork 已 EOL（依赖 Node `--openssl-legacy-provider`），
+    且 MUI v4 的 JSS 运行时占了首屏 JS 的绝大部分；换自研令牌 + 组件库后首屏只依赖
+    React 本身（骨架产物 vendor 98 KB gzip，全站 116 KB gzip）。
+- **新前端批 1：认证四页**（登录 / 注册 / 二次验证 / 找回密码）落地到 `web/`：
+  - 文案改成**自动生成**的 i18n（`web/src/i18n/*.ts`，从 Go 语言表抽 54 键 × 2 语言，
+    脚本 `web/scripts/extract-lang.mjs`），从此前端与后端各有一份词表的重复问题消失；
+  - 新增 `postForm()` 请求通道：认证端点用的是旧表单页的 `{code,message,extra}` 信封
+    （业务码 1..8/100，其中 100 表示"需要 2FA"而不是错误），与 `/api/*` 信封区分开，
+    避免把 2FA 中间态当异常处理；
+  - 视觉几何与旧页逐项对齐（实测）：卡片 1184×644、左图 644、表单列 360、背景 `#f7f8fa`、
+    提交按钮 `#0035EC`；三个视口下卡片实测 1184×644 / 540×644 / 450×644，
+    与旧 CSS 的 `width:80%;max-width:540px`、`90%` 规则一致；
+  - 登录页首图改用 `<picture>` 优先 WebP（30.5 KB vs 原 PNG 147.9 KB），沿用旧性能整改 A4；
+  - 本批**不改变线上行为**：Go 侧"GET → SPA 壳"与 nginx/Docker 切换顺延到批 7，
+    原因与回归条件记在 `docs/FRONTEND_REWRITE_PLAN.md` §10 批 1 的偏离表。
+- **新前端批 2：应用外壳 + 仓库列表 + 仓库组列表**：
+  - **i18n 改为"执行旧词表"生成**：旧 SPA 的文案是运行时拼词
+    （如 `newRepository = Phrase.new + Term.repository`），静态解析会漏；
+    脚本现在会真正执行旧 lang 模块再按命名空间合成，得到 **961 键 × 2 语言**，
+    并支持 `{s}`/`{n}` 占位符替换；
+  - **图标彻底本地化**：`@pgyer/icons` 的 154 个图标数据落成 TS 模块，新增 `Icon`
+    组件直接渲染 `<svg><path/></svg>`，**移除 `@fortawesome/*` 依赖**，
+    也不再复现"barrel 一次打包全部 154 个图标"的体积问题；
+  - 新增 `Dropdown` / `SquareIconButton` / `Marker` / `FormattedTime` 四个组件，
+    页头（仓库、仓库组、新建、语言、帮助、管理后台、用户菜单）与列表行全部复用；
+  - 数据层新增 `AppDataProvider`（对应旧 Redux `DataStore` 的用户/仓库/组三份共享数据），
+    避免页头与列表页重复请求同一批接口；
+  - 布局对齐旧 `Main.js`：固定页头 64px + 白底内容区 + `padding: 24px 48px`
+    （像素量测：页头 64px、仓库行节距 71px = 行高 72px + `margin-bottom:-1px`）；
+  - 视觉验证新增本地 mock 通道（`web/scripts/serve-preview.mjs` 内置三个端点的 mock），
+    本机没有后端也能校验列表在有数据时的行高、对齐与截断。
+- **新前端批 3（上）：仓库上下文导航 + 文件浏览 + 代码高亮**：
+  - 仓库页外壳 `RepositoryLayout`：按「组名 + 仓库名」从全局列表解析仓库主键并加载
+    `repository/config`，找不到就渲染 404（替代 react-router 5 的路径正则约束）；
+  - 左侧上下文导航逐字移植旧 `DrawerConfig`：8 个一级项（文件/提交/合并请求/分支/标签/
+    成员/动态/设置）+ 设置下 4 个子项，含计数、展开 320px / 收起 88px、右缘折叠按钮；
+  - 文件浏览页：分支/标签下拉、面包屑（`pathStack`）、目录行带最近提交与时间、
+    blob 按类型分流（文本→代码高亮、图片→data URL、过大/不支持→提示）；
+  - 代码高亮沿用旧版 `prism-coy` 主题与「整文件高亮后按行切分 + LRU 缓存」策略，
+    语言清单与扩展名映射严格对齐（36 种）；
+  - 修掉两个 Vite 下的 Prism 陷阱：`prism-tsx` 必须在 `jsx`+`typescript` 之后加载、
+    `prism-vbnet` 依赖 `basic`（否则整页白屏）；`public/` 补上 favicon/manifest/sitemap；
+  - 构建切片修正：`manualChunks` 只把框架层放进 vendor，prism 落到懒加载的页面块
+    （vendor 139 → 98.8 KB gzip，首屏 142 KB gzip）。
+- **新前端批 3（下）：提交 / 分支 / 标签 / diff**：
+  - 提交列表：分支·标签下拉 + **服务端**关键字搜索 + 分页，行内展示作者（按提交邮箱
+    反查仓库成员，未命中标记为临时用户）、时间与短哈希；
+  - 提交详情：`commitDetail` + `fileChanges`，父提交为空时由后端补全空树 SHA；
+    diff **直接用后端解析好的结构化数据**（`DiffFile[]`），前端只做行号推进与着色；
+  - 分支/标签列表：保护标记、最近提交、时间、短哈希，名称可点进对应 rev 的文件树；
+  - 新增 `i18n/supplement.ts`：旧词表确实缺失的 8 个文案单独成表，运行时覆盖自动生成的
+    词表，避免手改生成文件被下次生成冲掉；
+  - 视觉验证：commit 详情的 diff 三色实测命中 `#e6ffed`/`#ffeef0`/`#f1f8ff`，
+    与旧主题 preset 完全一致；prism 独立成 34.5 KB gzip 异步块，只在看代码/diff 时加载。
+  - 顺延：Blame 侧栏、视频类 ObjectViewer 富视图（原因与回归条件见计划 §10 批 3 下）。
+- **新前端批 4（上）：个人设置三页**：
+  - `/settings/{profile,email,sshkey}` 落地，左侧 4 项导航（个人资料 / 邮箱 / SSH Key / 通知）
+    的 active 正则逐字移植旧 `DrawerConfig`；
+  - 资料页：基本信息（`user/updateBasicInfo`）、头像上传（multipart 字段 `avatar`）、
+    修改口令（`current`/`new`）、MFA（读取/设置/移除，移除前二次确认）；
+  - 邮箱页：主邮箱更换（发验证码 → 换绑）+ 提交邮箱增删改验（4 个端点全部接通），
+    主邮箱取 `user/info` 的 `emails[0]` 与旧版一致；
+  - SSH Key 页：列表 + 新增 + 删除，并在前端预校验"公钥不含空格/换行"
+    （后端同样拒绝，属 authorized_keys 注入防护）；
+  - 补充词表扩到 21 条（旧词表缺失的成功/失败提示、验证状态等）。
+  - 顺延：通知设置页（`offset` 按位语义待逐位核对）、MFA 二维码渲染、头像即时预览，
+    以及仓库/组设置族（批 4 下半）。
+- **新前端批 4（中）：通知设置 + 仓库基本信息 + 仓库成员**：
+  - 通知设置页先核对了位语义再实现：`offset` 是位序号（1=合并请求、2=邮件），
+    且 `u_notification_status` **位=1 表示关闭**，因此开关选中 = `(notification & bit) === 0`；
+    下半页展示被拒收的仓库组/仓库并可一键恢复（级联由后端处理）；
+  - 仓库基本信息：显示名 + 描述（`description` 始终发送 —— 后端缺参数会按 PHP 历史行为报 500）
+    + 头像上传（multipart）；
+  - 仓库成员：按邮箱添加、改角色、移除、转移所有权；操作列按 `REPO_CHANGE_MEMBER` 权限显隐，
+    所有者行只显示徽标（需先转移所有权才能变更）。
+  - 顺延：仓库默认分支、组设置三页、Webhook 六端点、保护分支四端点（批 4 剩余）。
+- **新前端批 4（下）：仓库分支设置与 Webhook**：
+  - 分支设置：默认分支切换（`repository/defaultBranch`，`old`+`branch`）+ 保护分支规则
+    四条端点（列表/新建/更新/删除）；角色下拉只提供后端白名单接受的取值，避免
+    "前端能选、后端报 0x0201"；
+  - Webhook：列表 / 新建（不带 rwKey）/ 更新（带 rwKey，`active` 必须 1 或 2）/ 删除 /
+    投递日志列表与日志原文；25 个事件与后端 `WebhookEventMatches` 的逗号精确匹配语义对齐
+    （事件清单逐字移植旧 `WebhookEventConfig`）。
+  - 顺延：分支/标签的新建删除动作、组设置三页、仓库高级（改名/删除）。
+- **新前端批 4（尾）：组设置三页与高级设置**：
+  - 新增组上下文外壳 `GroupLayout` + `GroupProvider`（组名 → group/config → 5 项导航），
+    `/groups/{组名}/repositories` 只显示该组仓库、首 tab 文案改为「仓库」、新建按钮指向组内路径；
+  - 组设置：`group/update`（displayName + description 必传）、头像上传、四个成员端点、
+    `group/updateName` 与 `group/deleteGroup`；
+  - 仓库高级：`repository/updateName` + `repository/deleteRepository`；
+  - **抽出两个共用组件**（AGENTS §4「第二处重复即抽取」）：`MembersManager`（仓库成员与
+    组成员共用，含角色下拉/移除/转移所有权）与 `AdvancedSettings`（改名 + 危险操作区），
+    仓库成员页由 200 行降到 ~100 行，两处行为完全一致。
+  - 顺延：分支/标签的新建删除动作（随分支页交互补）、组内 MR/动态（批 5）、
+    改名后自动跳转（批 7 与"旧地址失效"提示统一处理）。
+- **新前端批 5（上）：合并请求列表与详情**：
+  - 列表：状态页签（待合并/已合并/已关闭，对齐后端 `MergeRequestStatus*`）+ 关键字搜索，
+    行内展示 `#编号 标题`、`源分支 → 目标分支`、状态标签与更新时间；
+  - 详情：`mergeRequestDetail` + 带 `mergeRequest` 参数的 `fileChanges`（比较目标是
+    「目标分支当前提交 → 源分支当前提交」），diff 复用 `DiffViewer`；
+  - 动作：评审（后端只要 `id`）、关闭、合并（先 `checkMergeType` 再 `mergeBranch`，
+    提交信息默认取标题、压缩合并）；
+  - 顺延：MR 创建页、评审人指派/移除 UI、MR 版本与提交列表端点、活动流、通知抽屉。
+- **新前端批 5（下）：合并请求创建与通知抽屉**：
+  - 创建页：`createMergeRequest`（源/目标分支、标题、描述、评审人），响应 `{id}` 是业务编号，
+    成功后直接跳详情；
+  - 通知抽屉：页头铃铛（未读角标）→ 四个分类列表 + 单条已读 / 全部已读 / 清空；
+    后端要求 `all` 与 `id` 互斥，因此"全部"走 `all=1`、单条走 `id`；`data` 是 JSON 字符串，
+    做容错解析后展示；
+  - 验证缺口（如实记录）：抽屉需点击展开，headless 渲染只验证了铃铛/角标/接口数据，
+    抽屉渲染并入批 7 的人工视觉回归；
+  - 顺延：活动流（旧版 682 行、40 余种类型的渲染表，单独一轮移植）、评审人指派 UI、
+    MR 版本与提交列表端点。
+- **新前端批 6（上）：管理后台四页**：
+  - AdminLayout + 5 项导航（仪表盘/用户/仓库组/仓库/系统设置），active 正则逐字移植旧配置；
+  - 仪表盘：用量计数（用户/仓库/组）、CPU/内存/磁盘、nginx/codefever/sendmail 运行状态；
+  - 用户管理：启用/禁用、设为/取消管理员、关闭 MFA、重置口令（管理员重置无需旧口令）；
+  - 仓库组与仓库：只读列表 + 搜索 + 分页（`{count, list}` 信封）。
+  - 顺延：系统设置页（`admin/config` 结构化表单 + YAML 预览）、文档中心（需新增两个 Go 端点）。
+- **新前端批 6（下）：文档中心（含新增 Go 端点）与系统设置**：
+  - **后端新增两个只读端点**：`GET /api/doc/tree?lang=cn|en`（菜单树，含二级）与
+    `GET /api/doc/content?lang=&path=`（Markdown 原文）；两者复用 SSR 页面的
+    `docRoot` / `extractMenu` / `withSubmenu` / `resolveDocPath`，**路径穿越校验与旧页同源**，
+    注册为字面量路由（与 `/api/web-vitals` 同手法），文档为公开只读内容；
+  - 前端文档页 `/doc/{lang}/{path}`：左侧菜单（支持二级）+ Markdown 渲染
+    （`react-markdown` + `remark-gfm`，样式沿用内置 `markdown-body.css`），URL 保持可分享；
+  - 管理后台系统设置：受控 JSON 编辑器（加载美化 → 编辑 → 本地校验 → 二次确认 → 保存），
+    服务端做浅合并 + 结构校验 + 原子写 + 热更新；
+  - 验证：Go 五项门禁（gofmt/build/交叉编译/vet/test）全绿，前端三项门禁全绿。
+- **新前端批 5（尾）：活动流与评审人指派**：
+  - 新增 `ActivityFeed`：把旧 `config/Activity.js`（682 行、41 个分支）压缩成一张
+    「活动码 → 文案键 + 主体来源 + 细节类型」的码表，41 个码全部登记，未登记码走通用回退；
+  - 主体/细节语义按旧实现对齐：分支/标签/MR/Webhook 类活动的 `{s}` 是「组名/仓库名」，
+    分支名与 MR 编号进 `detail`；成员类活动的成员名进 `detail`；
+  - 仓库动态与组动态两页共用 `ActivityFeed`；
+  - MR 详情增加评审人管理（成员下拉指派 + 逐个移除，仅待合并状态可见）。
+  - 未接：`mergeRequestVersionList`、`mergeRequestCommits` 两个只读端点（可选增强）。
+- **新前端切换（批 7 一）：SPA 壳下发与镜像布局**：
+  - 新增 `httpapi/spa.go`：`/user/login|register|verify|resetPassword`、`/doc/*` 的 Markdown 页
+    与未知路径 404 **统一下发 SPA 壳**，壳内容只读一次缓存、响应 `no-cache`；
+    **拿不到壳时回退旧 SSR**，因此这一步可回滚；壳路径按
+    `CODEFEVER_SPA_INDEX` → `www/app` → `web/build` → `www/view/build` 顺序解析；
+  - 镜像：`COPY web/build/ ./www/app/`（真实目录取代软链）、`web/public` 的
+    favicon/manifest/sitemap 进 `www/`；`.dockerignore` 排除 `web/{node_modules,src,scripts}`；
+  - nginx 行为不变（`/static/js|css` immutable 与 `try_files /app$uri` 已匹配新布局），仅更新注释；
+  - **真机验证**：`docker build` + `docker compose up` 后，`/user/login` 与
+    `/doc/cn/start/welcome.md` 均返回 SPA 壳并由 React 渲染（登录页文案、文档 Markdown 均正确），
+    `/api/doc/tree|content` 返回真实文档数据，`/api/user/info` 未登录 403。
+- **新前端切换（批 7 二）：删除旧前端与 Go 服务端渲染层**：
+  - **移除**：`www/view/`（React 17 + Redux + MUI v4 + webpack 4，195 个跟踪文件）、
+    `www/static/`（52 个文件，jQuery/Bootstrap 资源）、`www/app` 软链；
+  - **移除**：Go 的 SSR 页面层 —— `internal/httpapi/{pages.go,pages_test.go,templates/}`、
+    `testdata/pages/`、`cmd/{page-compare,pagediff}`、`internal/handlers/web_captcha.go`
+    （captcha 全站零引用，属死代码）；`httpapi.Server.PageDataProvider` 一并移除；
+  - 表单 AJAX 信封（`AjaxEnvelope`/`WriteAjaxJSON`）从 `pages.go` 拆到 `httpapi/ajax.go` 保留 ——
+    登录/注册/二次验证/找回密码的 POST 仍返回 PHP 风格信封，契约不变；
+  - `/user/*`、`/doc/*` 的 GET 只下发 SPA 壳（旧 SSR 回退分支删除）；未知控制器与
+    未知路径统一交给前端 NotFound；`/lang/select` 参数错误改为回首页；
+  - 镜像布局收敛：Dockerfile 用 `web/public` + `web/build` 生成 `www/`，不再 COPY 旧前端；
+  - **文档同步**：`AGENTS.md` §4/§5/§6/§8.3/§9/§10 全部改为新前端口径（组件落位、设计令牌、
+    三条前端门禁、图标与 SPA 壳陷阱）；`PROJECT_MAP.md` 旧前端条目改为已删除并追加人工备注；
+  - **功能回归网**：API 契约基线（`internal/contract` + `testdata/contract*`）保留未动；
+    Go 五项门禁 + 前端三项门禁 + `docker build` + 容器冒烟全绿。
+- **新前端 UI 对齐修复（用户反馈驱动）**：
+  - **按钮**：默认变体改回旧 MUI 的 `text`（此前一律实心蓝），列表主 CTA / 表单保存 /
+    弹窗确认显式用 `contained`，次要动作回到 text —— 与旧版逐页一致；
+  - **布局**：侧边导航改回"贴左、满高"（此前被挤在内容内边距里，实测侧栏区间
+    旧 `0..318` vs 新 `0..318` 完全一致）；修掉侧栏布局里外层+子页两次内边距叠加
+    （内容偏右 64px）；设置页区块由"浮起卡片"改为扁平"白底 + 1px 分隔线"；
+  - **悬浮提示全局关闭**：新增 `web/src/config/ui.ts` 的 `UI_CONFIG.tooltipsEnabled=false`，
+    `Tooltip` 不再渲染气泡（`aria-label` 保留），并去掉图标按钮的原生 `title`；
+  - **补齐占位页**：全局 `/mergerequests` 与组内 `/groups/{名}/mergerequests` 接入真实数据
+    （`repository/relatedMergeRequests` / `group/mergeRequests`），抽出 `MergeRequestRow` 三处共用，
+    删除 `ComingSoon` 页面；
+  - **页头**"仓库 / 仓库组"恢复为带文字的按钮（旧版行为）；
+  - **个人资料页**按旧页字段补齐（用户名/邮箱/团队/角色）；
+  - 验证手段沉淀：可从 git 历史取回旧产物、与新版并排跑同一套 mock，做像素级对比
+    （方法记录在 `docs/FRONTEND_REWRITE_PLAN.md` §10 批 7（三））。
+- **前端结构整理与尺寸校准**：
+  - **组件目录化**：`components/unit/<Name>/index.tsx`（27 个）与
+    `components/view/unit/<Name>/index.tsx`（18 个），一组件一目录；既有导入路径不变；
+  - **样式集中**：全部组件/布局/页面样式迁到 `src/styles/`，由唯一入口 `styles/index.css`
+    按固定顺序引入，组件内不再各自 import CSS；设计令牌仍只放 `theme/theme.css`；
+  - **按旧版 computed style 校准**（用注入探针实测，不是目测）：text 按钮文字色改为
+    `rgba(0,0,0,.87)`、padding `4px 24px 4px 8px`；图标按钮 34×32；输入框高度
+    **32px**（上一轮误设为 52px）、`box-sizing: border-box`；contained 104×32、
+    Tab 40px 高、表头 padding 0 16px —— 均与旧版一致；
+  - **修复"仓库文件列表不显示"**：`repository/object` 在 `parent` 是提交时返回
+    `type: 'commit'`（不是 `tree`），此前用 `type === 'tree'` 判断目录导致根目录永远空白；
+    新增 `isDirectoryView()` 守卫并在 FileTree 三处使用，已按真实 API 契约验证
+    （根目录 commit / 子目录 tree / 文件 blob 三种形态），并登记为 AGENTS §9 陷阱；
+  - **修掉一个构建级 bug**：组件目录化时清理脚本误删了 `main.tsx` 的全局样式入口，
+    导致构建不产出 CSS、页面退化为浏览器默认控件样式；已恢复并把
+    "`build/static/js/index-*.css` 必须存在" 记为构建校验点。
 - **Web 性能指标上报**：前端接入 `web-vitals`（CLS / FID / FCP / LCP / TTFB），
   通过 `sendBeacon` 发到新增的 `POST /api/web-vitals`，只写日志不入库。
   之所以要它：此前所有前端性能结论只能靠人工复测，无法在发布前后做同口径对比。
@@ -64,6 +320,67 @@
   天数可用 `CODEFEVER_RETENTION_*` 覆盖。**待处理与处理中事件永不删除**，
   `cc_activities`（用户可见的仓库动态）默认不清理。
   此前除 `cc_sessions` 外没有任何清理，这五张表会无限增长。
+- **新前端批 8：合并请求列表 / 看板 / diff 视图对齐旧版**：
+  - **仓库内列表**（`/{组}/{仓库}/mergerequests`）：补回「全部」页签并**默认选中**
+    （旧版 `tabValue: 0`，新版此前默认「待合并」）、页签数量角标（仓库内取
+    `mergeRequestCount`；有关键字搜索时不显示）、asc/desc 排序（默认 desc）、
+    每页 10 条 +「查看更多」追加下一页；
+  - **搜索交互**：由"每次输入即时请求"改回**回车或点搜索按钮才触发**（旧版
+    `searchMergeRequests()`），不再逐键打后端；
+  - **行组件**：目标仓库显示**真实仓库名**（此前显示主键前 8 位十六进制）、源/目标分支
+    变为可点链接（跳该仓库该分支的提交列表）、补「最后提交人」（源仓库成员 → 目标仓库
+    成员 → 提交邮箱）与「编辑于」时间、补评审人头像组（已/未评审角标）；
+  - **状态徽标配色**回到旧版口径：待合并=success、已合并=primary（旧版为 info，
+    新版 `Tag` 无 info 色，取最接近的 primary）、已关闭=warning；
+  - **看板**（全局 `/mergerequests`、组内 `/groups/{名}/mergerequests`）：补「全部」页签
+    与角标（全局按 `relatedRepository` 命中的仓库累加、组内按同组仓库累加）、搜索、
+    排序、分页，以及旧版本就有的「创建合并请求」入口；
+  - **抽出共用件**（AGENTS §4）：`MergeRequestToolbar`（页签+搜索+排序+主操作）、
+    `MergeRequestListBody`（行列表+空态+查看更多）、`MergeRequestReviewers`（评审人
+    头像组，入参为「评审记录 + 成员」，MR 详情页可复用），三处页面共用一套；
+  - **diff 视图**（`DiffViewer`）：补「所有文件 N 个 / +add / -del」汇总条、
+    inline / side-by-side 布局切换、逐文件折叠面板、复制路径 / 查看 @hash /
+    展开完整文件 / mode 变更提示；`files` 入参保持不变，既有调用点（提交详情、
+    MR 详情）无需改动。
+- **新前端批 8（续）：仓库浏览页与仓库设置对齐旧版**：
+  - **仓库头**（新 `RepositoryHeader`）：补 Fork 按钮与 fork 数、HTTPS/SSH 克隆地址
+    （可复制）、提交/分支/标签/**体积**/**未合并 MR**/成员 6 项计数条、fork 来源链接。
+    其中体积与未合并 MR 数此前**完全没有**展示，数据本来就在 `repository/config` 里；
+  - **分支 / 标签列表**（新 `RefListView` 共用件）：补默认分支标记、已合并标记
+    `isMerge`、更新者、删除分支 / 删除标签、新建分支 / 新建标签入口，以及关键字搜索、
+    排序、活跃页签与每页 10 条分页（旧版 `RefFilter` + `RefList` 的能力）；
+  - **仓库动态**：补分类页签（全部/提交/MR/成员）、关键字搜索、每页 20 条翻页；
+  - **提交列表 / 详情**：每页 10 → 20 条、按 `yyyy-MM-dd` 分组、补父提交展开列表与
+    「浏览文件」跳转，并恢复子目录提交路径 `/{组}/{仓库}/commits/{rev}/*`；
+  - **文件浏览**：补文件名过滤、README 自动渲染、submodule 条目、当前目录最后提交行、
+    空仓库初始化引导、blame 模式，以及复制路径 / 复制代码 / Markdown 渲染切换 / 历史入口；
+  - **仓库设置**：补名称 30 字 / 描述 200 字校验与字数计数、slug 校验、创建者下拉、
+    删除仓库两级确认，以及成员页的「仓库成员 / 仓库组成员」分表、已删除成员过滤、
+    自身权限粗粒度判定与 `0x0407`/`0x0408` 提示；
+  - **抽出共用件**（AGENTS §4）：`FilterBar`（页签+搜索+排序的工具条）、
+    `RefListView`（分支/标签共用）、`RepositoryHeader`、`ObjectViewer`、`MarkdownView`、
+    `RepositoryEmpty`、`CommitRefs`。
+- **新前端批 8（续）：管理后台对齐旧版**：
+  - **用户管理**：补四个分类页签（全部/已开 MFA/未开 MFA/已禁用）、排序下拉、
+    「添加用户」弹窗与**初始口令回显**（可一键复制）、设管理员前的**本人口令校验**
+    （`admin/checkPassword`）、重置口令的两次输入校验；
+  - **仓库组 / 仓库**：补图标列、创建时间列、排序、成员管理弹窗（邀请 / 移除 /
+    设为所有者），仓库侧额外区分「组继承成员」（继承成员在仓库侧不可移除）；
+  - **系统设置**：由裸 JSON 编辑器改为**结构化表单**（站点地址 / SSH 前缀 /
+    发件人名称与地址 / 开放注册开关）并补 7 条前端校验；
+  - **仪表盘**：统计卡可点击跳转、CPU/内存/磁盘按阈值配色、数值千分位与单位分离、
+    图标换回旧版对应项（`psMeter` / `psNewFeature`）；
+  - **抽出共用件**：`AdminMembersDialog`（组与仓库成员弹窗共用）、
+    `useDebouncedValue`（三处列表页的 200ms 搜索防抖不再各写一遍）。
+- **新前端批 8（续）：个人设置对齐旧版**：
+  - **通知设置**：补仓库组 / 仓库级通知开关矩阵（组内仓库可折叠、每行角色徽标，
+    角色低于「开发者」的条目开关禁用），并修正开关方向（此前恒传 `open: true`，
+    无法关闭）；
+  - **个人资料**：补 MFA 二维码与「更换 MFA 设备」入口，MFA 状态判定改回
+    `user.mfaEnabled`（此前读后端不返回的 `mfa.status`，已开启 MFA 也显示设置表单）；
+  - **SSH Key**：补公钥指纹列，支持粘贴整行 `ssh-rsa AAAA... user@host`
+    （自动剥离注释并预填名称）；
+  - **邮箱**：关联邮箱列表纳入主邮箱并标注，重发验证码加 120 秒倒计时。
 
 ### 性能
 
@@ -124,6 +441,43 @@
   `shouldComponentUpdate` 里 dispatch 且无 `groupName` 的路由每次渲染都触发；
   `CodeViewer` 每次渲染都重新高亮整个文件；管理端列表的搜索防抖定时器
   在卸载时未清理；滚动监听未声明 `passive`。
+- **新前端批 8：逐页核对旧版后修掉的 13 个功能回归**（核对报告见
+  `docs/FRONTEND_FIELD_DIFF_2026-10-24.md`）：
+  - **Webhook 新建/编辑必然 500**：请求体缺 `secret`，后端 `editWebhook` 因
+    `rw_secret` 是 NOT NULL 列直接 `phpFatalError()`。补上 secret 输入框、列表列与
+    URL/Secret 复制，Webhook 功能从"完全不可用"恢复；
+  - **保护分支「允许合并角色」多给 DEVELOPER**：后端白名单只有
+    NOBODY/OWNER/MAINTAINER，选 DEVELOPER 必得 `0x0201`。同时把"允许 Push/Merge 角色"
+    从单角色标签恢复为旧版的**角色集合**语义（最低角色及以上全部可操作）；
+  - **全局 MR 看板取数形状错误导致白屏**：后端返回的是
+    `{mergeRequests, relatedRepository}` 对象而非数组，前端把整个 `data` 当数组，
+    有数据时 `items.map` 抛 TypeError；
+  - **仓库内 MR 列表 / 组内 MR 看板必然报错**：后端把 `sort` 当必填
+    （既非 `asc` 也非 `desc` 即 `0x0201`），`group/mergeRequests` 还要求
+    `keyword`/`page`/`pagesize` 必须显式存在（缺失即 500）；前端一个都没传；
+  - **评审人数据结构不符**：后端返回 `{id, user, isReview}`，前端按
+    `{id,name,email,icon}` 用 → 姓名空白；删除评审人传的是评审记录主键而非
+    **用户主键**，后端按 `u_key` 匹配 → **静默无效**。同时后端拒绝删除已评审的
+    评审人，前端补前置拦截与"已/未评审"徽标；
+  - **合并冲突被当成功**：后端冲突时返回 `{"conflict": true}` 且 `code=0`，
+    前端只在 `code≠0` 时抛错 → 提示"更新成功"并跳列表。改为先判 `conflict`，
+    并补旧版的 4 步 git 冲突指引；
+  - **i18n key 拼错**：`label.createAt`（词表只有 `label.createdAt`）→ 页面直接
+    显示字面量；
+  - **错误码无中文**：`0x0405`/`0x0406`/`0x040F` 等关键业务错误回落英文原文，
+    改为按页面处理（旧版是各页 `ValidatorGenerator.codeValidator`，不是全局表）；
+  - **Webhook 日志详情直接渲染对象**：后端 `Request`/`Response` 是 `any`，
+    前端声明 `string` 并直接进 `<pre>` → React 抛
+    "Objects are not valid as a React child"；
+  - **新建仓库 / 新建组 / 全局新建 MR 指向不存在的路由**：页头与列表页的按钮
+    点下去即 404。补齐 `/repositories/new`、`/repositories/fork/{id}`、
+    `/groups/new`、`/groups/{组}/repositories/new`、`/mergerequests/new`、
+    `/groups/{组}/mergerequests/new`、`/{组}/{仓库}/branches/new`、
+    `/{组}/{仓库}/tags/new` 与 `/repositories/forklist/{id}` 共 9 条路由与对应页面；
+  - **文件浏览进入子目录仍显示仓库根目录内容**：`parent` 恒传 rev，未取当前目录
+    的 git 对象；
+  - **全局新建 MR 页直接白屏**：表单复用了仓库上下文，但 `/mergerequests/new`
+    不在 `RepositoryProvider` 内，`useRepository()` 抛错。改为可选上下文。
 
 ## 0.1.0 — 2026-10-23
 

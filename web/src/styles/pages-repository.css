@@ -1,0 +1,314 @@
+/*
+ * 仓库域共用件样式（仓库头 / 分支标签列表 / 文件查看器 / 空仓库引导）。
+ *
+ * 口径来源（旧版）：
+ *   components/unit/RepositoryDashboard.js —— 头像 40px、标题 h6、计数条 body2；
+ *   components/unit/RefList.js             —— 行内 padding 12px 24px、两行式布局；
+ *   components/unit/ObjectViewer.js        —— 文件信息条 + 详情区边框；
+ *   components/unit/RepositoryEmpty.js     —— 代码块圆角 4px、背景 bg-main。
+ *
+ * 所有取值走 var(--cf-*)，不写字面值（AGENTS §5）。
+ */
+
+/* ------------------------------ 仓库头 ------------------------------ */
+
+.repo-head__top {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cf-space) * 2);
+}
+
+.repo-head__identity {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.repo-head__fork {
+  font-size: var(--cf-font-size);
+  font-weight: var(--cf-font-weight-normal);
+}
+
+.repo-head__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cf-space);
+}
+
+.repo-clone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+  padding: var(--cf-space);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+}
+
+.repo-clone__hint {
+  margin: 0;
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+.repo-clone__row {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+}
+
+.repo-clone__field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.repo-head__stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: calc(var(--cf-space) * 2);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+.repo-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+}
+
+.repo-stat__value {
+  color: var(--cf-color-text);
+  font-weight: var(--cf-font-weight-medium);
+}
+
+.repo-stat__label {
+  color: var(--cf-color-text-light);
+}
+
+/* ------------------------------ 文件浏览 ------------------------------ */
+
+.file-toolbar__search {
+  width: calc(var(--cf-space) * 30);
+}
+
+/* ------------------------------ 分支 / 标签行 ------------------------------ */
+
+.ref-row__badges {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cf-space-half);
+}
+
+.ref-row__detail {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ref-row__updater {
+  flex: 0 0 auto;
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+.ref-row__actions {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cf-space-half);
+}
+
+/* 分组标题（活跃 / 非活跃） */
+.ref-group__title {
+  padding: var(--cf-space) 0 var(--cf-space-half);
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size-h4);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+/* 列表底部的"查看更多 / 没有更多" */
+.list-more {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--cf-space);
+}
+
+/* ------------------------------ 文件查看器 ------------------------------ */
+
+.file-view__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space);
+  padding: var(--cf-space);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius) var(--cf-radius) 0 0;
+  background: var(--cf-color-bg-main);
+}
+
+.file-view__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  min-width: 0;
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+}
+
+.file-view__path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.file-view__size {
+  flex: 0 0 auto;
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+.file-view__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cf-space-half);
+}
+
+.file-view__body {
+  overflow-x: auto;
+  border: 1px solid var(--cf-color-border);
+  border-top: 0;
+  border-radius: 0 0 var(--cf-radius) var(--cf-radius);
+  background: var(--cf-color-bg);
+}
+
+.file-view__media {
+  display: block;
+  max-width: 80%;
+  margin: calc(var(--cf-space) * 5) auto;
+}
+
+.file-view__placeholder {
+  padding: calc(var(--cf-space) * 8) var(--cf-space);
+  color: var(--cf-color-text-light);
+  text-align: center;
+}
+
+.file-view__markdown {
+  box-sizing: border-box;
+  min-width: calc(var(--cf-space) * 25);
+  max-width: calc(var(--cf-space) * 122);
+  margin: 0 auto;
+  padding: calc(var(--cf-space) * 5);
+}
+
+/* blame 归属列表 */
+.blame-list {
+  display: flex;
+  flex-direction: column;
+  border-bottom: 1px solid var(--cf-color-border);
+}
+
+.blame-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  padding: var(--cf-space-half) var(--cf-space);
+  border-bottom: 1px solid var(--cf-color-border);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+.blame-row:last-child {
+  border-bottom: 0;
+}
+
+.blame-row__lines {
+  flex: 0 0 auto;
+  font-family: var(--cf-font-family-mono);
+}
+
+/* ------------------------------ 空仓库引导 ------------------------------ */
+
+.repo-empty {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+  padding: calc(var(--cf-space) * 3);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius) var(--cf-radius) 0 0;
+  background: var(--cf-color-bg);
+}
+
+.repo-empty--flush {
+  border-top: 0;
+  border-radius: 0 0 var(--cf-radius) var(--cf-radius);
+}
+
+.repo-empty__title {
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size-h1);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+.repo-empty__code {
+  position: relative;
+  margin-top: var(--cf-space);
+  padding: calc(var(--cf-space) * 1.5);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg-main);
+}
+
+.repo-empty__copy {
+  position: absolute;
+  top: calc(var(--cf-space) * 1.5);
+  right: calc(var(--cf-space) * 1.5);
+}
+
+.repo-empty__line {
+  color: var(--cf-color-text);
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+}
+
+/* ------------------------------ 提交详情的父提交 / 包含引用 ------------------------------ */
+
+.commit-refs {
+  overflow: hidden;
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+}
+
+.commit-refs__block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+  padding: var(--cf-space) 0;
+}
+
+.commit-refs__block + .commit-refs__block {
+  border-top: 1px solid var(--cf-color-border);
+}
+
+.commit-refs__label {
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+}
+
+.commit-refs__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--cf-space);
+  padding: 0 var(--cf-space);
+}
+
+.commit-refs__link {
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+}

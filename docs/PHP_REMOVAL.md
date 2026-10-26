@@ -1,5 +1,10 @@
 # 下线 PHP —— 依赖面清单、稳定性门禁与改造步骤
 
+> **注意（2026-10-24）**：本文档中出现的 `www/view/`、`www/static/` 与 MUI v4 相关描述
+> 属于**历史记录**——旧前端已在 2026-10 前端重写中删除。当前前端为 `web/`
+> （React 19 + TypeScript + Vite + 自研令牌与组件库），见 `docs/FRONTEND_REWRITE_PLAN.md`。
+
+
 > 目标：把 CodeFever Community 的运行时**彻底从 PHP 上摘下来**，
 > 并在管理端移除 PHP-FPM 与相关服务的展示。
 >

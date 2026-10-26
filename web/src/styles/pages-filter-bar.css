@@ -1,0 +1,35 @@
+/*
+ * 筛选工具条（`components/unit/FilterBar.tsx`）样式。
+ *
+ * 口径来源：旧版 `components/unit/RefFilter.js` —— TabHeader 左边、搜索框与
+ * 排序按钮在右、新建按钮最右；搜索框宽 240px(spacing 30)。
+ * 所有取值走 var(--cf-*)，不写字面值（AGENTS §5）。
+ */
+
+.cf-filter-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  padding: var(--cf-space) 0;
+  border-bottom: 1px solid var(--cf-color-border);
+}
+
+.cf-filter-bar__tools {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--cf-space);
+  min-width: 0;
+}
+
+.cf-filter-bar__search {
+  width: calc(var(--cf-space) * 30);
+}
+
+.cf-filter-bar__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--cf-space);
+}

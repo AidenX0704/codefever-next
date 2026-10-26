@@ -18,9 +18,8 @@
 | 路径 | 作用 |
 |---|---|
 | `backend/` | Go 后端（单一 module `codefever-next/backend`），全部服务与工具 |
-| `www/view/` | React SPA（React 17 + Redux + MUI v4 + webpack 4） |
-| `www/view/build/` | **入库的前端构建产物**（Dockerfile 只 COPY，不在镜像内构建） |
-| `www/static/` | 服务端渲染页面共用的静态资源（vendor、图片、按发布号分版本的自有静态） |
+| `www/` | （**已删除 2026-10-24**：旧前端 `www/view`、`www/static` 与 `www/app` 软链全部移除；镜像内 `www/` 由 Dockerfile 用 `web/public` + `web/build` 生成） |
+| `web/` | **唯一前端**（React 19 + TypeScript + Vite，自研设计令牌 + 组件库，零 UI 框架依赖）；产物 `web/build` 入库，Dockerfile 只 COPY；方案与进度见 `docs/FRONTEND_REWRITE_PLAN.md` |
 | `backend/deploy/` | nginx vhost 模板、supervisor 配置、SQL 初始化脚本 |
 | `codefever-data/` | 运行时数据（MySQL、裸仓库、附件、配置软链），可用 `CODEFEVER_DATA_DIR` 覆盖 |
 | `docs/` | 架构分析、迁移计划与实施状态、性能审查与整改方案 |
@@ -28,7 +27,7 @@
 
 ---
 
-## 2. 后端进程（5 个二进制 + 6 个工具）
+## 2. 后端进程（5 个二进制 + 4 个工具）
 
 生产进程：
 
@@ -45,7 +44,7 @@
 | 工具 | 用途 |
 |---|---|
 | `contract-collect` / `contract-compare` | HTTP 契约基线采集与比对（保证 PHP→Go 语义一致） |
-| `page-compare` / `pagediff` | 服务端渲染页面的 PHP 产物比对 |
+| ~~`page-compare` / `pagediff`~~ | ~~服务端渲染页面的 PHP 产物比对~~（**已删除 2026-10-24**：SSR 页面被 SPA 取代，比较对象不复存在） |
 | `smoke-write` | 以 multipart 驱动**写端点成功路径**并断言，需隔离环境 |
 | `stress` | 稳定性/性能门禁：QPS、p50/p95/p99、按端点分布、pprof 采样 |
 
@@ -55,9 +54,9 @@
 
 | 包 | 职责 |
 |---|---|
-| `httpapi` | HTTP 服务器装配、路由、中间件链（recover → log → limit → normalize）、API 分发、页面渲染入口 |
+| `httpapi` | HTTP 服务器装配、路由、中间件链（recover → log → limit → normalize）、API 分发、**SPA 壳下发**（`spa.go`）。页面模板层 `pages.go` / `templates/` / `pages_test.go` **已删除 2026-10-24**（前端重写） |
 | `contract` | 请求解析（JSON / form / multipart）、PHP 兼容的错误码与响应信封 |
-| `handlers` | 各域 HTTP handler（user / admin / group / repository / internal / login / webvitals） |
+| `handlers` | 各域 HTTP handler（user / admin / group / repository / internal / login / webvitals / doc） |
 | `repo` | 数据访问层；事务封装（`WithTx`）、批量查询、保留期清理 |
 | `domain` | 领域类型与纯逻辑（状态常量、取值映射、分页口径 `ClampPaging`、事件类型） |
 | `db` | 连接池（`MaxOpenConns=25`）、`//go:embed` 版本化迁移执行器（`GET_LOCK` 串行化） |
@@ -118,29 +117,64 @@ handler（业务写）
 
 ---
 
-## 5. 前端结构（`www/view/src`）
+## 5. 前端结构
+
+> **`www/view/src`（旧 React 17 + Redux + MUI v4 + webpack 4）已于 2026-10-24 随
+> 前端重写整体删除**，其结构说明保留在 `docs/FRONTEND_REWRITE_PLAN.md` 与历史提交里。
+> 当前前端见 §5.1。
+
+### 5.1 新前端 `web/`（重写进行中，2026-10-24 起）
+
+替代关系见 `docs/FRONTEND_REWRITE_PLAN.md`（删除清单、令牌口径、分批顺序的唯一事实源）。
 
 | 路径 | 职责 |
 |---|---|
-| `index.js` | 入口：样式、polyfill、Redux store、Router、web-vitals 上报（动态 import） |
-| `routes/MainRoutes.js` | 路由表；34 个页面全部 `React.lazy`，按业务域分 7 个 chunk |
-| `components/App.js` | 应用外壳（主题、i18n、Picker provider） |
-| `components/Main.js` | 主内容外壳；路由参数变化时拉取组/仓库配置（副作用在 `componentDidUpdate`） |
-| `components/unit/` | 通用 UI 原子件（CodeViewer、ObjectViewer、RefList、空态、复制按钮…） |
-| `components/view/` | 页面级组件（按业务域分文件） |
-| `components/view/unit/` | 业务域内共用件（仓库卡片、提交行、成员项、MR 行…） |
-| `components/view/admin/` | 管理端页面（独立 chunk） |
-| `reducers/` | `DataStore` / `DrawerStates` / `NotificationStates`，全部不可变更新 |
-| `data_providers/` | 请求封装（`main.js` + User/Group/Repository/Admin） |
-| `helpers/` | 纯逻辑（格式化、过滤、校验、网络、滚动触发、Markdown 渲染器） |
-| `config/` | 常量与映射（`Constants.js` 的扩展名→高亮语言、枚举、状态码） |
-| `lang/` | 双语消息（zh-cn / en-us） |
-| `assets/styles/` | 全局样式（`App.styl`）、`markdown-body.css`（本地内置的 github-markdown-css） |
+| `vite.config.ts` | 构建配置：产物 `web/build`、`assetsDir=static/js`（对齐 nginx 一年 immutable）、现代目标 es2022、`/api` 等路径 dev 代理到 Go 9001 |
+| `src/theme/theme.css` | **全仓库唯一的视觉字面值来源**（颜色/间距/圆角/阴影/字号），逐项抄自旧 `@pgyer/mui-theme-preset` 与 `theme1.js` |
+| `src/theme/tokens.ts` | 令牌的类型化引用 + `space(n)`（等价旧 `theme.spacing`） |
+| `src/theme/global.css` | 全局基础样式与工具类（对应旧 `App.styl`） |
+| `src/components/unit/` | 自研组件库（磁盘上 **27** 个目录）：Button / IconButton / SquareIconButton / Icon / TextField / SelectField / Choices / Form / Table(+DataTable/Pagination) / Dialog / Confirm / Dropdown / Tabs / Tooltip / Toast / Avatar / Tag / Marker / Card / Loading / EmptyState / CopyButton / AppLink / FormattedTime / CodeViewer / DiffViewer（文件级 diff：汇总条 + inline·side-by-side 布局切换 + 逐文件折叠 + 复制路径 / 查看 @hash / 展开完整文件）/ FilterBar（页签+搜索+排序的工具条，分支·标签·活动三处共用）。⚠️ `TextareaField` / `Checkbox` / `Switch` **尚未实现**（此前清单误列，2026-10-25 校正），Release / Issue 表单落地前须先补齐（见 `docs/GOGS_PARITY_DEVELOPMENT_PLAN.md` R13） |
+| `src/components/layout/` | 外壳布局：NotificationDrawer（通知抽屉，四个分类 + 已读/清空）、AppShell（固定页头 + 白底内容区）、Header（仓库/组/新建/语言/帮助/管理后台/用户菜单）、RepositoryLayout（仓库上下文外壳）、SettingsLayout（个人设置外壳）、AdminLayout（管理后台外壳）、Sidebar（左侧上下文导航，可折叠） |
+| `src/components/view/` | 页面级组件（按业务域，逐批落地）：`auth/` = AuthLayout + 认证页样式（批 1）；`unit/` = RepositoryRow / GroupCard / list.css（批 2） |
+| `src/components/view/unit/` | 业务域共用件：`RepositoryRow`、`GroupCard`、`CommitRow`、`MembersManager`（仓库成员与组成员共用）、`AdvancedSettings`（仓库/组高级页共用）、`ActivityFeed`（41 个活动码的表驱动渲染）、`MergeRequestRow`（MR 行：标题/状态徽标/目标仓库名/分支链接/最后提交人/编辑于/评审人组/更新时间）、`MergeRequestToolbar`（MR 页签+搜索+排序+主操作）、`MergeRequestListBody`（MR 行列表+空态+查看更多）、`MergeRequestReviewers`（评审人头像组+已/未评审角标）、`AdminMembersDialog`（后台组/仓库成员弹窗）、`SettingsNotificationMatrix`（通知矩阵：组+仓库+角色徽标）、`RepositoryHeader`（仓库头：Fork/克隆地址/6 项计数）、`RefListView`（分支·标签列表共用）、`ObjectViewer`（文件内容富视图）、`MarkdownView`、`RepositoryEmpty`（空仓库引导）、`CommitRefs`（父提交+包含该提交的分支/标签）；样式集中在 `list.css` / `commit-row.css` / `merge-request.css` / `repository.css` |
+| `src/api/client.ts` | 统一请求层：multipart 编码（`key[sub]` / `key[]`、剥 `_SAFE`/`_BINARY`）、`requestTime`、信封与错误码表、`0x0101` 跳登录；另有 `postForm()`（表单页的 urlencoded 信封 `{code,message,extra}`） |
+| `src/api/types.ts` | 后端归一化结构的类型（字段名与 Go 侧逐字一致，勿改名） |
+| `src/api/{user,group,repository,admin}.ts` | 端点封装：`user`（info / updateBasicInfo / updatePassword / uploadAvatar / MFA / SSH / 邮箱 / 通知）、`group`（list / config / create / update / updateName / 成员 / deleteGroup / activities / mergeRequests）、`repository`（list / config / object / commitList / commitDetail / fileChanges / branch·tag 增删 / create·fork / mergeRequest 全套 / activities / blameInfo / refListContainSHA / webhook 全套 / protectedBranch）、`admin`（users 分类与排序 / groups / repositories / 成员增删 / addUser / checkPassword / config） |
+| `src/api/doc.ts` | `/api/doc/tree`、`/api/doc/content`（Go 侧新增的文档 JSON 端点） |
+| `src/api/auth.ts` | 认证端点：`/user/login`、`/user/register`、`/user/verify`、`/user/resetPassword`、`/user/getResetPasswordCode` |
+| `src/features/app-data/` | `AppDataProvider`：页头与列表共享的用户/仓库/组三份数据（对应旧 Redux `DataStore`） |
+| `src/features/repository/` | `RepositoryProvider`：按「组名 + 仓库名」解析仓库主键 → 加载 `repository/config`，找不到即 404 |
+| `src/features/group/` | `GroupProvider`：按组名解析组主键 → 加载 `group/config`，找不到即 404 |
+| `src/config/` | `uac.ts`（角色与权限矩阵）、`icons.ts`（按需图标出口）、`constants.ts`（头像 URL 前缀）、`languages.ts`（扩展名→Prism 语言）、`drawer.ts`（仓库上下文 / 个人设置导航项与 active 判定）、`webhookEvents.ts`（25 个 Webhook 事件与文案键） |
+| `src/helpers/prism.ts` | Prism 语言注册（顺序敏感）+ 按「语言+全文」的 8 条 LRU 高亮缓存 |
+| `src/helpers/members.ts` | 提交邮箱 → 仓库成员解析（未命中标记临时用户，对应旧 `getUserInfo`） |
+| `src/helpers/slug.ts` | 标识名规范化 `makeSlug`（逐字对齐旧 `NetworkHelper.makeSlug`：非 `\w` 一律换下划线） |
+| `src/helpers/useDebouncedValue.ts` | 通用防抖值（管理后台三个列表页的 200ms 搜索防抖共用） |
+| `src/helpers/format.ts` | 数值/体积/日期分组格式化（`formatNumber` / `formatBytes` / `dayKey`） |
+| `src/pages/repository/` | 仓库页：`FileTree`（分支/标签下拉、面包屑、目录行、blob 分流、README 渲染、submodule、文件名过滤、blame 模式）、`CommitList`（服务端搜索 + 每页 20 条 + 日期分组 + 子目录路径）、`CommitDetail`（详情 + diff + 父提交展开 + 浏览文件）、`BranchList`/`TagList`（默认/已合并/保护标记、更新者、增删、筛选排序分页）、`CreateBranch`/`CreateTag`、`SettingsGeneral`（显示名/描述/头像 + 30·200 字校验）、`SettingsMembers`（仓库成员/组成员分表 + 增删改与所有权转移）、`SettingsBranch`（默认分支 + 保护分支规则，角色集合语义）、`SettingsWebhook`（列表/新建/编辑/删除/投递日志，含 secret）、`SettingsAdvanced`（改 slug/改创建者/删除仓库，两级确认）、`MergeRequestList`（全部/待合并/已合并/已关闭页签+角标、搜索、排序、每页 10 条+查看更多）、`MergeRequestCreate`（源/目标仓库与分支+评审人，全局态用 `global`）、`MergeRequestDetail`（详情+三 Tab+diff+评审/合并/关闭+评审人管理+右侧活动栏）、`ActivityList`（仓库动态：分类页签/搜索/翻页） |
+| `src/pages/MergeRequestBoard.tsx` | 全局 `/mergerequests` 与组内 `/groups/{名}/mergerequests` 看板：页签+角标（全局按 `relatedRepository` 命中仓库累加、组内按同组仓库累加）、搜索、排序、每页 10 条+查看更多、创建合并请求入口 |
+| `src/pages/admin/` | 管理后台：`Dashboard`（用量卡可点击/资源阈值配色/服务状态）、`Users`（四个分类页签+排序+添加用户与初始口令回显+设管理员口令校验+重置口令）、`Groups`（图标列/创建时间/成员管理）、`Repositories`（同构+组继承成员标记）、`Settings`（config 结构化表单 + 7 条校验） |
+| `src/pages/Doc.tsx` | 文档中心（`/doc/{lang}/{path}`）：菜单树 + Markdown 渲染（react-markdown + remark-gfm） |
+| `src/pages/RepositoryList.tsx` | 仓库列表（`/repositories`、`/groups/{组}/repositories`、`/repositories/forklist/{仓库主键}`）：页签（全部/我参与的/我创建的）、fork 上下文（首 tab 变「fork 自 X」） |
+| `src/pages/GroupList.tsx` | 仓库组列表（`/groups`） |
+| `src/pages/NewRepository.tsx` | 新建仓库（`/repositories/new`、`/groups/{组}/repositories/new`） |
+| `src/pages/NewRepositoryFork.tsx` | Fork 仓库（`/repositories/fork/{源仓库主键}`） |
+| `src/pages/NewGroup.tsx` | 新建仓库组（`/groups/new`） |
+| `src/pages/NewMergeRequest.tsx` | 全局新建 MR（`/mergerequests/new`、`/groups/{组}/mergerequests/new`）：复用 `MergeRequestCreate` 的 `global` 态 |
+| `src/pages/group/` | 仓库组：`ActivityList`（组动态）、`SettingsGeneral`（组名 5–30 字校验/描述 200 字/头像）、`SettingsMembers`（成员管理）、`SettingsAdvanced`（改 slug/删除） |
+| `src/pages/settings/` | 个人设置：`Profile`（基本信息含可编辑 role/头像/口令/MFA 二维码+更换设备）、`Email`（主邮箱更换 + 提交邮箱管理 + 120 秒重发倒计时）、`SSHKey`（列表/新增/删除 + 指纹列 + 整行公钥容忍）、`Notification`（位掩码开关 + 组/仓库级通知矩阵 + 拒收列表恢复） |
+| `src/i18n/supplement.ts` | 旧词表缺失的补充键（运行时覆盖自动生成的表，避免手改生成文件） |
+| `src/assets/icons/` | 154 个图标数据（由 `scripts/extract-icons.mjs` 从 `@pgyer/icons@0.0.16` 本地化） |
+| `src/i18n/` | `zh-cn.ts` / `en-us.ts` 由 `scripts/extract-lang.mjs` 自动生成（961 键 × 2：Go SSR 词表 + 旧 SPA 词表）；`I18nProvider` + `useT()`（支持 `{s}`/`{n}`） |
+| `src/pages/auth/` | 认证四页：Login / Register / Verify / ResetPassword（独立全屏，不套 AppShell） |
+| `src/pages/` | 路由页面：`DesignSystem`（`/__design` 预览页）、`NotFound` |
+| `src/router.tsx` | 路由表；全部页面 `lazy`；react-router 8 不支持路径正则，业务校验下沉到页面 |
+| `src/assets/images/` | 复用素材（16 张，来自 `www/static/images`，图名保持原样） |
+| `scripts/extract-lang.mjs` | 从 Go 语言表 + 旧 SPA 词表抽取 i18n（批 7 随旧前端退役） |
+| `scripts/extract-icons.mjs` | 把 `@pgyer/icons` 的图标数据本地化到 `src/assets/icons/` |
+| `scripts/serve-preview.mjs` | 视觉验证用静态服务器 + 最小 mock API（`vite preview` 会把 `/api`、`/user` 代理到后端导致 502） |
 
-前端 chunk 划分（`webpack.config.js` 的 `webpackChunkName`）：
-
-`admin` / `settings` / `group` / `repository` / `repository-cfg` /
-`merge-request` / `misc`，其余为 Markdown 渲染器与 prism 主题等按需块。
+前端门禁（AGENTS §8.3 待批 7 同步）：`npm run typecheck && npm run lint && npm run build`，产物 `web/build` 入库。
 
 ---
 
@@ -195,3 +229,13 @@ Dockerfile（两阶段）
 
 - 2026-10-24：本文件首次创建，内容基于性能整改期间的实地核对。
   若发现与实际不符，请在下方追加更正条目，不要直接改写上文。
+
+- 2026-10-24：前端重写收口 —— 旧前端（`www/view` 195 文件、`www/static` 52 文件）与
+  Go 的 SSR 页面层（`pages.go`、`templates/`、`pages_test.go`、`testdata/pages`、
+  `cmd/page-compare`、`cmd/pagediff`、`web_captcha.go`）已删除；`/user/*`、`/doc/*` 的 GET
+  改为下发 SPA 壳（`internal/httpapi/spa.go`）。API 契约基线（`internal/contract` +
+  `testdata/contract*`）未受影响，仍是当前的功能回归网。
+
+- 2026-10-25：校正 `src/components/unit/` 清单 —— `TextareaField` / `Checkbox` / `Switch`
+  此前被误列为已存在，磁盘上**并不存在**；实际存在的 `Choices` 此前漏列。
+  按本节约定以追加方式更正，未删改原始描述之外的内容。

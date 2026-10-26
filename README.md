@@ -1,6 +1,6 @@
 <div align="center">
   <br />
-  <img src="www/static/images/logo-community.png" alt="CodeFever" height="42" />
+  <img src="web/src/assets/images/logo-community.png" alt="CodeFever" height="42" />
   <br /><br />
   <p>
     <b>
@@ -50,10 +50,10 @@ PHP 进程、PHP 可执行文件与 PHP 配置；`http-gateway` 与 `ssh-gateway
 | 后端 | Go（`backend/`），替换原 CodeIgniter 2.1.1 + PHP 7.4 实现 |
 | API 契约 | 108 个 `/api/*` 端点 + 4 个 `/apiv1/internal` 回调；**123/123 为历史验收记录**，复跑方法见 [实施记录](docs/IMPLEMENTATION_STATUS.md) |
 | Web 路由 | 43 条服务端渲染路由 + 5 个页面；**43/43 为历史对照记录**（品牌文案属有意变更） |
-| 前端 | React 17 + MUI v4；产物 `www/view/build` 随仓库提交，构建期不需要 Node.js |
+| 前端 | React 19 + TypeScript + Vite，自研设计令牌与组件库（无 UI 框架）；产物 `web/build` 随仓库提交，镜像构建期不需要 Node.js |
 | 运行时 | 镜像内 **无 PHP、无 php-fpm、无 crond** |
 | 镜像 | 应用镜像从本地源码构建；仍需拉取两个基础镜像（见“快速开始”） |
-| 前端体积 | `www/static/vendor` 约 3.7 MB / 27 个文件（历史对照约 23.2 MB / 2072 个文件） |
+| 前端体积 | 首屏 JS+CSS 约 150 KB gzip；全部页面按路由懒加载（历史对照：旧前端首屏 264 KB gzip） |
 
 > 迁移的完整依赖面清单、稳定性门禁与历史验证数据见 [`docs/PHP_REMOVAL.md`](docs/PHP_REMOVAL.md)。
 > 镜像内包含 `doc/`（应用内文档中心）与 `LICENSE`；`docs/` 是重写记录，不进镜像。
@@ -333,11 +333,10 @@ pwsh -File scripts/verify.ps1
 > 该门禁不启动数据库/应用，也不做契约、截图或写操作冒烟；这些深度验证有额外前置，
 > 见 [CONTRIBUTING.md](CONTRIBUTING.md#测试与验证)。普通用户部署只需要 Compose。
 
-前端产物重建（**不要**在正常部署时重装依赖；`@pgyer/mui-theme-preset`
-声明为 `latest`，重装会漂移）：
+前端产物重建（只在改了前端源码时需要；镜像构建期不跑前端构建）：
 
-```shell
-cd www/view && NODE_OPTIONS=--openssl-legacy-provider yarn build
+```bash
+cd web && npm ci && npm run typecheck && npm run lint && npm run build   # 产物在 web/build
 ```
 
 契约基线在 `backend/testdata/contract/`，历史采集与比对命令见
@@ -362,7 +361,7 @@ cd www/view && NODE_OPTIONS=--openssl-legacy-provider yarn build
 | 限制 | 影响 | 规避方式 |
 | --- | --- | --- |
 | SSH 公钥类型识别沿用上游正则 | 部分非 RSA 公钥（如某些 ed25519 变体）可能识别不稳定 | 优先使用 `ssh-keygen -t rsa` 生成密钥 |
-| 添加 SSH 公钥时 `key` 字段只传 base64 主体 | 不含 `ssh-rsa` 前缀与注释 | 与前端 `UserSettingSSHKey.js` 的解析保持一致 |
+| 添加 SSH 公钥时 `key` 字段只传 base64 主体 | 不含 `ssh-rsa` 前缀与注释 | 与前端 `web/src/pages/settings/SSHKey.tsx` 的解析保持一致 |
 | 404 页面引用了不存在的图片 | `/static/assets/images/404_pic.png` 会显示破图 | 可自行补充图片；不影响功能 |
 | 英文用户文档尚未全部翻译 | `doc/en-us/` 中部分页面仍为中文 | 见 [README_EN.md](README_EN.md) 的说明；欢迎参与翻译 |
 

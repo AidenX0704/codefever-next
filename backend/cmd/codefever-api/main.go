@@ -120,15 +120,20 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 
 	srv := httpapi.New(cfg, sessions, users, logger)
 
-	// 服务端渲染页面的公共数据。
-	srv.PageDataProvider = func() httpapi.PageData {
-		return httpapi.PageData{
-			Lang:          httpapi.NewTranslations("zh-cn"),
-			Host:          cfg.SiteConfig().Host,
-			ReleaseNumber: cfg.Env.ReleaseNumber,
-			AppName:       handlers.AppName,
-			AllowRegister: cfg.SiteConfig().AllowRegister,
-		}
+	// SPA 壳（新前端切换，批 7）。
+	//
+	// 解析顺序（第一个存在的即采用）：
+	//  1. CODEFEVER_SPA_INDEX —— 显式覆盖（排障用）；
+	//  2. <base>/www/app/index.html —— 镜像布局（Dockerfile 把 web/build 放进 www/app）；
+	//  3. <base>/web/build/index.html —— 仓库内直接跑（vite build 的输出）；
+	//  4. <base>/www/view/build/index.html —— 旧布局（切换期回滚用）。
+	// 都找不到时不配置，各 GET 处理器回退到旧 SSR 页面。
+	spaIndex := resolveSPAIndex(cfg.BaseDir)
+	httpapi.ConfigureSPA(spaIndex)
+	if spaIndex != "" {
+		logger.Info("SPA 壳已启用", "path", spaIndex)
+	} else {
+		logger.Warn("未找到 SPA 壳，页面 GET 仍走服务端渲染")
 	}
 
 	// 业务域端点。
@@ -142,9 +147,11 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	// /captcha/*、/feature 等），响应信封与 /api/* 不同（见 httpapi/web.go）。
 	handlers.NewWebUserHandler(cfg, users, sessions, disk, mail).RegisterWeb(srv)
 	fileHandler.RegisterWeb(srv)
-	handlers.NewDocHandler(cfg).RegisterWeb(srv)
+	docHandler := handlers.NewDocHandler(cfg)
+	docHandler.RegisterWeb(srv)
+	// 文档中心的 JSON 端点（新前端 React 文档页用；注册为字面量路由，公开只读）。
+	docHandler.RegisterAPI(srv)
 	handlers.NewLangHandler(cfg).RegisterWeb(srv)
-	handlers.NewCaptchaHandler().RegisterWeb(srv)
 	handlers.NewHomeHandler(cfg, users, sessions).RegisterWeb(srv)
 	handlers.NewNopageHandler(cfg).RegisterWeb(srv)
 	handlers.RegisterBaseController(srv)
@@ -299,6 +306,25 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 //
 // GET  → 渲染登录页（已登录则 302 /repositories）
 // POST → 执行登录并返回 {code, message, extra} 信封
+// resolveSPAIndex 按「环境变量 → 镜像布局 → 仓库布局 → 旧布局」的顺序找 SPA 壳。
+func resolveSPAIndex(baseDir string) string {
+	candidates := []string{}
+	if envPath := strings.TrimSpace(os.Getenv("CODEFEVER_SPA_INDEX")); envPath != "" {
+		candidates = append(candidates, envPath)
+	}
+	candidates = append(candidates,
+		filepath.Join(baseDir, "www", "app", "index.html"),
+		filepath.Join(baseDir, "web", "build", "index.html"),
+		filepath.Join(baseDir, "www", "view", "build", "index.html"),
+	)
+	for _, candidate := range candidates {
+		if info, err := os.Stat(candidate); err == nil && !info.IsDir() {
+			return candidate
+		}
+	}
+	return ""
+}
+
 func loginPageHandler(login *handlers.LoginHandler, cfg *config.Config) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodPost {
@@ -318,7 +344,11 @@ func loginPageHandler(login *handlers.LoginHandler, cfg *config.Config) http.Han
 			}
 			return
 		}
-		renderLoginPage(w, r, cfg, login)
+		// 前端切换后：/user/login 的 GET 由 SPA 渲染（表单 POST 仍走上面的分支）。
+		if !httpapi.ServeSPA(w, r) {
+			w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	}
 }
 
@@ -328,25 +358,6 @@ func loginPageHandler(login *handlers.LoginHandler, cfg *config.Config) http.Han
 //
 // 判定"已登录"用的是服务端会话（session.Store + cc_sessions 表），
 // 与 /api/* 的鉴权中间件同一套机制 —— 只看 Cookie 是否存在是不够的。
-func renderLoginPage(w http.ResponseWriter, r *http.Request, cfg *config.Config, login *handlers.LoginHandler) {
-	if login.LoggedIn(r.Context(), r) {
-		httpapi.Redirect(w, "/repositories")
-		return
-	}
-	data := httpapi.PageData{
-		Lang:          httpapi.NewTranslations("zh-cn"),
-		Host:          cfg.SiteConfig().Host,
-		ReleaseNumber: cfg.Env.ReleaseNumber,
-		AppName:       handlers.AppName,
-		AllowRegister: cfg.SiteConfig().AllowRegister,
-		Email:         strings.TrimSpace(r.URL.Query().Get("email")),
-	}
-	if err := httpapi.RenderLogin(w, data); err != nil {
-		slog.Error("渲染登录页失败", "error", err)
-		w.Header().Set("Content-Type", "text/html; charset=UTF-8")
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-}
 
 // logoutHandler 处理 /user/logout。
 //
