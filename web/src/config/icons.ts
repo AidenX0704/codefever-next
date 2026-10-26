@@ -51,3 +51,7 @@ export { default as plCopy } from '@/assets/icons/plCopy'
 export { default as plExpand } from '@/assets/icons/plExpand'
 export { default as psClock } from '@/assets/icons/psClock'
 export { default as psConfirm } from '@/assets/icons/psConfirm'
+// 页头「仓库 / 仓库组」触发器的线框三角箭头（手写图标，非 @pgyer/icons 生成；
+// 理由见 assets/icons/plCaretDownLine.ts 顶部注释），以及菜单里"当前所在"的勾选标记。
+export { default as plCaretDownLine } from '@/assets/icons/plCaretDownLine'
+export { default as plCheck } from '@/assets/icons/plCheck'

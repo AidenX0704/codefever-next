@@ -1,1 +1,0 @@
-function e(e){return e?`/file/fetch/avatar/${e}`:void 0}export{e as t};

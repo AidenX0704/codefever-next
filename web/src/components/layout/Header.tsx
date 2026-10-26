@@ -1,12 +1,27 @@
 import { Suspense, lazy, useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 
 import { logoCommunity } from '@/assets/images'
+import { avatarUrl } from '@/config/constants'
 import { HELP_LINKS } from '@/config/helpLinks'
 import { publicApiDocUrl } from '@/config/publicApi'
-import { plBell, plExit, plDraft, plHelp, plKey, plLocalization, plMemberAlt, plMerge, plRepository, psAddAlt, psCaretDown, psRepair, psRepositoryGroup } from '@/config/icons'
+import {
+  plBell,
+  plCaretDownLine,
+  plCheck,
+  plDraft,
+  plExit,
+  plHelp,
+  plKey,
+  plLocalization,
+  plMemberAlt,
+  plMerge,
+  psAddAlt,
+  psRepair,
+} from '@/config/icons'
 import { useAppData } from '@/features/app-data/AppDataProvider'
 import { useI18n, useT } from '@/i18n'
+import { Avatar } from '@/components/unit/Avatar'
 import { Dropdown, type MenuItemSpec } from '@/components/unit/Dropdown'
 import { Icon } from '@/components/unit/Icon'
 import { Button } from '@/components/unit/Button'
@@ -31,21 +46,34 @@ const NotificationDrawer = lazy(() => import('./NotificationDrawer').then((mod) 
 export function Header() {
   const t = useT()
   const navigate = useNavigate()
+  const { pathname } = useLocation()
   const { user, repositories, groups } = useAppData()
   const { lang, setLang } = useI18n()
   const [notificationOpen, setNotificationOpen] = useState(false)
 
-  const repositoryMenuItems: MenuItemSpec[] = repositories.slice(0, 20).map((repository) => ({
+  /** 路径是否落在 `base` 这一层（避免 `/g/repo` 误配 `/g/repo2`）。 */
+  const underPath = (base: string) => pathname === base || pathname.startsWith(`${base}/`)
+
+  // 当前所在的仓库 / 仓库组：官方原版在菜单里给当前项打勾（旧 `GroupRepositoryMenu`
+  // 的 `currentRepositoryKey` / `currentGroupKey`）。这里直接从路由推导，不再引入全局状态。
+  const currentRepository = repositories.find((item) => underPath(`/${item.group.name}/${item.name}`))
+  const currentGroup = groups.find((item) => underPath(`/groups/${item.name}`))
+
+  // 列表**不做条数截断**（官方原版就是全量列出）：面板自身有 max-height + overflow，
+  // 列表长了滚动，而不是只显示前 20 条让人以为"仓库/仓库组少了"。
+  const repositoryMenuItems: MenuItemSpec[] = repositories.map((repository) => ({
     key: repository.id,
     label: `${repository.group.displayName}/${repository.displayName}`,
-    icon: <Icon icon={plRepository} size={16} />,
+    icon: <Avatar square size="sm" src={avatarUrl(repository.icon)} name={repository.name} />,
+    trailing: currentRepository?.id === repository.id ? <Icon icon={plCheck} size={14} /> : undefined,
     onClick: () => navigate(`/${repository.group.name}/${repository.name}`),
   }))
 
-  const groupMenuItems: MenuItemSpec[] = groups.slice(0, 20).map((group) => ({
+  const groupMenuItems: MenuItemSpec[] = groups.map((group) => ({
     key: group.id,
     label: group.displayName,
-    icon: <Icon icon={psRepositoryGroup} size={16} />,
+    icon: <Avatar square size="sm" src={avatarUrl(group.icon)} name={group.name} />,
+    trailing: !currentRepository && currentGroup?.id === group.id ? <Icon icon={plCheck} size={14} /> : undefined,
     onClick: () => navigate(`/groups/${group.name}`),
   }))
 
@@ -85,23 +113,35 @@ export function Header() {
     <header className="app-header">
       <div className="app-header__left">
         <img className="app-header__logo" src={logoCommunity} alt="CodeFever" onClick={() => navigate('/repositories')} />
+        {/* 仓库 / 仓库组：对齐官方原版 `GroupRepositoryMenu` ——
+            **点击触发器 = 跳到完整列表页**（`/repositories` 全部仓库、`/groups` 仓库组卡片列表），
+            **悬停 = 展开快速跳转菜单**（全量条目、分类标题、方形头像、当前项打勾）。
+            触发器只有文字 + 线框三角箭头（无左侧图标），展开时箭头翻转 180°。 */}
         <Dropdown
           trigger={
-            <Button variant="text" startIcon={<Icon icon={plRepository} size={16} />}>
+            <Button variant="text" endIcon={<Icon icon={plCaretDownLine} size={12} />}>
               {t('label.repository')}
             </Button>
           }
+          openOnHover
+          onTriggerClick={() => navigate('/repositories')}
+          title={t('label.repository')}
           items={repositoryMenuItems}
-          minWidth={240}
+          emptyLabel={t('message._S_listEmpty', { s: t('label.repository') })}
+          minWidth={272}
         />
         <Dropdown
           trigger={
-            <Button variant="text" startIcon={<Icon icon={psRepositoryGroup} size={16} />}>
+            <Button variant="text" endIcon={<Icon icon={plCaretDownLine} size={12} />}>
               {t('label.group')}
             </Button>
           }
+          openOnHover
+          onTriggerClick={() => navigate('/groups')}
+          title={t('label.group')}
           items={groupMenuItems}
-          minWidth={240}
+          emptyLabel={t('message._S_listEmpty', { s: t('label.group') })}
+          minWidth={272}
         />
         <SquareIconButton icon={plMerge} label={t('label.mergeRequest')} onClick={() => navigate('/mergerequests')} />
       </div>
@@ -126,7 +166,8 @@ export function Header() {
           trigger={
             <span className="app-header__user">
               {user?.icon ? <img className="app-header__avatar" src={`/file/fetch/avatar/${user.icon}`} alt="" /> : <span className="app-header__avatar" />}
-              <Icon icon={psCaretDown} size={12} />
+              {/* 与「仓库 / 仓库组」同一支线框三角（旧版用户菜单同样用 faAngleDown）。 */}
+              <Icon icon={plCaretDownLine} size={12} />
             </span>
           }
         />

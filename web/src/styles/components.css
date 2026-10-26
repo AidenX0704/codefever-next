@@ -145,6 +145,19 @@
   height: 14px;
 }
 
+/* 尾部图标（下拉箭头 ▾）：只做"容器 + 展开时旋转"两件事。
+ * 与文字的间距由 `.cf-btn` 的 `gap` 提供；旋转时长与 `.cf-btn` 的 transition 一致（0.12s）。
+ * 箭头翻转是"菜单已展开"的可见反馈（对齐 GitHub / GitLab 的习惯）。 */
+.cf-btn__end-icon {
+  display: inline-flex;
+  align-items: center;
+  transition: transform 0.12s ease;
+}
+
+.cf-dropdown__trigger[aria-expanded='true'] .cf-btn__end-icon {
+  transform: rotate(180deg);
+}
+
 /* ============================== IconButton ============================== */
 /* preset MuiIconButton.colorPrimary：hover 文字 primary + 底色 primary-light → 这里取 lighter 保证对比度 */
 .cf-icon-btn {
@@ -1044,6 +1057,15 @@ textarea.cf-field__input {
   left: auto;
 }
 
+/* 面板小标题（旧 GroupRepositoryMenu 的菜单首行：caption 字号 + text.lighter，
+ * padding 8px 16px）。它把"这是哪一类列表"写在面板内部，长列表滚动时也不会丢上下文。 */
+.cf-menu__title {
+  padding: var(--cf-space) calc(var(--cf-space) * 2);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+  line-height: 1;
+}
+
 .cf-menu__item {
   display: flex;
   align-items: center;
@@ -1085,9 +1107,30 @@ textarea.cf-field__input {
   text-overflow: ellipsis;
 }
 
+/* 行尾附加内容（如"当前所在"的勾选标记），固定宽度不参与文本收缩。 */
+.cf-menu__trailing {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: var(--cf-color-primary);
+}
+
 .cf-menu__divider {
   margin: var(--cf-space-half) 0;
   border-top: 1px solid var(--cf-color-border);
+}
+
+/* 空列表占位（页头的"仓库 / 仓库组"菜单在没有数据时用）。
+ * 行高与 `.cf-menu__item` 一致，避免空面板缩成一个没有内容的窄条；
+ * 颜色取 disabled 项的 text-light，与不可点状态在视觉上同一档。 */
+.cf-menu__empty {
+  display: flex;
+  align-items: center;
+  height: var(--cf-control-height);
+  padding: 0 calc(var(--cf-space) * 2);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+  white-space: nowrap;
 }
 
 /* ============================== Marker（行内角色徽标） ============================== */

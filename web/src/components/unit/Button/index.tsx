@@ -16,6 +16,16 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   /** 提交中：自动禁用 + 显示 spinner（旧版各处手写 `disabled` + 文案切换，这里统一）。 */
   loading?: boolean
   startIcon?: ReactNode
+  /**
+   * 尾部图标（最典型的是下拉箭头 ▾）。
+   *
+   * 与 `startIcon` 对称：与文字之间的间距由 `.cf-btn` 的 `gap` 统一给，
+   * 调用方不要自己再包 `<span>` 补 margin。作为下拉触发器时箭头会在菜单展开后
+   * 旋转 180°，该规则写在 `components.css`（选择器为
+   * `.cf-dropdown__trigger[aria-expanded='true'] .cf-btn__end-icon`），
+   * 因此这里必须包一层 `.cf-btn__end-icon` 容器。
+   */
+  endIcon?: ReactNode
 }
 
 /**
@@ -31,6 +41,7 @@ export function Button({
   block = false,
   loading = false,
   startIcon,
+  endIcon,
   className,
   children,
   disabled,
@@ -55,6 +66,7 @@ export function Button({
     >
       {loading ? <span className="cf-spinner cf-btn__spinner" aria-hidden="true" /> : startIcon}
       {children === undefined || children === null ? null : <span>{children}</span>}
+      {endIcon ? <span className="cf-btn__end-icon">{endIcon}</span> : null}
     </button>
   )
 }

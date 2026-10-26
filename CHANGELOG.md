@@ -13,6 +13,23 @@
 
 ### 变更
 
+- **页头「仓库 / 仓库组」对齐官方原版 UI 与交互**（旧 `components/unit/GroupRepositoryMenu.js`）：
+  - **点击 = 跳转完整列表页**：「仓库」→ `/repositories`（全部仓库），
+    「仓库组」→ `/groups`（仓库组卡片列表，点卡片进入该组关联的仓库列表）；
+  - **悬停 = 展开快速跳转菜单**（官方原版的悬停交互），列表全量展示；
+  - 触发器不再挂左侧图标，改为文字右侧的**线框三角箭头**（新图标 `plCaretDownLine`，
+    用一条 path 里绕向相反的两个子路径挖空实现，不需要 stroke 支持；实心 `psCaretDown`
+    在 14px 文字旁边视觉过重），展开时箭头翻转 180°；用户菜单的箭头同步换成同一支，
+    页头不再出现两种箭头；
+  - 面板首行补分类标题（仓库 / 仓库组），条目改为方形头像 + 名称，
+    **当前所在的仓库 / 仓库组打勾**（从路由推导，不引入全局状态）；
+  - 列表**不再截断为前 20 条**：面板自身 `max-height` + `overflow` 负责滚动，
+    此前只显示 20 条会让人以为"仓库/仓库组少了"；
+  - 两个菜单都接上空态文案（`仓库列表为空` / `仓库组列表为空`）—— 此前列表为空时
+    只会弹出一个没有内容的空面板，与"面板没打开"在视觉上无法区分。
+  影响面：仅页头渲染，接口与路由不变；`Button` 新增 `endIcon`、`Dropdown` 新增
+  `title` / `emptyLabel` / `openOnHover` / `onTriggerClick`、`MenuItemSpec` 新增
+  `trailing`，均为向后兼容的新增 props。
 - **仓库结构收敛为单一 Go module**：`http-gateway/` 与 `ssh-gateway/` 并入
   `backend/cmd/codefever-http-gateway`、`backend/cmd/codefever-ssh-gateway`；
   `misc/` 收敛到 `backend/deploy/{sql,docker}`。构建统一为
