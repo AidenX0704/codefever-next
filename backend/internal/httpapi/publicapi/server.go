@@ -42,9 +42,9 @@ func NewServer(users *repo.UserRepo, repos *repo.RepositoryRepo, tokens *repo.Ac
 
 // authenticate 解析访问令牌并返回令牌所属用户。
 //
-// 失败一律返回 401 —— 鉴权失败直接写 http.StatusUnauthorized，不带响应体。
-//
-// 这里额外带上 {message,url} 错误体，便于调用方定位问题。
+// 失败返回 error，由 requireUser 统一写成 401 + `{message,url}` 错误体
+// （错误体带文档地址，便于调用方自助排查；不带响应体的写法与公开 API 其余
+// 错误响应不一致，因此这里不采用）。
 func (s *Server) authenticate(r *http.Request) (*domain.User, error) {
 	if s.Tokens == nil || s.Users == nil {
 		return nil, errors.New("访问令牌服务未启用")

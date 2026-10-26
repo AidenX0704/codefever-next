@@ -1,0 +1,81 @@
+/*
+ * 帮助中心（`/help`）。
+ *
+ * 视觉口径：
+ *   - 入口卡片复用 `.group-grid` 的栅格节奏与 `<Card>` 的卡片外观（AGENTS §5：
+ *     不为单个页面另造一套卡片）；
+ *   - 本文件只补"卡片内部排版"与"关于"信息行，颜色/间距/字号全部取主题令牌。
+ */
+
+.help-entry {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+  min-width: calc(var(--cf-space) * 40);
+}
+
+.help-entry__head {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  color: var(--cf-color-primary);
+}
+
+.help-entry__title {
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size-h4);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+.help-entry__desc {
+  flex: 1 1 auto;
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+/* 区块内小标题（端点总览 / 认证 / 错误体之类的分组标签）。 */
+.help-subtitle {
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+/* 端点表里的路径用等宽字体（与正文区分，便于逐字符核对）。 */
+.help-code {
+  color: var(--cf-color-text);
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+}
+
+/* "关于"信息行：左侧标签定宽、右侧值自适应并允许长地址换行。 */
+.help-info {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+}
+
+.help-info__row {
+  display: flex;
+  gap: calc(var(--cf-space) * 3);
+}
+
+.help-info__label {
+  flex: 0 0 calc(var(--cf-space) * 12);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+.help-info__value {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size);
+}
+
+@media (max-width: 600px) {
+  .help-info__row {
+    flex-direction: column;
+    gap: var(--cf-space-half);
+  }
+}

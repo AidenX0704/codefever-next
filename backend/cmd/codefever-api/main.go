@@ -275,6 +275,19 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	// Accept / Content-Type 校验（sendBeacon 发的是 text/plain + */*）。
 	handlers.NewWebVitalsHandler(logger).Register(srv)
 
+	// 帮助中心（/help）：站内帮助页，由 SPA 壳渲染（页面本身在 web/src/pages/Help.tsx）。
+	//
+	// 【为什么不靠兜底路由】未注册的路径走 handleFallback → web 控制器分发器 →
+	// "控制器不存在"分支，最终以 **404 状态码**下发 SPA 壳（nopage 的等价行为）。
+	// 帮助页是正常页面，必须 200 —— 于是按 AGENTS §9 的约定注册精确页面路由并
+	// 直接调 httpapi.ServeSPA。
+	srv.RegisterPage("/help", func(w http.ResponseWriter, r *http.Request) {
+		if !httpapi.ServeSPA(w, r) {
+			w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	})
+
 	handler := srv.Handler()
 
 	// pprof：仅在 CODEFEVER_PPROF=1 时挂载。

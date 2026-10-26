@@ -37,9 +37,9 @@ import (
 //
 // 错误体形态与 GitHub 等公开 API 惯例一致：
 //
-//	{"message":"...","url":"https://<host>/api/v1"}
+//	{"message":"...","url":"https://<host>/doc/cn/api/overview.md"}
 //
-// url 字段指向 API 文档，便于调用方自助排查。
+// url 字段指向文档中心里的 API 文档页，便于调用方自助排查。
 type ErrorBody struct {
 	Message string `json:"message"`
 	URL     string `json:"url"`
@@ -67,14 +67,24 @@ func WriteError(w http.ResponseWriter, status int, message string) {
 
 // docsURL 是错误体里的文档地址。
 //
-// 取站点根地址即可 —— 公开 API 文档挂载在站点根的 /api/v1 说明页，
-// 精确路径由部署方决定，这里给出稳定可解析的前缀。
-var docsURL = "https://localhost/api/v1"
+// 指向**文档中心里的公开 API 文档页**（`/doc/cn/api/overview.md`）。
+// 早先这里指向 `/api/v1` 前缀本身，但那个前缀只服务 JSON 端点 ——
+// 浏览器直接访问只会拿到 404，等于给调用方一个死链。
+//
+// 默认值仅在本包未被 Server 装配时使用（单元测试）；生产路径由 SetDocURL
+// 按站点 host 覆盖。语言取中文：错误体里没有语言上下文，站点默认中文。
+var docsURL = "https://localhost" + DefaultDocPath
+
+// DefaultDocPath 是公开 API 文档页在站点内的路径（中文版）。
+//
+// 英文版位于 /doc/en/api/overview.md；两者内容一一对应，
+// 源文件在 `doc/{zh-cn,en-us}/api/`。
+const DefaultDocPath = "/doc/cn/api/overview.md"
 
 // SetDocURL 覆盖错误体里的文档地址（由 Server 在装配时按站点 host 设置）。
 func SetDocURL(u string) {
 	if u != "" {
-		docsURL = strings.TrimSuffix(u, "/") + "/api/v1"
+		docsURL = strings.TrimSuffix(u, "/") + DefaultDocPath
 	}
 }
 

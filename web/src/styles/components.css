@@ -971,6 +971,41 @@ textarea.cf-field__input {
   text-decoration: underline;
 }
 
+/* ============================== CodeBlock（文档片段） ============================== */
+/* 与 CodeViewer 的区别：无行号列、保留横向滚动，用于 curl / JSON 示例。 */
+.cf-code-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+  padding: var(--cf-space);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg-main);
+}
+
+.cf-code-block__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space);
+}
+
+.cf-code-block__lang {
+  color: var(--cf-color-text-light);
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+}
+
+.cf-code-block__pre {
+  margin: 0;
+  overflow-x: auto;
+  color: var(--cf-color-text);
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+  line-height: var(--cf-line-height);
+  white-space: pre;
+}
+
 /* ============================== Icon ============================== */
 .cf-icon {
   display: inline-block;

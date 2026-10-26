@@ -61,6 +61,7 @@ const AdminGroups = lazy(() => import('@/pages/admin/Groups'))
 const AdminRepositories = lazy(() => import('@/pages/admin/Repositories'))
 const AdminSettings = lazy(() => import('@/pages/admin/Settings'))
 const Doc = lazy(() => import('@/pages/Doc'))
+const Help = lazy(() => import('@/pages/Help'))
 const GroupSettingsGeneral = lazy(() => import('@/pages/group/SettingsGeneral'))
 const GroupSettingsMembers = lazy(() => import('@/pages/group/SettingsMembers'))
 const GroupSettingsAdvanced = lazy(() => import('@/pages/group/SettingsAdvanced'))
@@ -89,6 +90,9 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="/repositories" replace /> },
       { path: '__design', element: suspense(<DesignSystem />) },
+      // 帮助中心：站内帮助落点（技术支持 / 反馈 / 贡献 / 关于 + 公开 API 说明）。
+      // 与文档中心（/doc/*）的分工：那边是"产品怎么用"，这里回答"有问题去哪儿"。
+      { path: 'help', element: suspense(<Help />) },
       // 批 2 已落地；其余为最终路由结构的占位，逐批替换（见计划 §6）。
       { path: 'repositories', element: suspense(<RepositoryList />) },
       { path: 'repositories/new', element: suspense(<NewRepository />) },

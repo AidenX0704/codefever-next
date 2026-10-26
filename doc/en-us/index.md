@@ -13,4 +13,6 @@
 
 [FAQ](common)
 
+[API](api)
+
 [Contribution](contribute)

@@ -9,7 +9,7 @@
 - 废弃内容**只标注不删除**（`（已废弃 YYYY-MM-DD：原因）` / `（已迁移至 X）`）；
 - 末尾的「人工备注」由人维护，代理只可追加，不得重写既有内容。
 
-> 最后核对：2026-10-25（公开 API `/api/v1` 与访问令牌体系落地后）
+> 最后核对：2026-10-26（帮助中心 `/help` 与公开 API 文档落地后）
 
 ---
 
@@ -23,6 +23,7 @@
 | `backend/deploy/` | nginx vhost 模板、supervisor 配置、SQL 初始化脚本 |
 | `codefever-data/` | 运行时数据（MySQL、裸仓库、附件、配置软链），可用 `CODEFEVER_DATA_DIR` 覆盖 |
 | `docs/` | 架构分析、迁移计划与实施状态、性能审查与整改方案 |
+| `doc/` | **站内文档中心内容**（`zh-cn` / `en-us` 双语 Markdown，含 2026-10-26 新增的 `api/` 公开 API 文档）；由 `/doc/*`（SPA 渲染）与 `/api/doc/{tree,content}` 提供 |
 | `.github/workflows/ci.yml` | CI：gofmt / build / 交叉编译 / vet / test + compose 校验 |
 
 ---
@@ -55,7 +56,7 @@
 | 包 | 职责 |
 |---|---|
 | `httpapi` | HTTP 服务器装配、路由、中间件链（recover → log → limit → normalize）、API 分发、**SPA 壳下发**（`spa.go`）。页面模板层 `pages.go` / `templates/` / `pages_test.go` **已删除 2026-10-24**（前端重写） |
-| `httpapi/publicapi` | **公开 REST API `/api/v1`**（2026-10-25 新增）：面向外部 CI / 脚本，与内部 `/api/*` **完全隔离** —— 自建 mux + `Wrap()` 前置分流、裸 JSON 响应、错误体 `{"message","url"}`、令牌鉴权（令牌 ≡ 用户）、私有资源越权返回 **404**（不泄露存在性）。**不复用 `contract.Envelope`**（PHP 兼容契约，123 条基线锁定）。 |
+| `httpapi/publicapi` | **公开 REST API `/api/v1`**（2026-10-25 新增）：面向外部 CI / 脚本，与内部 `/api/*` **完全隔离** —— 自建 mux + `Wrap()` 前置分流、裸 JSON 响应、错误体 `{"message","url"}`、令牌鉴权（令牌 ≡ 用户）、私有资源越权返回 **404**（不泄露存在性）。**不复用 `contract.Envelope`**（PHP 兼容契约，123 条基线锁定）。错误体的 `url` 自 2026-10-26 起指向文档中心的 API 文档页（`DefaultDocPath = /doc/cn/api/overview.md`），此前误指向 `/api/v1` 前缀本身（浏览器访问是 404 死链） |
 | `contract` | 请求解析（JSON / form / multipart）、PHP 兼容的错误码与响应信封 |
 | `handlers` | 各域 HTTP handler（user / admin / group / repository / internal / login / webvitals / doc） |
 | `repo` | 数据访问层；事务封装（`WithTx`）、批量查询、保留期清理 |
@@ -156,8 +157,8 @@ handler（业务写）
 | `src/theme/theme.css` | **全仓库唯一的视觉字面值来源**（颜色/间距/圆角/阴影/字号），逐项抄自旧 `@pgyer/mui-theme-preset` 与 `theme1.js`；另有 `--cf-field-surface`（**输入区表面色的唯一来源**，2026-10-25 新增，用于中和 Chrome 自动填充的 UA 蓝底并按变体给出正确盖色） |
 | `src/theme/tokens.ts` | 令牌的类型化引用 + `space(n)`（等价旧 `theme.spacing`） |
 | `src/theme/global.css` | 全局基础样式与工具类（对应旧 `App.styl`） |
-| `src/components/unit/` | 自研组件库（磁盘上 **27** 个目录）：Button / IconButton / SquareIconButton / Icon / TextField / SelectField / Choices / Form / Table(+DataTable/Pagination) / Dialog / Confirm / Dropdown / Tabs / Tooltip / Toast / Avatar / Tag / Marker / Card / Loading / EmptyState / CopyButton / AppLink / FormattedTime / CodeViewer / DiffViewer（文件级 diff：汇总条 + inline·side-by-side 布局切换 + 逐文件折叠 + 复制路径 / 查看 @hash / 展开完整文件）/ FilterBar（页签+搜索+排序的工具条，分支·标签·活动三处共用）。⚠️ `TextareaField` / `Checkbox` / `Switch` **尚未实现**（此前清单误列，2026-10-25 校正），Release / Issue 表单落地前须先补齐 |
-| `src/components/layout/` | 外壳布局：NotificationDrawer（通知抽屉，四个分类 + 已读/清空）、AppShell（固定页头 + 白底内容区）、Header（仓库/组/新建/语言/帮助/管理后台/用户菜单）、RepositoryLayout（仓库上下文外壳）、SettingsLayout（个人设置外壳）、AdminLayout（管理后台外壳）、Sidebar（左侧上下文导航，可折叠） |
+| `src/components/unit/` | 自研组件库（磁盘上 **28** 个目录）：Button / IconButton / SquareIconButton / Icon / TextField / SelectField / Choices / Form / Table(+DataTable/Pagination) / Dialog / Confirm / Dropdown / Tabs / Tooltip / Toast / Avatar / Tag / Marker / Card / Loading / EmptyState / CopyButton / AppLink / FormattedTime / CodeViewer / **CodeBlock（2026-10-26 新增：文档片段代码块，等宽 + 语言标签 + 一键复制，无行号）** / DiffViewer（文件级 diff：汇总条 + inline·side-by-side 布局切换 + 逐文件折叠 + 复制路径 / 查看 @hash / 展开完整文件）/ FilterBar（页签+搜索+排序的工具条，分支·标签·活动三处共用）。⚠️ `TextareaField` / `Checkbox` / `Switch` **尚未实现**（此前清单误列，2026-10-25 校正），Release / Issue 表单落地前须先补齐 |
+| `src/components/layout/` | 外壳布局：NotificationDrawer（通知抽屉，四个分类 + 已读/清空）、AppShell（固定页头 + 白底内容区）、Header（仓库/组/新建/语言/帮助/管理后台/用户菜单；**帮助菜单 2026-10-26 改为站内落点**：帮助中心 `/help`、文档中心、公开 API 文档，站外只保留技术支持 / 反馈 / 贡献）、RepositoryLayout（仓库上下文外壳）、SettingsLayout（个人设置外壳）、AdminLayout（管理后台外壳）、Sidebar（左侧上下文导航，可折叠） |
 | `src/components/view/` | 页面级组件（按业务域，逐批落地）：`auth/` = AuthLayout + 认证页样式（批 1）；`unit/` = RepositoryRow / GroupCard / list.css（批 2） |
 | `src/components/view/unit/` | 业务域共用件：`RepositoryRow`、`GroupCard`、`CommitRow`、`MembersManager`（仓库成员与组成员共用）、`AdvancedSettings`（仓库/组高级页共用）、`ActivityFeed`（41 个活动码的表驱动渲染）、`MergeRequestRow`（MR 行：标题/状态徽标/目标仓库名/分支链接/最后提交人/编辑于/评审人组/更新时间）、`MergeRequestToolbar`（MR 页签+搜索+排序+主操作）、`MergeRequestListBody`（MR 行列表+空态+查看更多）、`MergeRequestReviewers`（评审人头像组+已/未评审角标）、`AdminMembersDialog`（后台组/仓库成员弹窗）、`SettingsNotificationMatrix`（通知矩阵：组+仓库+角色徽标）、`RepositoryHeader`（仓库头：Fork/克隆地址/6 项计数）、`RefListView`（分支·标签列表共用）、`ObjectViewer`（文件内容富视图）、`MarkdownView`、`RepositoryEmpty`（空仓库引导）、`CommitRefs`（父提交+包含该提交的分支/标签）；样式集中在 `list.css` / `commit-row.css` / `merge-request.css` / `repository.css` |
 | `src/api/client.ts` | 统一请求层：multipart 编码（`key[sub]` / `key[]`、剥 `_SAFE`/`_BINARY`）、`requestTime`、信封与错误码表、`0x0101` 跳登录；另有 `postForm()`（表单页的 urlencoded 信封 `{code,message,extra}`） |
@@ -168,7 +169,7 @@ handler（业务写）
 | `src/features/app-data/` | `AppDataProvider`：页头与列表共享的用户/仓库/组三份数据（对应旧 Redux `DataStore`） |
 | `src/features/repository/` | `RepositoryProvider`：按「组名 + 仓库名」解析仓库主键 → 加载 `repository/config`，找不到即 404 |
 | `src/features/group/` | `GroupProvider`：按组名解析组主键 → 加载 `group/config`，找不到即 404 |
-| `src/config/` | `uac.ts`（角色与权限矩阵）、`icons.ts`（按需图标出口）、`constants.ts`（头像 URL 前缀）、`languages.ts`（扩展名→Prism 语言）、`drawer.ts`（仓库上下文 / 个人设置导航项与 active 判定）、`webhookEvents.ts`（25 个 Webhook 事件与文案键） |
+| `src/config/` | `uac.ts`（角色与权限矩阵）、`icons.ts`（按需图标出口）、`constants.ts`（头像 URL 前缀）、`languages.ts`（扩展名→Prism 语言）、`drawer.ts`（仓库上下文 / 个人设置导航项与 active 判定）、`webhookEvents.ts`（25 个 Webhook 事件与文案键）、**`helpLinks.ts`（帮助中心与页头帮助菜单共用的站外地址，2026-10-26 新增）**、**`publicApi.ts`（公开 API 端点清单 + 文档页地址拼装，2026-10-26 新增）** |
 | `src/helpers/prism.ts` | Prism 语言注册（顺序敏感）+ 按「语言+全文」的 8 条 LRU 高亮缓存 |
 | `src/helpers/members.ts` | 提交邮箱 → 仓库成员解析（未命中标记临时用户，对应旧 `getUserInfo`） |
 | `src/helpers/slug.ts` | 标识名规范化 `makeSlug`（逐字对齐旧 `NetworkHelper.makeSlug`：非 `\w` 一律换下划线） |
@@ -178,6 +179,7 @@ handler（业务写）
 | `src/pages/MergeRequestBoard.tsx` | 全局 `/mergerequests` 与组内 `/groups/{名}/mergerequests` 看板：页签+角标（全局按 `relatedRepository` 命中仓库累加、组内按同组仓库累加）、搜索、排序、每页 10 条+查看更多、创建合并请求入口 |
 | `src/pages/admin/` | 管理后台：`Dashboard`（用量卡可点击/资源阈值配色/服务状态）、`Users`（四个分类页签+排序+添加用户与初始口令回显+设管理员口令校验+重置口令）、`Groups`（图标列/创建时间/成员管理）、`Repositories`（同构+组继承成员标记）、`Settings`（config 结构化表单 + 7 条校验） |
 | `src/pages/Doc.tsx` | 文档中心（`/doc/{lang}/{path}`）：菜单树 + Markdown 渲染（react-markdown + remark-gfm） |
+| `src/pages/Help.tsx` | **帮助中心（`/help`，2026-10-26 新增）**：四个入口卡片（技术支持 / 提交反馈 / 为 CodeFever Next 贡献代码 / 关于）+ 文档中心入口 + 公开 API 端点总览（数据源 `config/publicApi.ts`）+ 鉴权与错误体示例 + 关于信息（维护者 / 许可证 / 上游项目）；页内锚点 `#api`、`#about` |
 | `src/pages/RepositoryList.tsx` | 仓库列表（`/repositories`、`/groups/{组}/repositories`、`/repositories/forklist/{仓库主键}`）：页签（全部/我参与的/我创建的）、fork 上下文（首 tab 变「fork 自 X」） |
 | `src/pages/GroupList.tsx` | 仓库组列表（`/groups`） |
 | `src/pages/NewRepository.tsx` | 新建仓库（`/repositories/new`、`/groups/{组}/repositories/new`） |
@@ -276,3 +278,12 @@ Dockerfile（两阶段）
   **一行未改**。公开 API 与内部 API **不共用响应包络**：前者裸 JSON + `{"message","url"}`，
   后者仍是 `{request-id,code,message,data}`。令牌**只存 SHA-256**，明文仅创建时返回一次。
   令牌管理 UI 与内部端点、Release 功能**尚未实现**。
+
+- 2026-10-26：帮助界面补完 —— 新增站内**帮助中心 `/help`**（页头帮助菜单的落点由"全跳站外"
+  改为"站内优先"），并把公开 API 的接口说明补进文档中心（`doc/{zh-cn,en-us}/api/`，5 篇/语言）。
+  同批修掉两处与此相关的缺陷：①`/help` 若走兜底路由会以 **404 状态码**下发 SPA 壳，现改为
+  `httpapi.ServeSPA` 精确页面路由（200）；②公开 API 错误体的 `url` 原先指向 `/api/v1` 前缀本身
+  （只服务 JSON、浏览器访问 404 的死链），现指向 `/doc/cn/api/overview.md`。
+  站外地址口径由上游 `PGYER/codefever` 改为本仓库 `AidenX0704/codefever-next`（见 `web/src/config/helpLinks.ts`）。
+  未做（建议下一批）：公开 API 的端点仍未限制 HTTP 方法（`POST /api/v1/user` 也会返回 200），
+  文档按 `GET` 描述与实现存在偏差，最省事的修法是把路由改为 Go 1.22 的 `"GET /api/v1/user"` 模式。

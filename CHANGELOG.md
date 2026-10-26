@@ -102,8 +102,28 @@
     使「查看更多」的追加与跨页日期合并可被视觉验证。
   - 预览 mock（`web/scripts/serve-preview.mjs`）的 `repository/object` 响应补上
     真实后端本就返回的 `commit` 字段，文件页顶部卡片可被视觉验证覆盖。
+- **公开 API 错误体的 `url` 改为指向真实文档页**（`/doc/cn/api/overview.md`，
+  由 `backend/internal/httpapi/publicapi.DefaultDocPath` 定义）：此前拼成 `<站点>/api/v1`，
+  而该前缀只服务 JSON 端点，浏览器直接访问只会得到 404 —— 错误提示里等于给了一条死链。
+  英文文档页 `/doc/en/api/overview.md` 内容一一对应。
 
 ### 新增
+
+- **站内帮助中心 `/help`**：页头帮助菜单此前四项全跳站外，站内没有"遇到问题去哪儿"的落点。
+  新页面把**技术支持 / 提交反馈 / 为 CodeFever Next 贡献代码 / 关于 CodeFever Next**
+  四个入口收在一页，并新增「API 接口文档」区块（端点总览、令牌三种传法、错误体示例，均可一键复制）。
+  - 页头帮助菜单改为站内优先：帮助中心 → 文档中心 → API 接口文档，之后才是站外入口；
+  - 站外地址口径由上游 `PGYER/codefever` 改为本仓库 `AidenX0704/codefever-next`
+    （上游仓库与官网仍在「关于」里交代来源），地址集中在 `web/src/config/helpLinks.ts`；
+  - `GET /help` 由精确页面路由下发 SPA 壳（**200**）；走兜底路由会命中 CI 的 nopage 分支、
+    以 404 状态码下发壳，浏览器/爬虫会当成"页面不存在"；
+  - 新增通用组件 `components/unit/CodeBlock`（文档片段：等宽 + 语言标签 + 复制，无行号），
+    与面向仓库文件的 `CodeViewer` 分工，供后续设置页/文档类页面复用。
+
+- **文档中心新增「API 接口」章节（中英双语各 5 篇）**：`doc/{zh-cn,en-us}/api/` —
+  概览、认证与访问令牌、端点参考、错误与限制。内容以
+  `backend/internal/httpapi/publicapi/` 的实现为准，逐项写明 4 个端点的鉴权要求、
+  字段、状态码与「令牌管理 UI 尚未实现」等限制，避免使用者按猜测对接。
 
 - **公开 REST API `/api/v1`（新命名空间，与内部 `/api/*` 完全隔离）**：外部 CI / 脚本
   现在可以用 API 令牌访问 CodeFever，响应是**裸 JSON**、错误体是 `{"message","url"}`，

@@ -2,6 +2,8 @@ import { Suspense, lazy, useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import { logoCommunity } from '@/assets/images'
+import { HELP_LINKS } from '@/config/helpLinks'
+import { publicApiDocUrl } from '@/config/publicApi'
 import { plBell, plExit, plDraft, plHelp, plKey, plLocalization, plMemberAlt, plMerge, plRepository, psAddAlt, psCaretDown, psRepair, psRepositoryGroup } from '@/config/icons'
 import { useAppData } from '@/features/app-data/AppDataProvider'
 import { useI18n, useT } from '@/i18n'
@@ -12,13 +14,6 @@ import { SquareIconButton } from '@/components/unit/SquareIconButton'
 // 通知抽屉只在点铃铛时用，懒加载以免把它的代码（含通知接口）带进首屏。
 const NotificationDrawer = lazy(() => import('./NotificationDrawer').then((mod) => ({ default: mod.NotificationDrawer })))
 
-
-const HELP_LINKS = {
-  support: 'https://codefever.pgyer.com/community',
-  feedback: 'https://github.com/PGYER/codefever/blob/master/doc/zh-cn/contribute/bug_fix_issue.md',
-  contribute: 'https://github.com/PGYER/codefever',
-  about: 'https://codefever.pgyer.com/',
-} as const
 
 /**
  * 页头。
@@ -60,12 +55,18 @@ export function Header() {
     { key: 'new-merge-request', label: t('label.createMergeRequest'), onClick: () => navigate('/mergerequests/new') },
   ]
 
+  // 帮助菜单：站内落点优先（帮助中心回答"去哪儿"，文档中心回答"怎么用"），
+  // 站外链接只保留"求助 / 反馈 / 贡献"三件必须出站的事。
+  // 与旧版差异：旧版四项全部跳站外，站内没有帮助页；地址口径从上游 PGYER/codefever
+  // 改到本仓库（见 `config/helpLinks.ts` 的说明）。
   const helpItems: MenuItemSpec[] = [
-    { key: 'help', label: t('label.help'), onClick: () => window.open(`/doc/${lang === 'en-us' ? 'en' : 'cn'}`, '_blank') },
-    { key: 'support', label: t('label.support'), onClick: () => window.open(HELP_LINKS.support, '_blank') },
-    { key: 'feedback', label: t('label.feedback'), onClick: () => window.open(HELP_LINKS.feedback, '_blank') },
-    { key: 'contribute', label: t('label.contribute'), onClick: () => window.open(HELP_LINKS.contribute, '_blank'), dividerAfter: true },
-    { key: 'about', label: t('label.about'), onClick: () => window.open(HELP_LINKS.about, '_blank') },
+    { key: 'help-center', label: t('help.center'), onClick: () => navigate('/help') },
+    { key: 'docs', label: t('help.docs.title'), onClick: () => navigate(`/doc/${lang === 'en-us' ? 'en' : 'cn'}`) },
+    { key: 'api-docs', label: t('help.api.title'), onClick: () => navigate(publicApiDocUrl(lang)), dividerAfter: true },
+    { key: 'support', label: t('label.support'), onClick: () => window.open(HELP_LINKS.support, '_blank', 'noopener') },
+    { key: 'feedback', label: t('label.feedback'), onClick: () => window.open(HELP_LINKS.feedback, '_blank', 'noopener') },
+    { key: 'contribute', label: t('label.contribute'), onClick: () => window.open(HELP_LINKS.contribute, '_blank', 'noopener'), dividerAfter: true },
+    { key: 'about', label: t('label.about'), onClick: () => navigate('/help#about') },
   ]
 
   const languageItems: MenuItemSpec[] = [

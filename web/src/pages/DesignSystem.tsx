@@ -5,6 +5,7 @@ import { Avatar } from '@/components/unit/Avatar'
 import { Button } from '@/components/unit/Button'
 import { Card } from '@/components/unit/Card'
 import { Checkbox, Switch } from '@/components/unit/Choices'
+import { CodeBlock } from '@/components/unit/CodeBlock'
 import { useConfirm } from '@/components/unit/Confirm'
 import { CopyButton } from '@/components/unit/CopyButton'
 import { Dialog } from '@/components/unit/Dialog'
@@ -264,6 +265,11 @@ export default function DesignSystem() {
           <div style={{ fontWeight: 'bold' }}>卡片（hover 抬升阴影）</div>
           <div style={{ color: color.textLight }}>用于仓库卡片、统计卡片等列表项。</div>
         </Card>
+        <CodeBlock
+          code={'curl -H "Authorization: token $TOKEN" https://git.example.com/api/v1/user'}
+          language="bash"
+          copyMessage="示例命令已复制"
+        />
       </section>
 
       <section className="section">

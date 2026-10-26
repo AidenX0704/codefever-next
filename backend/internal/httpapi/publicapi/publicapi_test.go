@@ -100,9 +100,33 @@ func TestWriteErrorEnvelope(t *testing.T) {
 		t.Errorf("Content-Type = %q, want application/json; charset=utf-8", ct)
 	}
 	body := rec.Body.String()
-	want := `{"message":"缺少访问令牌","url":"https://localhost/api/v1"}`
+	want := `{"message":"缺少访问令牌","url":"https://localhost/doc/cn/api/overview.md"}`
 	if body != want {
 		t.Errorf("响应体 = %s, want %s", body, want)
+	}
+}
+
+// TestSetDocURL 锁定错误体文档地址的拼装规则。
+//
+// 文档地址必须落在**文档中心的 API 文档页**上：早先拼成站点根的 /api/v1，
+// 而那个前缀只服务 JSON 端点、浏览器访问是 404，等于错误提示里给了一条死链。
+func TestSetDocURL(t *testing.T) {
+	original := docsURL
+	t.Cleanup(func() { docsURL = original })
+
+	SetDocURL("https://git.example.com")
+	if docsURL != "https://git.example.com"+DefaultDocPath {
+		t.Errorf("docsURL = %q, want %q", docsURL, "https://git.example.com"+DefaultDocPath)
+	}
+	// 站点地址带尾斜杠时不能拼出双斜杠。
+	SetDocURL("https://git.example.com/")
+	if docsURL != "https://git.example.com"+DefaultDocPath {
+		t.Errorf("尾斜杠未收敛：docsURL = %q", docsURL)
+	}
+	// 空串表示"保持默认"，不能把地址拼成只有路径。
+	SetDocURL("")
+	if docsURL != "https://git.example.com"+DefaultDocPath {
+		t.Errorf("空串不应改写地址：docsURL = %q", docsURL)
 	}
 }
 
