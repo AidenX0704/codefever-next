@@ -21,7 +21,7 @@ curl -s -H "Authorization: token $TOKEN" "$API/api/v1/user"
 
 ```json
 {
-  "id": 7341916824063314155,
+  "id": 7341916824063314,
   "login": "giserxiao",
   "full_name": "giserxiao",
   "email": "dev@example.com",
@@ -43,7 +43,7 @@ curl -s -H "Authorization: token $TOKEN" "$API/api/v1/user/repos"
 ```json
 [
   {
-    "id": 3227920133129147716,
+    "id": 3227920133129147,
     "owner": "dev",
     "name": "hello-world",
     "full_name": "dev/hello-world",
@@ -100,20 +100,22 @@ curl -s "$API/api/v1/repos/dev/hello-world"
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `id` | 数字 | 由内部 32 位 hex 主键的 SHA-256 摘要前 8 字节推导，跨请求稳定 |
+| `id` | 数字 | 由内部 32 位 hex 主键的 SHA-256 摘要前 8 字节右移 11 位推导，跨请求稳定 |
 | `login` | 字符串 | 用户名 |
 | `full_name` | 字符串 | 当前实现与 `login` 同值 |
 | `email` | 字符串 | 账号邮箱 |
 | `avatar_url` | 字符串 | 头像地址，**可能为空串** |
 
-> `id` 是 64 位有符号整数，可能出现负值。请按整数原样处理，既不要当作自增序号，
-> 也不要假定它一定为正。
+> `id` 是一段**不透明**的标识：恒为非负整数，且不超过 JS 安全整数上限
+> （`9007199254740991`），因此 JavaScript 的 `Number` 能精确表示、可直接比较。
+> 但它**不是自增序号**，也不保证连续——请按标识符原样处理，不要从中推断顺序或数量。
+> 同一对象的 ID 在可见期内恒定；如将来确需扩容，会改用字符串 ID 并记入 `CHANGELOG.md`。
 
 ### 对象字段：仓库
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `id` | 数字 | 同上，由仓库主键的摘要前 8 字节推导，跨请求稳定 |
+| `id` | 数字 | 同上，由仓库主键推导，跨请求稳定 |
 | `owner` | 字符串 | 仓库组名；取不到所属组时**回退为仓库名** |
 | `name` | 字符串 | 仓库名 |
 | `full_name` | 字符串 | `owner/name` |

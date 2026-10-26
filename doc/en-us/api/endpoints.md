@@ -25,7 +25,7 @@ curl -s -H "Authorization: token $TOKEN" "$API/api/v1/user"
 
 ```json
 {
-  "id": 7341916824063314155,
+  "id": 7341916824063314,
   "login": "giserxiao",
   "full_name": "giserxiao",
   "email": "dev@example.com",
@@ -47,7 +47,7 @@ curl -s -H "Authorization: token $TOKEN" "$API/api/v1/user/repos"
 ```json
 [
   {
-    "id": 3227920133129147716,
+    "id": 3227920133129147,
     "owner": "dev",
     "name": "hello-world",
     "full_name": "dev/hello-world",
@@ -107,14 +107,18 @@ Possible errors:
 
 | Field | Type | Notes |
 |---|---|---|
-| `id` | number | Derived from the first 8 bytes of the SHA-256 digest of the 32-char hex primary key; stable across requests |
+| `id` | number | Derived from the first 8 bytes of the SHA-256 digest of the 32-char hex primary key, shifted right by 11 bits; stable across requests |
 | `login` | string | Username |
 | `full_name` | string | Currently identical to `login` |
 | `email` | string | Account email |
 | `avatar_url` | string | Avatar URL, **may be an empty string** |
 
-> `id` is a signed 64-bit integer and may be negative. Treat it as an opaque integer: it is not
-> an auto-increment sequence, and it is not guaranteed to be positive.
+> `id` is an **opaque** identifier: always a non-negative integer no larger than the JavaScript
+> safe-integer limit (`9007199254740991`), so a JS `Number` represents it exactly and it can be
+> compared directly. It is **not** an auto-increment sequence and is not guaranteed to be
+> contiguous — treat it as an opaque handle and do not infer ordering or counts from it. The ID
+> of an object is constant while it is visible; should the space ever need to grow, IDs become
+> strings and the change is recorded in `CHANGELOG.md`.
 
 ### Object fields: repository
 

@@ -150,7 +150,7 @@ func TestIsPublicAPIPath(t *testing.T) {
 	}
 }
 
-// TestUserNumericIDStable 锁定主键 → 数字 ID 的映射稳定性。
+// TestUserNumericIDStable 锁定主键 → 数字 ID 的映射稳定性与取值范围。
 //
 // 公开 API 用数字 ID 标识用户与仓库（与常见的自增 ID 结构对齐），
 // 而内部主键是 32 位 hex。映射必须对同一主键恒定，
@@ -171,5 +171,39 @@ func TestUserNumericIDStable(t *testing.T) {
 	// 空主键映射为 0。
 	if got := userNumericID(""); got != 0 {
 		t.Errorf("userNumericID(\"\") = %d, want 0", got)
+	}
+}
+
+// TestUserNumericIDRange 锁定 ID 的取值范围：恒非负，且不超过 JS 安全整数上限。
+//
+// 两条都踩过：
+//   - 直接 int64(uint64) 会把最高位当符号位，约一半对象拿到负 ID；
+//   - 64 位值超过 2^53-1 后，JavaScript 的 Number 无法精确表示 ——
+//     JSON.parse 会把 7341916824063314155 读成 7341916824063314000，
+//     调用方按 ID 比较或建索引就会错。
+func TestUserNumericIDRange(t *testing.T) {
+	const maxSafe = int64(1)<<53 - 1
+
+	// 用一批构造值覆盖各种字节形态（含全 1 的高位，足以触发符号位与精度问题）。
+	keys := []string{
+		"de7347a84f6236f06b0356ce6668c27d",
+		"0f9c1f4f7a2b4c3d8e5f60718293a4b5",
+		"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+		"ffffffffffffffffffffffffffffffff",
+		"00000000000000000000000000000001",
+	}
+	for _, key := range keys {
+		got := userNumericID(key)
+		if got < 0 {
+			t.Errorf("userNumericID(%q) = %d，出现了负值", key, got)
+		}
+		if got > maxSafe {
+			t.Errorf("userNumericID(%q) = %d 超过 JS 安全整数上限 %d", key, got, maxSafe)
+		}
+	}
+
+	// 固定一组已知映射，防止有人无意改动公式（改了会让所有对外 ID 变化）。
+	if got := userNumericID("de7347a84f6236f06b0356ce6668c27d"); got != 8779932756338603 {
+		t.Errorf("映射公式已变化：userNumericID = %d, want %d", got, int64(8779932756338603))
 	}
 }

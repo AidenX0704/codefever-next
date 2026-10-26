@@ -301,18 +301,23 @@ func (s *Server) repoBrief(ctx context.Context, repository *domain.Repository) R
 
 // userNumericID 把 32 位 hex 主键映射为一个稳定的数字 ID。
 //
-// 对外的公开 API 用自增数字 ID 标识用户与仓库；CodeFever 内部全程用 32 位 hex 主键。
-// 这里对**整个主键**取 SHA-256，再取前 8 字节解释成 int64，保证：
+// 对外的公开 API 用数字 ID 标识用户与仓库；CodeFever 内部全程用 32 位 hex 主键。
+// 这里对**整个主键**取 SHA-256，取前 8 字节后**右移 11 位**，保证：
 //   - 同一主键恒得同一数字（可跨请求稳定引用）；
 //   - 熵来自完整主键而非前缀 —— 只取前缀会让"仅末位不同"的主键碰撞；
-//   - 数值不溢出 int64（直接解释 8 字节，不做算术）。
+//   - **恒为非负**：直接 int64(uint64) 会把最高位当符号位，约一半对象拿到负 ID；
+//   - **落在 JS 安全整数内**：右移 11 位后最大 2^53-1 = 9007199254740991，
+//     JavaScript 的 Number 能精确表示（超过就会在 JSON.parse 里被四舍五入 ——
+//     实测 7341916824063314155 → 7341916824063314000，调用方拿 ID 做比较或建索引
+//     会直接错）。
 //
-// 64 位数值对公开 API 而言绰绰有余：即使有 10 亿个对象，
-// 碰撞概率也在 10⁻⁸ 量级以下。
+// 53 位熵（≈9.0e15）对自托管实例绰绰有余：按生日问题估算，100 万对象的碰撞概率
+// 约 5.6e-5，1000 万对象约 0.56%；而 CodeFever 的仓库/用户数量级远低于此。
+// 若将来确实需要更大空间，正确的做法是把 ID 改成字符串而不是放宽到这个上限之外。
 func userNumericID(key string) int64 {
 	if key == "" {
 		return 0
 	}
 	sum := sha256.Sum256([]byte(key))
-	return int64(binary.BigEndian.Uint64(sum[:8]))
+	return int64(binary.BigEndian.Uint64(sum[:8]) >> 11)
 }
