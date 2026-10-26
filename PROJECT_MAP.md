@@ -9,7 +9,7 @@
 - 废弃内容**只标注不删除**（`（已废弃 YYYY-MM-DD：原因）` / `（已迁移至 X）`）；
 - 末尾的「人工备注」由人维护，代理只可追加，不得重写既有内容。
 
-> 最后核对：2026-10-24（性能整改落地后）
+> 最后核对：2026-10-25（公开 API `/api/v1` 与访问令牌体系落地后）
 
 ---
 
@@ -55,6 +55,7 @@
 | 包 | 职责 |
 |---|---|
 | `httpapi` | HTTP 服务器装配、路由、中间件链（recover → log → limit → normalize）、API 分发、**SPA 壳下发**（`spa.go`）。页面模板层 `pages.go` / `templates/` / `pages_test.go` **已删除 2026-10-24**（前端重写） |
+| `httpapi/publicapi` | **公开 REST API `/api/v1`**（2026-10-25 新增）：面向外部 CI / 脚本，与内部 `/api/*` **完全隔离** —— 自建 mux + `Wrap()` 前置分流、裸 JSON 响应、错误体 `{"message","url"}`、令牌鉴权（令牌 ≡ 用户）、私有资源越权返回 **404**（不泄露存在性）。**不复用 `contract.Envelope`**（PHP 兼容契约，123 条基线锁定）。 |
 | `contract` | 请求解析（JSON / form / multipart）、PHP 兼容的错误码与响应信封 |
 | `handlers` | 各域 HTTP handler（user / admin / group / repository / internal / login / webvitals / doc） |
 | `repo` | 数据访问层；事务封装（`WithTx`）、批量查询、保留期清理 |
@@ -93,6 +94,28 @@ nginx (vhost-go.conf-template)
                       ├─ 动作查找（未移植动作 → JSON 0x0105）
                       └─ handler → repo → MySQL
 ```
+
+### 4.1.1 公开 API `/api/v1`（2026-10-25 新增，与 4.1 并行且**互不影响**）
+
+```
+请求 /api/v1/**
+  └─ httpapi.Server.Handler()
+       └─ publicapi.Router.Wrap(handler)      ← **在主 mux 之前**分流
+            ├─ 路径不是 /api/v1/**  → 透传给内部主 mux（4.1 的链路，逐字不变）
+            └─ 路径是 /api/v1/**   → 公开 API 自建 mux
+                 ├─ authenticate / optionalUser   （Authorization: token <明文> | Bearer | ?access_token=）
+                 │    └─ repo.AccessTokenRepo.BySHA256（**只存 SHA-256**）→ 令牌 ≡ 用户
+                 ├─ canReadRepo / resolveRepo    （私有资源越权 → **404**，不是 403）
+                 └─ 裸 JSON 响应 / 错误体 {"message","url"}   （**不复用 contract.Envelope**）
+```
+
+> **为什么分流在主 mux 之前**：主 mux 已有 `/api/{ctrl}/{action}` 通配路由，
+> 再注册 `/api/v1/` 会构成 Go `ServeMux` 的**歧义模式**（两者都能匹配
+> `/api/v1/action` 且谁都不比谁更具体）→ **进程启动即 panic**。
+> 内部 `/api/*` 是 PHP 兼容契约载体、不可移除，故公开 API 只能自建 mux。
+>
+> `normalizeAPIPath` 另有 `publicapi.IsPublicAPIPath(path)` 豁免，
+> 属**纵深防御**（分流在截断之外，公开路径本就不会被截断）。
 
 ### 4.2 Git over HTTP
 
@@ -133,7 +156,7 @@ handler（业务写）
 | `src/theme/theme.css` | **全仓库唯一的视觉字面值来源**（颜色/间距/圆角/阴影/字号），逐项抄自旧 `@pgyer/mui-theme-preset` 与 `theme1.js`；另有 `--cf-field-surface`（**输入区表面色的唯一来源**，2026-10-25 新增，用于中和 Chrome 自动填充的 UA 蓝底并按变体给出正确盖色） |
 | `src/theme/tokens.ts` | 令牌的类型化引用 + `space(n)`（等价旧 `theme.spacing`） |
 | `src/theme/global.css` | 全局基础样式与工具类（对应旧 `App.styl`） |
-| `src/components/unit/` | 自研组件库（磁盘上 **27** 个目录）：Button / IconButton / SquareIconButton / Icon / TextField / SelectField / Choices / Form / Table(+DataTable/Pagination) / Dialog / Confirm / Dropdown / Tabs / Tooltip / Toast / Avatar / Tag / Marker / Card / Loading / EmptyState / CopyButton / AppLink / FormattedTime / CodeViewer / DiffViewer（文件级 diff：汇总条 + inline·side-by-side 布局切换 + 逐文件折叠 + 复制路径 / 查看 @hash / 展开完整文件）/ FilterBar（页签+搜索+排序的工具条，分支·标签·活动三处共用）。⚠️ `TextareaField` / `Checkbox` / `Switch` **尚未实现**（此前清单误列，2026-10-25 校正），Release / Issue 表单落地前须先补齐（见 `docs/GOGS_PARITY_DEVELOPMENT_PLAN.md` R13） |
+| `src/components/unit/` | 自研组件库（磁盘上 **27** 个目录）：Button / IconButton / SquareIconButton / Icon / TextField / SelectField / Choices / Form / Table(+DataTable/Pagination) / Dialog / Confirm / Dropdown / Tabs / Tooltip / Toast / Avatar / Tag / Marker / Card / Loading / EmptyState / CopyButton / AppLink / FormattedTime / CodeViewer / DiffViewer（文件级 diff：汇总条 + inline·side-by-side 布局切换 + 逐文件折叠 + 复制路径 / 查看 @hash / 展开完整文件）/ FilterBar（页签+搜索+排序的工具条，分支·标签·活动三处共用）。⚠️ `TextareaField` / `Checkbox` / `Switch` **尚未实现**（此前清单误列，2026-10-25 校正），Release / Issue 表单落地前须先补齐 |
 | `src/components/layout/` | 外壳布局：NotificationDrawer（通知抽屉，四个分类 + 已读/清空）、AppShell（固定页头 + 白底内容区）、Header（仓库/组/新建/语言/帮助/管理后台/用户菜单）、RepositoryLayout（仓库上下文外壳）、SettingsLayout（个人设置外壳）、AdminLayout（管理后台外壳）、Sidebar（左侧上下文导航，可折叠） |
 | `src/components/view/` | 页面级组件（按业务域，逐批落地）：`auth/` = AuthLayout + 认证页样式（批 1）；`unit/` = RepositoryRow / GroupCard / list.css（批 2） |
 | `src/components/view/unit/` | 业务域共用件：`RepositoryRow`、`GroupCard`、`CommitRow`、`MembersManager`（仓库成员与组成员共用）、`AdvancedSettings`（仓库/组高级页共用）、`ActivityFeed`（41 个活动码的表驱动渲染）、`MergeRequestRow`（MR 行：标题/状态徽标/目标仓库名/分支链接/最后提交人/编辑于/评审人组/更新时间）、`MergeRequestToolbar`（MR 页签+搜索+排序+主操作）、`MergeRequestListBody`（MR 行列表+空态+查看更多）、`MergeRequestReviewers`（评审人头像组+已/未评审角标）、`AdminMembersDialog`（后台组/仓库成员弹窗）、`SettingsNotificationMatrix`（通知矩阵：组+仓库+角色徽标）、`RepositoryHeader`（仓库头：Fork/克隆地址/6 项计数）、`RefListView`（分支·标签列表共用）、`ObjectViewer`（文件内容富视图）、`MarkdownView`、`RepositoryEmpty`（空仓库引导）、`CommitRefs`（父提交+包含该提交的分支/标签）；样式集中在 `list.css` / `commit-row.css` / `merge-request.css` / `repository.css` |
@@ -190,13 +213,15 @@ handler（业务写）
 - 当前迁移：`001_sessions`、`002_events`、`003_events_lease`、
   `004_perf_index_users`、`005_perf_index_events`、`006_perf_index_members`、
   `007_perf_index_repositories`、`008_perf_index_notification`、
-  `009_perf_index_activity_rule`。
+  `009_perf_index_activity_rule`、`010_access_tokens`。
 - 关键表：`cc_users`、`cc_sessions`、`cc_repositories`、`cc_groups`、
   `cc_group_members`、`cc_repository_members`、`cc_merge_requests`、
   `cc_activities`、`cc_events`、`cc_notification_content`、
   `cc_notification_users`、`cc_notification_refuse`、
   `cc_repository_webhook_{s,events,logs}`、`cc_proteced_branch_rules`
-  （表名拼写为历史遗留，勿改）。
+  （表名拼写为历史遗留，勿改）、`cc_access_tokens`
+  （**公开 API 访问令牌**，2026-10-25 新增；**只存 SHA-256 摘要，不存明文**，
+  `at_scope` 列预留但第一版不实现 —— 令牌 ≡ 用户）。
 - 保留期：`internal/repo/retention.go` + `codefever-api` 的每日任务；
   事件（已处理 30 天 / 死信 60 天，**待处理与处理中永不删**）、已读站内信
   90 天 + 孤儿内容行、webhook 日志 90 天；`cc_activities` 默认不清理。
@@ -245,3 +270,9 @@ Dockerfile（两阶段）
   Chrome / Edge 自动填充的 UA 强制蓝底（此前多邮箱页邮件+密码框会出现
   「文字底部一条蓝带、输入区被割裂成三段」）。影响**全站所有输入框**，
   修复落在组件层而非单个页面。
+
+- 2026-10-25：新增**公开 REST API `/api/v1`** 与**访问令牌体系**（见 §3 `httpapi/publicapi`
+  行、§4.1.1 链路图、§6 `cc_access_tokens`）。内部 `/api/*`（PHP 兼容契约，123 条基线）
+  **一行未改**。公开 API 与内部 API **不共用响应包络**：前者裸 JSON + `{"message","url"}`，
+  后者仍是 `{request-id,code,message,data}`。令牌**只存 SHA-256**，明文仅创建时返回一次。
+  令牌管理 UI 与内部端点、Release 功能**尚未实现**。

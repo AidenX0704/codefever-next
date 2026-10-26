@@ -120,6 +120,24 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 
 	srv := httpapi.New(cfg, sessions, users, logger)
 
+	// 公开 API（/api/v1）。
+	//
+	// 与内部 /api/* 家族完全隔离：不同路径前缀、不同响应信封、
+	// 不同鉴权方式（访问令牌 vs 会话 Cookie）。
+	//
+	// 令牌表 cc_access_tokens 由 010_access_tokens.sql 迁移创建；
+	// 令牌只存 SHA-256，明文仅在创建时返回一次。
+	//
+	// 站点 host 取自配置，用于拼出公开 API 里的仓库 HTML / clone 地址。
+	httpapi.WithPublicAPI(
+		users,
+		repo.NewRepositoryRepo(sqlDB),
+		repo.NewAccessTokenRepo(sqlDB),
+		repo.NewAccessRepo(sqlDB),
+		repo.NewGroupRepo(sqlDB),
+		cfg.SiteConfig().Host,
+	)(srv)
+
 	// SPA 壳（新前端切换，批 7）。
 	//
 	// 解析顺序（第一个存在的即采用）：

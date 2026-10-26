@@ -105,6 +105,31 @@
 
 ### 新增
 
+- **公开 REST API `/api/v1`（新命名空间，与内部 `/api/*` 完全隔离）**：外部 CI / 脚本
+  现在可以用 API 令牌访问 CodeFever，响应是**裸 JSON**、错误体是 `{"message","url"}`，
+  不再暴露内部 RPC 的 `{request-id,code,message,data}` 信封。
+  - **首批端点**：`GET /api/v1/user`（令牌必需）、`GET /api/v1/user/repos`（令牌必需）、
+    `GET /api/v1/users/{username}`（令牌可选）、`GET /api/v1/repos/{owner}/{repo}`（令牌可选）；
+  - **`{owner}` 同时接受用户名与仓库组名**（CodeFever 仓库挂在组下）；
+  - **私有仓库越权返回 404 而不是 403**，避免泄露私有资源的存在性；
+  - **为什么要新开命名空间**：现有 `/api/*` 是 PHP 兼容契约（123 条快照基线），
+    动词式路径 + multipart 编码 + 固定信封都是为自家 SPA 定制的；
+    改造它等于重写 111 个端点并破坏基线，因此公开 API 只复用 repo 层与权限判定，
+    响应包络、鉴权方式、分页语义全部自建；
+  - **路由隔离方式**：公开 API **自建 mux** 并在进入主 mux **之前**分流 ——
+    主 mux 上的 `/api/{ctrl}/{action}` 与 `/api/v1/` 在 Go 的 `ServeMux` 下构成
+    歧义模式（**注册即 panic**），因此公开 API 不能挂在主 mux 上；
+- **API 访问令牌体系**：新增 `cc_access_tokens` 表（迁移
+  `backend/internal/db/migrations/010_access_tokens.sql`）与令牌仓储。
+  - **库里只存 SHA-256 摘要，不存明文**；`domain.AccessToken` 类型**刻意不含明文字段**，
+    从类型层面保证明文无法被持久化；明文仅在创建时返回一次；
+  - 令牌采用 **令牌 ≡ 用户** 模型（`at_scope` 列预留，第一版不实现 scope）；
+  - 令牌明文为 32 字节随机数转 base64url（43 字符），支持
+    `Authorization: token <明文>` / `Bearer <明文>` / `?access_token=` 三种传法；
+  - 吊销只允许操作**自己名下**的令牌，吊销后立即失效；
+  - 吊销、列表、重名检测等接口与集成用例已就绪；**令牌管理 UI 与内部端点
+    排在 Phase 1**，本轮**尚未**提供。
+
 - **新前端骨架 `web/`（React 19 + TypeScript + Vite）**：与旧前端并存的第二批前端，
   按 `docs/FRONTEND_REWRITE_PLAN.md` 分批替代 `www/view`（React 17 + webpack 4）与
   `www/static`（jQuery/Bootstrap 的 SSR 页面资源）。本批只搭骨架，不影响线上：

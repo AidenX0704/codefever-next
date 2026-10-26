@@ -54,6 +54,22 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (*domain.User, 
 	return scanUser(row)
 }
 
+// GetByName 按用户名读取用户。
+//
+// 用户名在 cc_users.u_name，公开 API 的 /api/v1/users/{username} 用它寻址
+// （与公开 API 的 :username 路径段一致）。
+//
+// 与 GetByEmail 一致，过滤软删除（u_status = 4）的账号。
+func (r *UserRepo) GetByName(ctx context.Context, name string) (*domain.User, error) {
+	if name == "" {
+		return nil, ErrNotFound
+	}
+	row := r.db.QueryRowContext(ctx,
+		"SELECT "+userColumns+" FROM cc_users WHERE u_name = ? AND u_status <> ? LIMIT 1",
+		name, domain.CommonStatusDelete)
+	return scanUser(row)
+}
+
 // GetByTel 按手机号读取用户。
 //
 // 逐字对应 application/models/user_model.php:116-129：

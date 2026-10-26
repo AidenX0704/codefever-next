@@ -1,0 +1,151 @@
+package publicapi
+
+import (
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+// TestBearerToken 锁定访问令牌的提取规则。
+//
+// 支持两种头写法（并额外兼容 GitHub 客户端），
+// 以及 query 参数（部分 CI 场景无法设置请求头）。
+func TestBearerToken(t *testing.T) {
+	cases := []struct {
+		name  string
+		build func() *http.Request
+		want  string
+	}{
+		{
+			name: "Token 头",
+			build: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/api/v1/user", nil)
+				r.Header.Set("Authorization", "token abc123")
+				return r
+			},
+			want: "abc123",
+		},
+		{
+			name: "Bearer 头",
+			build: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/api/v1/user", nil)
+				r.Header.Set("Authorization", "Bearer abc123")
+				return r
+			},
+			want: "abc123",
+		},
+		{
+			name: "大小写不敏感的前缀",
+			build: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/api/v1/user", nil)
+				r.Header.Set("Authorization", "TOKEN abc123")
+				return r
+			},
+			want: "abc123",
+		},
+		{
+			name: "query 参数",
+			build: func() *http.Request {
+				return httptest.NewRequest(http.MethodGet, "/api/v1/user?access_token=abc123", nil)
+			},
+			want: "abc123",
+		},
+		{
+			name: "无凭据",
+			build: func() *http.Request {
+				return httptest.NewRequest(http.MethodGet, "/api/v1/user", nil)
+			},
+			want: "",
+		},
+		{
+			name: "不支持的前缀",
+			build: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/api/v1/user", nil)
+				r.Header.Set("Authorization", "Basic abc123")
+				return r
+			},
+			want: "",
+		},
+		{
+			name: "缺少令牌部分",
+			build: func() *http.Request {
+				r := httptest.NewRequest(http.MethodGet, "/api/v1/user", nil)
+				r.Header.Set("Authorization", "token")
+				return r
+			},
+			want: "",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := BearerToken(c.build()); got != c.want {
+				t.Errorf("BearerToken() = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// TestWriteErrorEnvelope 锁定公开 API 的错误体形态。
+//
+// 公开 API **不复用**内部 /api/* 的 {request-id,code,message,data} 信封，
+// 而是 {message,url} 形态 —— 这条断言就是防止有人误改回去。
+func TestWriteErrorEnvelope(t *testing.T) {
+	rec := httptest.NewRecorder()
+	WriteError(rec, http.StatusUnauthorized, "缺少访问令牌")
+
+	if rec.Code != http.StatusUnauthorized {
+		t.Errorf("状态码 = %d, want 401", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json; charset=utf-8" {
+		t.Errorf("Content-Type = %q, want application/json; charset=utf-8", ct)
+	}
+	body := rec.Body.String()
+	want := `{"message":"缺少访问令牌","url":"https://localhost/api/v1"}`
+	if body != want {
+		t.Errorf("响应体 = %s, want %s", body, want)
+	}
+}
+
+// TestIsPublicAPIPath 锁定公开 API 路径前缀判定。
+func TestIsPublicAPIPath(t *testing.T) {
+	cases := map[string]bool{
+		"/api/v1":                  true,
+		"/api/v1/":                 true,
+		"/api/v1/user":             true,
+		"/api/v1/repos/owner/repo": true,
+		"/api/user/info":           false,
+		"/api/v1x/user":            false,
+		"/apiv1/internal/action":   false,
+		"/api":                     false,
+		"/user/login":              false,
+	}
+	for path, want := range cases {
+		if got := IsPublicAPIPath(path); got != want {
+			t.Errorf("IsPublicAPIPath(%q) = %v, want %v", path, got, want)
+		}
+	}
+}
+
+// TestUserNumericIDStable 锁定主键 → 数字 ID 的映射稳定性。
+//
+// 公开 API 用数字 ID 标识用户与仓库（与常见的自增 ID 结构对齐），
+// 而内部主键是 32 位 hex。映射必须对同一主键恒定，
+// 否则同一仓库在不同请求里会得到不同的 ID。
+func TestUserNumericIDStable(t *testing.T) {
+	key := "de7347a84f6236f06b0356ce6668c27d"
+	first := userNumericID(key)
+	if first != userNumericID(key) {
+		t.Error("userNumericID 对同一主键返回了不同的值")
+	}
+	if first == 0 {
+		t.Error("userNumericID 返回 0，映射失败")
+	}
+	// 不同主键应得到不同 ID（含"仅末位不同"这一最易碰撞的情形）。
+	if userNumericID("de7347a84f6236f06b0356ce6668c27e") == first {
+		t.Error("不同主键映射到了相同的数字 ID")
+	}
+	// 空主键映射为 0。
+	if got := userNumericID(""); got != 0 {
+		t.Errorf("userNumericID(\"\") = %d, want 0", got)
+	}
+}

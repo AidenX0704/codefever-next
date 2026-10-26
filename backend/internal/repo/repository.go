@@ -893,6 +893,60 @@ func (r *RepositoryRepo) ProtectedBranchRules(ctx context.Context, rKey string) 
 	return out, rows.Err()
 }
 
+// GetByGroupAndName 按「仓库组名 + 仓库名」读取仓库。
+//
+// 公开 API 的 /api/v1/repos/{owner}/{repo} 用它寻址 —— CodeFever 的仓库
+// 挂在仓库组下，对外的 owner 段语义上就是「组名」（与常见的用户名段对齐）。
+//
+// 查不到时返回 (nil, nil) —— 调用方据此区分"不存在"与"查询出错"。
+func (r *RepositoryRepo) GetByGroupAndName(ctx context.Context, groupName, repoName string) (*domain.Repository, error) {
+	if groupName == "" || repoName == "" {
+		return nil, nil
+	}
+	row := r.db.QueryRowContext(ctx,
+		"SELECT "+repoCols(repositoryColumnsTpl, "cc_repositories")+
+			" FROM cc_repositories"+
+			" INNER JOIN cc_groups ON cc_groups.g_key = cc_repositories.g_key"+
+			" WHERE cc_groups.g_name = ? AND cc_repositories.r_name = ?"+
+			" AND cc_repositories.r_status = ? AND cc_groups.g_status = ? LIMIT 1",
+		groupName, repoName, domain.CommonStatusNormal, domain.CommonStatusNormal)
+	repository, err := scanRepository(row)
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return repository, nil
+}
+
+// GetByOwnerAndName 按「用户名 + 仓库名」读取仓库。
+//
+// 与 GetByGroupAndName 对称：公开 API 的 owner 段既可以是组名，也可以是
+// 仓库所有者的用户名 —— 两种寻址方式都接受，兼容性最好。
+//
+// 查不到时返回 (nil, nil)。
+func (r *RepositoryRepo) GetByOwnerAndName(ctx context.Context, ownerName, repoName string) (*domain.Repository, error) {
+	if ownerName == "" || repoName == "" {
+		return nil, nil
+	}
+	row := r.db.QueryRowContext(ctx,
+		"SELECT "+repoCols(repositoryColumnsTpl, "cc_repositories")+
+			" FROM cc_repositories"+
+			" INNER JOIN cc_users ON cc_users.u_key = cc_repositories.u_key"+
+			" WHERE cc_users.u_name = ? AND cc_repositories.r_name = ?"+
+			" AND cc_repositories.r_status = ? AND cc_users.u_status <> ? LIMIT 1",
+		ownerName, repoName, domain.CommonStatusNormal, domain.CommonStatusDelete)
+	repository, err := scanRepository(row)
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return repository, nil
+}
+
 // ---------------------------------------------------------------------------
 // 扫描与工具
 // ---------------------------------------------------------------------------

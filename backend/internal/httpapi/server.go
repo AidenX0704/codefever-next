@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"codefever-next/backend/internal/config"
+	"codefever-next/backend/internal/httpapi/publicapi"
 	"codefever-next/backend/internal/repo"
 	"codefever-next/backend/internal/session"
 )
@@ -86,6 +87,32 @@ type Server struct {
 	// pageRoutesCI 是 pageRoutes 的小写索引，用于让 /user/LOGIN 这类
 	// 大小写变体命中同一个页面处理器。
 	pageRoutesCI map[string]http.HandlerFunc
+
+	// publicRouter 是公开 API（/api/v1）的路由表。
+	//
+	// 它与内部 /api/* 家族**完全隔离**：不同的路径前缀、不同的响应信封、
+	// 不同的鉴权方式（令牌 vs 会话 Cookie）。
+	// 未装配时（测试或未启用）保持 nil，请求会落到兜底 404。
+	publicRouter *publicapi.Router
+}
+
+// PublicAPIOption 是 Server 的可选依赖。
+type PublicAPIOption func(*Server)
+
+// WithPublicAPI 装配公开 API（/api/v1）。
+//
+// 依赖齐备才装配 —— 缺任何一个仓储都不装配（公开 API 直接 404），
+// 避免运行期出现"路由存在但鉴权必然失败"的半可用状态。
+func WithPublicAPI(users *repo.UserRepo, repos *repo.RepositoryRepo, tokens *repo.AccessTokenRepo,
+	access *repo.AccessRepo, groups *repo.GroupRepo, siteURL string) PublicAPIOption {
+	return func(s *Server) {
+		if users == nil || repos == nil || tokens == nil || access == nil || groups == nil {
+			return
+		}
+		api := publicapi.NewServer(users, repos, tokens, access, groups, siteURL)
+		publicapi.SetDocURL(siteURL)
+		s.publicRouter = publicapi.NewRouter(api)
+	}
 }
 
 // New 创建 HTTP 服务。
@@ -169,6 +196,17 @@ func (s *Server) Handler() http.Handler {
 	// 内部网关回调：/apiv1/internal/<action>。
 	mux.HandleFunc("/apiv1/internal/{action}", s.handleInternal)
 
+	// 公开 API：/api/v1/ 子树。
+	//
+	// 【为什么用 Wrap 而不是 mux.Handle("/api/v1/", ...)】
+	//
+	// Go 的 ServeMux 拒绝歧义模式：主 mux 已有 /api/{ctrl}/{action}，
+	// 再注册 /api/v1/ 会 panic（两者都能匹配 "/api/v1/action"，
+	// 但谁都不比谁更具体）。因此公开 API 在**进入主 mux 之前**分流，
+	// 由它自己的 mux 处理 —— 主 mux 完全看不到 /api/v1 请求。
+	//
+	// 注意与 /apiv1/internal（内部网关回调前缀）无关，两者不可混用。
+
 	// 健康检查。
 	mux.HandleFunc("/healthz", s.handleHealth)
 
@@ -184,7 +222,17 @@ func (s *Server) Handler() http.Handler {
 	// （控制器存在 → 控制器不存在 → 404 HTML 页），见 web.go。
 	mux.HandleFunc("/", s.handleFallback)
 
-	return s.recoverMiddleware(s.logMiddleware(limitRequestBody(normalizeAPIPath(mux))))
+	// 公开 API 在进入主 mux **之前**分流（原因见上方注释）。
+	//
+	// 分流放在 normalizeAPIPath **外面**，这样公开 API 的多段路径
+	// 连段数截断都不会碰到 —— 双保险，避免将来有人调整中间件顺序时
+	// 又把公开 API 打成静默 404。
+	handler := http.Handler(mux)
+	if s.publicRouter != nil {
+		handler = s.publicRouter.Wrap(handler)
+	}
+
+	return s.recoverMiddleware(s.logMiddleware(limitRequestBody(normalizeAPIPath(handler))))
 }
 
 // normalizeAPIPath 复刻 CodeIgniter URI 的段处理：
@@ -194,9 +242,16 @@ func (s *Server) Handler() http.Handler {
 //
 // 不处理的话，`/api/user/info/` 会落到兜底 HTML 404，而 PHP 返回 200 JSON。
 // 只改路径，不碰 query 与大小写（控制器名仍区分大小写）。
+//
+// 【公开 API 豁免】/api/v1/ 前缀**不做段数截断**。
+//
+// 截断规则来自 PHP 侧「控制器 + 动作」两段式路由，对公开 API 不适用：
+// /api/v1/repos/{owner}/{repo} 有 4 段以上，若被截到 3 段就会变成
+// /api/v1/repos，被当成 controller=v1 / action=repos 分发，最终静默 404。
+// 公开 API 由独立的子树路由接管（见 publicapi.Router），段数不受限制。
 func normalizeAPIPath(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/api/") {
+		if strings.HasPrefix(r.URL.Path, "/api/") && !publicapi.IsPublicAPIPath(r.URL.Path) {
 			segments := make([]string, 0, 3)
 			for _, seg := range strings.Split(r.URL.Path, "/") {
 				if seg != "" {
