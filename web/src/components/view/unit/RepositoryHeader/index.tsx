@@ -11,6 +11,7 @@ import { Tabs } from '@/components/unit/Tabs'
 import { Tag } from '@/components/unit/Tag'
 import { TextField } from '@/components/unit/TextField'
 import { plFork, plMerge, psBranch, psCommit, psFile, psMembers, psTag } from '@/config/icons'
+import { cloneUrls } from '@/helpers/cloneUrl'
 import { formatBytes } from '@/helpers/format'
 import { useT } from '@/i18n'
 
@@ -43,11 +44,9 @@ export function RepositoryHeader({ config, user, forkSource }: RepositoryHeaderP
   const [cloneOpen, setCloneOpen] = useState(false)
   const [cloneTab, setCloneTab] = useState<CloneTab>('https')
 
-  const host = user?.host ?? ''
-  const sshHost = user?.ssh || (host ? `git@${host.replace(/^https?:\/\//, '')}` : '')
-  const repoPath = `${config.group.name}/${config.repository.name}.git`
-  const cloneUrl = cloneTab === 'https' ? `${host}/${repoPath}` : `${sshHost}${repoPath}`
-
+  // 克隆地址的拼装口径已上收到 `helpers/cloneUrl`（首页也要用同一份），这里只选协议。
+  const urls = cloneUrls(user, config.group.name, config.repository.name)
+  const cloneUrl = cloneTab === 'https' ? urls.https : urls.ssh
   return (
     <div className="repo-head">
       <div className="repo-head__top">

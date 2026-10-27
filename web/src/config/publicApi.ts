@@ -10,6 +10,8 @@
  * **新增/删除端点时必须同步本文件与 `doc/{zh-cn,en-us}/api/`。**
  */
 
+import { docUrl } from '@/helpers/docUrl'
+
 /** 端点的鉴权要求。 */
 export type PublicApiAuth = 'required' | 'optional' | 'public'
 
@@ -39,7 +41,7 @@ export const PUBLIC_API_ENDPOINTS: ReadonlyArray<PublicApiEndpoint> = [
  */
 export const PUBLIC_API_DOC_PATH = 'api/overview.md'
 
-/** 按界面语言拼出完整 API 文档的站内地址。 */
+/** 按界面语言拼出完整 API 文档的站内地址（语言段映射复用 `helpers/docUrl`）。 */
 export function publicApiDocUrl(lang: 'zh-cn' | 'en-us'): string {
-  return `/doc/${lang === 'en-us' ? 'en' : 'cn'}/${PUBLIC_API_DOC_PATH}`
+  return docUrl(lang, PUBLIC_API_DOC_PATH)
 }
