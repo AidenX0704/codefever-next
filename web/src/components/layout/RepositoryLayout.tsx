@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { Outlet, useParams } from 'react-router'
 
 import { PageLoading } from '@/components/unit/Loading'
 import { repositoryDrawerEntries } from '@/config/drawer'
 import { useAppData } from '@/features/app-data/AppDataProvider'
+import { recordRecentRepository } from '@/helpers/recentRepos'
 import { RepositoryProvider, useRepository } from '@/features/repository/RepositoryProvider'
 import { RepositoryHeader } from '@/components/view/unit/RepositoryHeader'
 import NotFound from '@/pages/NotFound'
@@ -12,6 +14,16 @@ import { Sidebar } from './Sidebar'
 function RepositoryFrame() {
   const { config, loading, notFound } = useRepository()
   const { user, repositories } = useAppData()
+
+  // 记录"最近访问"（首页侧栏用）。放在外壳里而不是文件页：进仓库的任意子页
+  // （文件 / 提交 / 分支 / 合并请求 / 设置）都算"访问过这个仓库"。
+  const visitedGroup = config?.group.name
+  const visitedRepository = config?.repository.name
+  useEffect(() => {
+    if (visitedGroup && visitedRepository) {
+      recordRecentRepository(visitedGroup, visitedRepository)
+    }
+  }, [visitedGroup, visitedRepository])
 
   if (notFound) {
     return <NotFound />

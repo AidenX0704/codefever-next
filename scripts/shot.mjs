@@ -34,6 +34,7 @@ const VIEWPORTS = [
 
 // 页面：相对路径 + 稳定 slug
 const PAGES = [
+  ['/home', 'home'],
   ['/repositories', 'repositories'],
   ['/rootteam/demorepo', 'repo-detail'],
   ['/rootteam/demorepo/files/master', 'repo-files'],

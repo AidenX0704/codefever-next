@@ -6,7 +6,6 @@ package handlers
 import (
 	"context"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -809,24 +808,8 @@ func (h *RepositoryHandler) activities(ctx context.Context, req *httpapi.Request
 	}
 
 	out := make([]any, 0, len(list))
-	for _, a := range list {
-		view := domain.RepositoryActivityView{
-			ID:         a.Key,
-			Type:       a.Type,
-			Creator:    a.UKey,
-			Group:      a.GroupKey,
-			Repository: a.Repository,
-			Time:       phpTimeOf(a.Created),
-		}
-		if a.Data != nil {
-			var content any
-			if json.Unmarshal([]byte(*a.Data), &content) == nil {
-				view.Content = content
-			} else {
-				view.Content = nil
-			}
-		}
-		out = append(out, view)
+	for i := range list {
+		out = append(out, activityView(&list[i]))
 	}
 	return out, nil
 }

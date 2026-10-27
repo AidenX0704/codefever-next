@@ -9,7 +9,7 @@
 - 废弃内容**只标注不删除**（`（已废弃 YYYY-MM-DD：原因）` / `（已迁移至 X）`）；
 - 末尾的「人工备注」由人维护，代理只可追加，不得重写既有内容。
 
-> 最后核对：2026-10-26（帮助中心 `/help` 与公开 API 文档落地后）
+> 最后核对：2026-10-27（员工首页 `/home` 与聚合端点 `/api/home/overview` 落地后）
 
 ---
 
@@ -58,8 +58,8 @@
 | `httpapi` | HTTP 服务器装配、路由、中间件链（recover → log → limit → normalize）、API 分发、**SPA 壳下发**（`spa.go`）。页面模板层 `pages.go` / `templates/` / `pages_test.go` **已删除 2026-10-24**（前端重写） |
 | `httpapi/publicapi` | **公开 REST API `/api/v1`**（2026-10-25 新增）：面向外部 CI / 脚本，与内部 `/api/*` **完全隔离** —— 自建 mux + `Wrap()` 前置分流、裸 JSON 响应、错误体 `{"message","url"}`、令牌鉴权（令牌 ≡ 用户）、私有资源越权返回 **404**（不泄露存在性）。**不复用 `contract.Envelope`**（PHP 兼容契约，123 条基线锁定）。错误体的 `url` 自 2026-10-26 起指向文档中心的 API 文档页（`DefaultDocPath = /doc/cn/api/overview.md`），此前误指向 `/api/v1` 前缀本身（浏览器访问是 404 死链）。**方法约束**自 2026-10-26 起由路由层包装器 `requireGet` 承担（只放行 GET / HEAD，其余 405 + `Allow`，且先于鉴权），命名空间根与未知子路径兜底为 JSON 404 —— 此前任意方法都会进 handler、未知路径回 Go 默认的 `text/plain` 404。对外数字 ID（`userNumericID`）同日改为「SHA-256 前 8 字节 **右移 11 位**」：恒非负且 ≤ 2^53-1（JS 可精确表示），此前 `int64(uint64)` 会让约一半对象得到负 ID、且 64 位值在 `JSON.parse` 里被四舍五入 |
 | `contract` | 请求解析（JSON / form / multipart）、PHP 兼容的错误码与响应信封 |
-| `handlers` | 各域 HTTP handler（user / admin / group / repository / internal / login / webvitals / doc） |
-| `repo` | 数据访问层；事务封装（`WithTx`）、批量查询、保留期清理 |
+| `handlers` | 各域 HTTP handler（user / admin / group / repository / internal / **home** / **search** / login / webvitals / doc）。用户域含**访问令牌管理**三个动作（`user_token.go`：`listToken` / `createToken` / `deleteToken`，2026-10-27 新增；未注入 `AccessTokenRepo` 时这三个动作不注册）。**注意 `home` 有两个同名概念**：`handlers/home.go` 的 `HomeAPIHandler` 是 JSON API（`/api/home/overview`），`handlers/web.go` 的 `HomeHandler` 是 CodeIgniter 时代的页面控制器（`/` 的 302 落地）；两者注册在不同的 map，互不影响 |
+| `repo` | 数据访问层；事务封装（`WithTx`）、批量查询、保留期清理；`repo/home.go` 的 `HomeRepo` 提供首页聚合的三条只读查询 + 平台概览计数（2026-10-27 新增） |
 | `domain` | 领域类型与纯逻辑（状态常量、取值映射、分页口径 `ClampPaging`、事件类型） |
 | `db` | 连接池（`MaxOpenConns=25`）、`//go:embed` 版本化迁移执行器（`GET_LOCK` 串行化） |
 | `events` | 事件总线（与业务写同事务入队）、worker（`FOR UPDATE SKIP LOCKED` 领取）、各类事件处理器 |
@@ -118,6 +118,48 @@ nginx (vhost-go.conf-template)
 > `normalizeAPIPath` 另有 `publicapi.IsPublicAPIPath(path)` 豁免，
 > 属**纵深防御**（分流在截断之外，公开路径本就不会被截断）。
 
+### 4.1.2 首页聚合 `/api/home/overview`（2026-10-27 新增）
+
+```
+请求 /api/home/overview（AuthWebUser，会话 Cookie）
+  └─ httpapi 主 mux → /api/{ctrl}/{action} → handleAPI
+       └─ handlers.HomeAPIHandler.overview
+            ├─ repo.HomeRepo.PendingReviews          （cc_merge_request_reviewers ⋈ cc_merge_requests）
+            ├─ repo.HomeRepo.MyOpenMergeRequests      （cc_merge_requests.u_key = 我）
+            ├─ repo.HomeRepo.TodoCounts               （KPI 用的两个总数，不是列表长度）
+            ├─ repo.HomeRepo.RecentActivities         （我参与的仓库 + 我所在的组）
+            ├─ RepositoryRepo.RolesFor → 越权行丢弃   （角色 ≤ guest 不返回，不是前端过滤）
+            └─ repo.HomeRepo.PlatformSnapshot         （全站 4 个 COUNT 合成一条 SQL）
+```
+
+> 为什么单独建一个控制器而不是塞进 `user`：它跨 user / repository / group 三个域，
+> 塞进 `user` 会让"user 控制器 = 用户自身"的边界失真。新增控制器不影响 123 条
+> PHP 契约基线（基线只比对已记录的端点）。
+>
+> **刻意不填 `commit` / `reviewers`**：填 `commit` 需要逐条 `git log`
+> （5 条待办 = 5 次子进程），填 `reviewers` 要多一次批量查询。首页是导航层，
+> 前端用 `MergeRequestRow` 的 `compact` 变体渲染。
+
+### 4.1.3 全局搜索 `/api/search/all`（2026-10-27 新增，阶段一）
+
+```
+请求 /api/search/all?keyword=…（AuthWebUser）
+  └─ httpapi 主 mux → /api/{ctrl}/{action} → handleAPI
+       └─ handlers.SearchAPIHandler.all
+            ├─ repo.TrimSearchKeyword      （去空白、压连续空白；不截断）
+            ├─ SearchRepo.SearchRepositories / SearchGroups / SearchMergeRequests
+            │    └─ **SQL 里 JOIN 成员表**（cc_repository_members / cc_group_members），
+            │       让 LIMIT 作用在"我可见的对象"上
+            └─ clipSearchBucket            （多取一条判断"还有更多"，裁回 10 条）
+```
+
+> 与首页同一条原则：**不填 `reviewers` / `commit`**（要逐条 `git log`）。
+> 搜索是导航层，结果与 `MergeRequestListItem` 同形，前端复用 `MergeRequestRow compact`。
+>
+> **阶段一不搜代码内容**：需要 `git grep`（要超时、限流、按仓库并发）或独立索引，
+> 是阶段二的范围。`LIKE '%x%'` 用不上索引，当前数据量级可接受；
+> 升级路径（FULLTEXT / trigram / 外部引擎）记在 `backend/internal/domain/search.go` 顶部。
+
 ### 4.2 Git over HTTP
 
 ```
@@ -157,7 +199,7 @@ handler（业务写）
 | `src/theme/theme.css` | **全仓库唯一的视觉字面值来源**（颜色/间距/圆角/阴影/字号），逐项抄自旧 `@pgyer/mui-theme-preset` 与 `theme1.js`；另有 `--cf-field-surface`（**输入区表面色的唯一来源**，2026-10-25 新增，用于中和 Chrome 自动填充的 UA 蓝底并按变体给出正确盖色） |
 | `src/theme/tokens.ts` | 令牌的类型化引用 + `space(n)`（等价旧 `theme.spacing`） |
 | `src/theme/global.css` | 全局基础样式与工具类（对应旧 `App.styl`） |
-| `src/components/unit/` | 自研组件库（磁盘上 **28** 个目录）：Button / IconButton / SquareIconButton / Icon / TextField / SelectField / Choices / Form / Table(+DataTable/Pagination) / Dialog / Confirm / Dropdown / Tabs / Tooltip / Toast / Avatar / Tag / Marker / Card / Loading / EmptyState / CopyButton / AppLink / FormattedTime / CodeViewer / **CodeBlock（2026-10-26 新增：文档片段代码块，等宽 + 语言标签 + 一键复制，无行号）** / DiffViewer（文件级 diff：汇总条 + inline·side-by-side 布局切换 + 逐文件折叠 + 复制路径 / 查看 @hash / 展开完整文件）/ FilterBar（页签+搜索+排序的工具条，分支·标签·活动三处共用）。**2026-10-26 接口变化**：`Button` 新增 `endIcon`（尾部图标，展开态旋转由 `.cf-dropdown__trigger[aria-expanded='true'] .cf-btn__end-icon` 负责）；`Dropdown` 新增 `title`（面板分类标题）、`emptyLabel`（空列表占位，避免空面板与"没打开"无法区分）、`openOnHover` + `onTriggerClick`（悬停展开 / 点击跳转，供页头「仓库 / 仓库组」按官方原版交互使用），`MenuItemSpec` 新增 `trailing`（行尾勾选等）。同批新增**手写图标** `assets/icons/plCaretDownLine.ts`（线框三角，不由 `extract-icons.mjs` 生成，原因见文件头）。⚠️ `TextareaField` / `Checkbox` / `Switch` **尚未实现**（此前清单误列，2026-10-25 校正），Release / Issue 表单落地前须先补齐 |
+| `src/components/unit/` | 自研组件库（磁盘上 **30** 个目录，2026-10-27 新增 `Stat` / `SectionCard`）：Button / IconButton / SquareIconButton / Icon / TextField / SelectField / Choices / Form / Table(+DataTable/Pagination) / Dialog / Confirm / Dropdown / Tabs / Tooltip / Toast / Avatar / Tag / Marker / Card / Loading / EmptyState / CopyButton / AppLink / FormattedTime / CodeViewer / **CodeBlock（2026-10-26 新增：文档片段代码块，等宽 + 语言标签 + 一键复制，无行号）** / DiffViewer（文件级 diff：汇总条 + inline·side-by-side 布局切换 + 逐文件折叠 + 复制路径 / 查看 @hash / 展开完整文件）/ FilterBar（页签+搜索+排序的工具条，分支·标签·活动三处共用）。**2026-10-26 接口变化**：`Button` 新增 `endIcon`（尾部图标，展开态旋转由 `.cf-dropdown__trigger[aria-expanded='true'] .cf-btn__end-icon` 负责）；`Dropdown` 新增 `title`（面板分类标题）、`emptyLabel`（空列表占位，避免空面板与"没打开"无法区分）、`openOnHover` + `onTriggerClick`（悬停展开 / 点击跳转，供页头「仓库 / 仓库组」按官方原版交互使用），`MenuItemSpec` 新增 `trailing`（行尾勾选等）。同批新增**手写图标** `assets/icons/plCaretDownLine.ts`（线框三角，不由 `extract-icons.mjs` 生成，原因见文件头）。⚠️ `TextareaField` / `Checkbox` / `Switch` **尚未实现**（此前清单误列，2026-10-25 校正），Release / Issue 表单落地前须先补齐 |
 | `src/components/layout/` | 外壳布局：NotificationDrawer（通知抽屉，四个分类 + 已读/清空）、AppShell（固定页头 + 白底内容区）、Header（仓库/组/新建/语言/帮助/管理后台/用户菜单；**帮助菜单 2026-10-26 改为站内落点**：帮助中心 `/help`、文档中心、公开 API 文档，站外只保留技术支持 / 反馈 / 贡献；**仓库 / 仓库组 2026-10-26 对齐官方原版 `GroupRepositoryMenu`**：点击触发器跳 `/repositories` / `/groups` 完整列表页，悬停展开快速跳转菜单（线框三角箭头、分类标题、方形头像条目、当前项勾选、全量不截断、空列表占位文案））、RepositoryLayout（仓库上下文外壳）、SettingsLayout（个人设置外壳）、AdminLayout（管理后台外壳）、Sidebar（左侧上下文导航，可折叠） |
 | `src/components/view/` | 页面级组件（按业务域，逐批落地）：`auth/` = AuthLayout + 认证页样式（批 1）；`unit/` = RepositoryRow / GroupCard / list.css（批 2） |
 | `src/components/view/unit/` | 业务域共用件：`RepositoryRow`、`GroupCard`、`CommitRow`、`MembersManager`（仓库成员与组成员共用）、`AdvancedSettings`（仓库/组高级页共用）、`ActivityFeed`（41 个活动码的表驱动渲染）、`MergeRequestRow`（MR 行：标题/状态徽标/目标仓库名/分支链接/最后提交人/编辑于/评审人组/更新时间）、`MergeRequestToolbar`（MR 页签+搜索+排序+主操作）、`MergeRequestListBody`（MR 行列表+空态+查看更多）、`MergeRequestReviewers`（评审人头像组+已/未评审角标）、`AdminMembersDialog`（后台组/仓库成员弹窗）、`SettingsNotificationMatrix`（通知矩阵：组+仓库+角色徽标）、`RepositoryHeader`（仓库头：Fork/克隆地址/6 项计数）、`RefListView`（分支·标签列表共用）、`ObjectViewer`（文件内容富视图）、`MarkdownView`、`RepositoryEmpty`（空仓库引导）、`CommitRefs`（父提交+包含该提交的分支/标签）；样式集中在 `list.css` / `commit-row.css` / `merge-request.css` / `repository.css` |
@@ -178,7 +220,19 @@ handler（业务写）
 | `src/pages/repository/` | 仓库页：`FileTree`（分支/标签下拉、面包屑、目录行、blob 分流、README 渲染、submodule、文件名过滤、blame 模式）、`CommitList`（服务端搜索 + 每页 20 条 + 日期分组 + 子目录路径）、`CommitDetail`（详情 + diff + 父提交展开 + 浏览文件）、`BranchList`/`TagList`（默认/已合并/保护标记、更新者、增删、筛选排序分页）、`CreateBranch`/`CreateTag`、`SettingsGeneral`（显示名/描述/头像 + 30·200 字校验）、`SettingsMembers`（仓库成员/组成员分表 + 增删改与所有权转移）、`SettingsBranch`（默认分支 + 保护分支规则，角色集合语义）、`SettingsWebhook`（列表/新建/编辑/删除/投递日志，含 secret）、`SettingsAdvanced`（改 slug/改创建者/删除仓库，两级确认）、`MergeRequestList`（全部/待合并/已合并/已关闭页签+角标、搜索、排序、每页 10 条+查看更多）、`MergeRequestCreate`（源/目标仓库与分支+评审人，全局态用 `global`）、`MergeRequestDetail`（详情+三 Tab+diff+评审/合并/关闭+评审人管理+右侧活动栏）、`ActivityList`（仓库动态：分类页签/搜索/翻页） |
 | `src/pages/MergeRequestBoard.tsx` | 全局 `/mergerequests` 与组内 `/groups/{名}/mergerequests` 看板：页签+角标（全局按 `relatedRepository` 命中仓库累加、组内按同组仓库累加）、搜索、排序、每页 10 条+查看更多、创建合并请求入口 |
 | `src/pages/admin/` | 管理后台：`Dashboard`（用量卡可点击/资源阈值配色/服务状态）、`Users`（四个分类页签+排序+添加用户与初始口令回显+设管理员口令校验+重置口令）、`Groups`（图标列/创建时间/成员管理）、`Repositories`（同构+组继承成员标记）、`Settings`（config 结构化表单 + 7 条校验） |
+| `src/pages/Home.tsx` | **员工首页（`/home`，2026-10-27 新增）**：Hero（问候 + 3 CTA + 主推仓库 clone 命令）+ KPI 条（我的仓库/我参与的组/待我评审/我发起的）+ 工作台两列（主列：待我评审、我发起的、我的仓库表格；侧栏：最近访问、平台公告）+ 团队动态 + 门户区（平台概览/四步上手/团队规范/平台能力+快捷入口）。数据来自 `useAppData()` + `api/home.ts` 的 `fetchHomeOverview()`（首屏共 4 个请求）。方案见 `docs/HOME_PAGE_PLAN_2026-10-27.md` |
+| `src/components/view/home/` | 首页区块组件：`HomeHero`、`StatStrip`、`MergeRequestPanel`（待我评审/我发起的共用，走 `MergeRequestRow compact`）、`MyRepositoriesTable`（表格形态 + 三个页签）、`RecentRepositories`、`AnnouncementCard`、`TeamActivity`（包 `ActivityFeed` 并接 AppData 解析器）、`PlatformSection` |
+| `src/api/home.ts` | `fetchHomeOverview()`（`GET /api/home/overview`） |
+| `src/helpers/cloneUrl.ts` | 克隆地址拼装（HTTPS/SSH，三种 `ssh` 写法都正确）；仓库页头与首页共用 |
+| `src/helpers/docUrl.ts` | 文档中心 URL（`zh-cn`/`en-us` → URL 段 `cn`/`en`）；页头帮助菜单、公开 API 文档、首页规范链接共用 |
+| `src/helpers/recentRepos.ts` | 最近访问仓库（localStorage，LRU 6 条，容错解析）；由 `RepositoryLayout` 写入、首页读取 |
+| `src/config/homeLinks.ts` | 首页「平台能力」8 项 + 「快捷入口」6 项（含未就绪标记）的唯一数据源 |
+| `src/config/homeOnboarding.ts` | 首页「四步上手」4 步 + 「团队规范」3 条（全部指向文档中心真实存在的文件） |
+| `src/styles/pages-home.css` | 首页布局与区块样式（零字面值，全部 `var(--cf-*)`） |
 | `src/pages/Doc.tsx` | 文档中心（`/doc/{lang}/{path}`）：菜单树 + Markdown 渲染（react-markdown + remark-gfm） |
+| `src/pages/Search.tsx` | **全局搜索页（`/search?keyword=…`，2026-10-27 新增）**：提交式搜索框 + 三类结果（仓库 / 仓库组 / 合并请求标题，各 ≤10 条，截断时提示"仅显示前 10 条"）+ 空态/无结果态 + 范围说明。合并请求行复用 `MergeRequestRow` 的 `compact` 变体；关键词在主键解析上复用 AppData 的成员字典 |
+| `src/api/search.ts` | `fetchSearchResults()`（`GET /api/search/all`）+ 三类结果类型 |
+| `src/styles/pages-search.css` | 搜索页样式（零字面值） |
 | `src/pages/Help.tsx` | **帮助中心（`/help`，2026-10-26 新增）**：四个入口卡片（技术支持 / 提交反馈 / 为 CodeFever Next 贡献代码 / 关于）+ 文档中心入口 + 公开 API 端点总览（数据源 `config/publicApi.ts`）+ 鉴权与错误体示例 + 关于信息（维护者 / 许可证 / 上游项目）；页内锚点 `#api`、`#about` |
 | `src/pages/RepositoryList.tsx` | 仓库列表（`/repositories`、`/groups/{组}/repositories`、`/repositories/forklist/{仓库主键}`）：页签（全部/我参与的/我创建的）、fork 上下文（首 tab 变「fork 自 X」） |
 | `src/pages/GroupList.tsx` | 仓库组列表（`/groups`） |
@@ -187,7 +241,7 @@ handler（业务写）
 | `src/pages/NewGroup.tsx` | 新建仓库组（`/groups/new`） |
 | `src/pages/NewMergeRequest.tsx` | 全局新建 MR（`/mergerequests/new`、`/groups/{组}/mergerequests/new`）：复用 `MergeRequestCreate` 的 `global` 态 |
 | `src/pages/group/` | 仓库组：`ActivityList`（组动态）、`SettingsGeneral`（组名 5–30 字校验/描述 200 字/头像）、`SettingsMembers`（成员管理）、`SettingsAdvanced`（改 slug/删除） |
-| `src/pages/settings/` | 个人设置：`Profile`（基本信息含可编辑 role/头像/口令/MFA 二维码+更换设备）、`Email`（主邮箱更换 + 提交邮箱管理 + 120 秒重发倒计时）、`SSHKey`（列表/新增/删除 + 指纹列 + 整行公钥容忍）、`Notification`（位掩码开关 + 组/仓库级通知矩阵 + 拒收列表恢复） |
+| `src/pages/settings/` | 个人设置：`Profile`（基本信息含可编辑 role/头像/口令/MFA 二维码+更换设备）、`Email`（主邮箱更换 + 提交邮箱管理 + 120 秒重发倒计时）、`SSHKey`（列表/新增/删除 + 指纹列 + 整行公钥容忍）、`Notification`（位掩码开关 + 组/仓库级通知矩阵 + 拒收列表恢复）、**`Tokens`（访问令牌，2026-10-27 新增：列表 / 创建后明文一次性弹窗 / 吊销 + curl 用法示例）** |
 | `src/i18n/supplement.ts` | 旧词表缺失的补充键（运行时覆盖自动生成的表，避免手改生成文件） |
 | `src/assets/icons/` | 154 个图标数据（由 `scripts/extract-icons.mjs` 从 `@pgyer/icons@0.0.16` 本地化） |
 | `src/i18n/` | `zh-cn.ts` / `en-us.ts` 由 `scripts/extract-lang.mjs` 自动生成（961 键 × 2：Go SSR 词表 + 旧 SPA 词表）；`I18nProvider` + `useT()`（支持 `{s}`/`{n}`） |
@@ -215,7 +269,8 @@ handler（业务写）
 - 当前迁移：`001_sessions`、`002_events`、`003_events_lease`、
   `004_perf_index_users`、`005_perf_index_events`、`006_perf_index_members`、
   `007_perf_index_repositories`、`008_perf_index_notification`、
-  `009_perf_index_activity_rule`、`010_access_tokens`。
+  `009_perf_index_activity_rule`、`010_access_tokens`、**`011_perf_index_home`**
+  （2026-10-27：首页"待我评审 / 我发起的 / 团队动态"三条查询的索引）。
 - 关键表：`cc_users`、`cc_sessions`、`cc_repositories`、`cc_groups`、
   `cc_group_members`、`cc_repository_members`、`cc_merge_requests`、
   `cc_activities`、`cc_events`、`cc_notification_content`、
@@ -223,7 +278,8 @@ handler（业务写）
   `cc_repository_webhook_{s,events,logs}`、`cc_proteced_branch_rules`
   （表名拼写为历史遗留，勿改）、`cc_access_tokens`
   （**公开 API 访问令牌**，2026-10-25 新增；**只存 SHA-256 摘要，不存明文**，
-  `at_scope` 列预留但第一版不实现 —— 令牌 ≡ 用户）。
+  `at_scope` 列预留但第一版不实现 —— 令牌 ≡ 用户。**2026-10-27 起有 Web 管理入口**：
+  `/settings/tokens` ↔ `/api/user/{list,create,delete}Token`，列表与创建响应都**不回传摘要**）。
 - 保留期：`internal/repo/retention.go` + `codefever-api` 的每日任务；
   事件（已处理 30 天 / 死信 60 天，**待处理与处理中永不删**）、已读站内信
   90 天 + 孤儿内容行、webhook 日志 90 天；`cc_activities` 默认不清理。
@@ -287,3 +343,39 @@ Dockerfile（两阶段）
   站外地址口径由上游 `PGYER/codefever` 改为本仓库 `AidenX0704/codefever-next`（见 `web/src/config/helpLinks.ts`）。
   未做（建议下一批）：公开 API 的端点仍未限制 HTTP 方法（`POST /api/v1/user` 也会返回 200），
   文档按 `GET` 描述与实现存在偏差，最省事的修法是把路由改为 Go 1.22 的 `"GET /api/v1/user"` 模式。
+
+- 2026-10-27：**新增员工首页 `/home`**（方案与取舍：`docs/HOME_PAGE_PLAN_2026-10-27.md`，
+  调研原文：`docs/RESEARCH_HOME_DASHBOARD_2026-10-27.md`）。要点：
+  ① `/` 的落地目标由 `/repositories` 改为 `/home`，**后端 302 与前端 index 重定向必须同步改**；
+  ② 新增 `home` **API** 控制器（`/api/home/overview`），它与 `handlers/web.go` 的 web
+  控制器 `home`（`/` 的 302）同名但分属不同 map，勿合并；
+  ③ 新增迁移 `011_perf_index_home.sql`（三个索引），**只在 migrations 里有效**；
+  ④ 克隆地址拼装从 `RepositoryHeader` 抽到 `helpers/cloneUrl.ts`，顺带修掉
+  "`ssh` 配置不带结尾分隔符时拼出 `ssh://git@hostgroup/repo.git`"的缺陷；
+  ⑤ `docUrl` 收口 `cn`/`en` 段映射（原先在 `config/publicApi.ts` 与页头各写一份）。
+  未做（下一步）：公告改由管理后台配置（现为内置三条须知）、访问令牌管理页
+  （后端已具备，前端缺页面，首页快捷入口已置灰标注）、收藏置顶。
+
+- 2026-10-27（同日补）：**访问令牌管理页已落地**，上面那条"未做"里的第一项已消项。
+  新增 `/settings/tokens`（个人设置第五项）+ 三个内部端点
+  `GET /api/user/listToken`、`POST /api/user/createToken`、`POST /api/user/deleteToken`
+  （`handlers/user_token.go`）；令牌名 ≤64 字且同用户内唯一、每人上限 20 个、
+  响应**永不回传 `at_sha256`**。`/api/v1` 鉴权链路未改动。
+  注意：`handler` 层没有为它写单测 —— 三个动作的语义都落在已有且已被
+  `access_token_integration_test.go` 覆盖的仓储方法上，HTTP 层只做了参数校验与
+  错误码映射；未注入 `AccessTokenRepo` 时动作不注册（落到 0x0105），便于排查。
+
+- 2026-10-27（同日再补）：**全局搜索阶段一落地** —— `/search` 页面 + 页头中部搜索框 +
+  `GET /api/search/all`（`handlers/search.go`、`repo/search.go`、`domain/search.go`）。
+  范围只到元数据（仓库 / 仓库组 / 合并请求标题）；**代码内容搜索是阶段二**，
+  因为需要 `git grep` 的超时限流或独立索引，代价高一个数量级。
+  关键设计：权限判定写在 SQL（JOIN 成员表）而不是查完再过滤 —— 否则 LIMIT 作用在
+  过滤前，结果条数会缩水且"还有更多"的判断失真。
+
+- 2026-10-27（同日修正）：**可见性口径统一**。搜索与首页"团队动态"原先只看
+  `cc_repository_members`（直接成员行），会漏掉"仓库所有者但无成员行"的对象 ——
+  真实实例上就是这种数据（成员表为空、仓库靠 `u_key` 归属），表现是"搜不到自己的仓库、
+  动态里没有自己的仓库"。现在两处都改用与 `RepositoryRepo.ListJoined` 一致的三源并集
+  （所有者 ∪ 直接成员 ∪ 可见组下的仓库；仓库组为 我拥有的 ∪ 我是成员的）。
+  `repo/search.go` 的判定收在 `visibleRepositoryPredicate` 一处，并有占位符/参数
+  数量一致性的单测守护。

@@ -53,6 +53,26 @@
   cursor: pointer;
 }
 
+/* 页头当前页标记（目前只有「首页」用）。底色取 primary-lighter，与仓库/组菜单
+   里"当前项打勾"表达同一个意思，但不额外引入颜色。 */
+.app-header__nav-active {
+  color: var(--cf-color-primary);
+  background: var(--cf-color-primary-lighter);
+}
+
+/* 页头中部搜索框（2026-10-27）：夹在左侧导航与右侧图标之间，宽度上限用
+   space 推导（45 × 8 = 360px），窄屏时自动收窄、不挤压右侧图标。 */
+.app-header__search {
+  flex: 1 1 auto;
+  max-width: calc(var(--cf-space) * 45);
+  min-width: 0;
+  margin: 0 calc(var(--cf-space) * 3);
+}
+
+.app-header__search-field {
+  width: 100%;
+}
+
 .app-header__user {
   display: inline-flex;
   align-items: center;
@@ -116,6 +136,42 @@
   color: var(--cf-color-text);
   font-size: var(--cf-font-size-h4);
   font-weight: var(--cf-font-weight-bold);
+}
+
+/* 区块标题行：左标题 + 右操作（"全部 →"、计数徽标）。
+   竖条只在 `.section__title--barred` 上出现 —— 设置页等既有页面用的是不带竖条的
+   `.section__title`，本批不改动它们的观感（AGENTS §7：不顺手改无关页面）。 */
+.section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space);
+  min-height: var(--cf-control-height);
+}
+
+.section__title--barred::before {
+  content: '';
+  display: inline-block;
+  width: var(--cf-section-bar-width);
+  height: var(--cf-section-bar-height);
+  margin-right: var(--cf-space);
+  border-radius: var(--cf-radius-sm);
+  background: var(--cf-color-primary);
+  vertical-align: -0.15em;
+}
+
+.section__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--cf-space);
+}
+
+.section__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--cf-space);
+  flex-wrap: wrap;
 }
 
 .row {

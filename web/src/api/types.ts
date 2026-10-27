@@ -468,6 +468,60 @@ export interface ActivityItem {
   time: number
 }
 
+/* ------------------------------ 访问令牌 ------------------------------ */
+
+/**
+ * 公开 API 访问令牌（`GET /api/user/listToken` 的一项）。
+ *
+ * **没有明文，也没有摘要**：后端只存 SHA-256 且不回传 —— 明文只在创建响应里
+ * 出现一次（`createAccessToken` 的返回值）。
+ */
+export interface AccessToken {
+  id: string
+  name: string
+  /** 预留的权限范围，当前后端恒为空串。 */
+  scope: string
+  created: number
+  /** 最后一次成功使用时间；从未使用过时为 `null`。 */
+  lastUsed: number | null
+}
+
+/* ------------------------------ 首页聚合 ------------------------------ */
+
+/**
+ * 首页 KPI 条的待办计数（`GET /api/home/overview` 的 `counts`）。
+ *
+ * `我的仓库` / `我参与的组` 两个数字**不在这里**：前端 `useAppData()` 已经持有
+ * 仓库与组清单，自己数即可，不必让后端重复计算。
+ */
+export interface HomeCounts {
+  reviewRequests: number
+  myOpenMergeRequests: number
+}
+
+/** 平台概览（全站口径，供首页门户区展示）。 */
+export interface HomePlatform {
+  repositories: number
+  groups: number
+  members: number
+  openMergeRequests: number
+}
+
+/**
+ * 首页聚合响应。
+ *
+ * `reviewRequests` / `myMergeRequests` 复用 `MergeRequestListItem` 结构，但后端
+ * **不填** `commit` 与 `reviewers`（填它们要逐条跑 `git log`，首屏扛不住）。
+ * 因此这两组数据只能用 `MergeRequestRow` 的 `compact` 变体渲染。
+ */
+export interface HomeOverview {
+  counts: HomeCounts
+  reviewRequests: MergeRequestListItem[]
+  myMergeRequests: MergeRequestListItem[]
+  recentActivities: ActivityItem[]
+  platform: HomePlatform
+}
+
 /**
  * 判断某个 object 响应是不是"目录列表"。
  *

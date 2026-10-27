@@ -6,6 +6,7 @@ import {
   psFile,
   psKey,
   psLog,
+  psMeter,
   psMemberAlt,
   psMembers,
   psMerge,
@@ -161,6 +162,14 @@ export function settingsDrawerEntries(): DrawerEntry[] {
       labelKey: 'menu.notification',
       icon: psBell,
       active: (pathname) => /^\/settings\/notification/i.test(pathname),
+    },
+    // 访问令牌（公开 API /api/v1 的凭据）。2026-10-27 新增 —— 后端能力早已存在，
+    // 这一项是它第一次有入口。
+    {
+      path: '/settings/tokens',
+      labelKey: 'tokens.title',
+      icon: psMeter,
+      active: (pathname) => /^\/settings\/tokens/i.test(pathname),
     },
   ]
 }

@@ -1,0 +1,81 @@
+/*
+ * 全局搜索页（/search）样式。
+ *
+ * 约定（AGENTS §5）：本文件不出现颜色/字号/圆角字面值，全部经 `var(--cf-*)`；
+ * 间距用 `calc(var(--cf-space) * n)`。
+ */
+
+/* 搜索框一行：输入框吃掉剩余宽度，按钮固定 */
+.search-page__head {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  max-width: calc(var(--cf-space) * 80);
+}
+
+.search-page__field {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* 结果列表：与首页待办一致，用分隔线而不是卡片边框（列表优先） */
+.search-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  min-height: var(--cf-table-row-height);
+  border-bottom: 1px solid var(--cf-color-border);
+}
+
+.search-row:last-child {
+  border-bottom: 0;
+}
+
+.search-row__main {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.search-row__title {
+  color: var(--cf-color-primary);
+  font-weight: var(--cf-font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-row__desc {
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.search-row__meta {
+  flex: 0 0 auto;
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+  white-space: nowrap;
+}
+
+/* 合并请求行：行内是多列结构（标题/分支/时间），因此不再居中、改为顶部对齐 */
+.search-row--mr {
+  align-items: flex-start;
+  padding: var(--cf-space-half) 0;
+}
+
+.search-row--mr > .cf-mr-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}

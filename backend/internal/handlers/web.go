@@ -103,8 +103,13 @@ func trimGet(r *http.Request, key string) string {
 
 // HomeHandler 实现 home 控制器。
 //
-// 逐字对应 application/controllers/home.php:12-19：
-// 已登录 → 302 /repositories；未登录 → 302 /user/login。
+// 对应 application/controllers/home.php:12-19，但**落地目标已变更**（2026-10-27）：
+// 已登录 → 302 /home（员工首页，见 docs/HOME_PAGE_PLAN_2026-10-27.md）；
+// 未登录 → 302 /user/login（保持不变：未登录不暴露任何平台信息）。
+//
+// 变更前落地目标是 /repositories，即"登录后第一屏是仓库列表"。
+// 前端路由（web/src/router.tsx）的 index 重定向已同步改为 /home，
+// 两处必须同时改，否则直接访问 "/" 与在 SPA 内点 logo 会落到不同页面。
 //
 // home 同时是 CI 的 default_controller（application/config/routes.php:41），
 // 因此路径为 "/" 时也会走到这里。
@@ -132,7 +137,7 @@ func (h *HomeHandler) RegisterWeb(s *httpapi.Server) {
 // index 实现 home/index。
 func (h *HomeHandler) index(w http.ResponseWriter, r *http.Request) {
 	if _, ok := sessionUser(r.Context(), r, h.Sessions, h.Users, h.Cfg.Env.Session.Name); ok {
-		redirect(w, "/repositories")
+		redirect(w, "/home")
 		return
 	}
 	redirect(w, "/user/login")

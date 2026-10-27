@@ -1,0 +1,527 @@
+/*
+ * 首页（/home）页面样式。
+ *
+ * 约定（AGENTS §5）：本文件**不出现任何颜色/字号/圆角/阴影字面值**，
+ * 全部经 `var(--cf-*)`；间距一律用 `calc(var(--cf-space) * n)`（8px 单位）。
+ *
+ * 形态依据：docs/HOME_PAGE_PLAN_2026-10-27.md §2.2/§2.5 ——
+ * 工作台区"列表优先"（无卡片外框、靠分隔线分层），卡片只出现在门户区。
+ */
+
+/* ------------------------------ 页面容器 ------------------------------ */
+
+.home-page {
+  width: 100%;
+  max-width: var(--cf-home-container-max);
+  margin: 0 auto;
+}
+
+/* ------------------------------ HERO ------------------------------ */
+/* 通栏浅主色块，全页唯一的有色区域；无图、无渐变、无动效。 */
+
+.home-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: calc(var(--cf-space) * 4);
+  min-height: var(--cf-home-hero-height);
+  padding: calc(var(--cf-space) * 3) calc(var(--cf-space) * 4);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-primary-lighter);
+}
+
+.home-hero__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+  min-width: 0;
+}
+
+.home-hero__greeting {
+  margin: 0;
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size-h1);
+  font-weight: var(--cf-font-weight-bold);
+  line-height: var(--cf-line-height-tight);
+}
+
+.home-hero__tagline {
+  margin: 0;
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size);
+}
+
+.home-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cf-space);
+  margin-top: var(--cf-space-half);
+}
+
+.home-hero__clone {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+  min-width: 0;
+  max-width: calc(var(--cf-space) * 64);
+}
+
+.home-hero__clone-label {
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-hero__clone-repo {
+  color: var(--cf-color-text);
+  font-weight: var(--cf-font-weight-medium);
+}
+
+.home-hero__clone-row {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space-half);
+  min-width: 0;
+}
+
+/* clone 命令：等宽字体 + 白底，和正文区分开；命令直给，不做"点击展开" */
+.home-hero__clone-code {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: var(--cf-space-half) var(--cf-space);
+  border: 1px solid var(--cf-color-border);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg);
+  color: var(--cf-color-text);
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+  line-height: var(--cf-line-height);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ------------------------------ KPI 条 ------------------------------ */
+/* 一行数字，靠竖线分隔；无外框、无底色（不是四个方块卡）。 */
+
+.home-stats {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: calc(var(--cf-space) * 3);
+  padding: calc(var(--cf-space) * 2) 0;
+  border-top: 1px solid var(--cf-color-border);
+  border-bottom: 1px solid var(--cf-color-border);
+}
+
+.home-stats__item {
+  flex: 0 0 auto;
+  min-width: calc(var(--cf-space) * 15);
+  padding-left: calc(var(--cf-space) * 3);
+  border-left: 1px solid var(--cf-color-border);
+}
+
+.home-stats__item:first-child {
+  padding-left: 0;
+  border-left: 0;
+}
+
+/* ------------------------------ 工作台两列 ------------------------------ */
+/* 主页 8 列 / 侧栏 4 列；窄屏塌成单列（侧栏内容下沉）。 */
+
+.home-work {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--cf-home-side-width);
+  gap: calc(var(--cf-space) * 3);
+  align-items: start;
+}
+
+.home-work__main,
+.home-work__side {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cf-space) * 3);
+  min-width: 0;
+}
+
+/* ------------------------------ 我的仓库表格 ------------------------------ */
+
+.home-repo-cell {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  min-width: 0;
+}
+
+.home-repo-cell__names {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.home-repo-cell__link {
+  color: var(--cf-color-primary);
+  font-weight: var(--cf-font-weight-medium);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-repo-cell__slug {
+  color: var(--cf-color-text-lighter);
+  font-family: var(--cf-font-family-mono);
+  font-size: var(--cf-font-size-small);
+}
+
+.home-repo-cell__desc {
+  display: block;
+  max-width: 100%;
+  color: var(--cf-color-text-light);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ------------------------------ 待办面板 ------------------------------ */
+
+.home-panel__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--cf-space) * 2.5);
+  margin-left: var(--cf-space-half);
+  padding: 0 var(--cf-space-half);
+  border-radius: var(--cf-radius-pill);
+  background: var(--cf-color-primary-lighter);
+  color: var(--cf-color-primary);
+  font-size: var(--cf-font-size-small);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+.home-panel__list {
+  display: flex;
+  flex-direction: column;
+}
+
+.home-panel__row {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  min-width: 0;
+  border-bottom: 1px solid var(--cf-color-border);
+}
+
+.home-panel__row:last-child {
+  border-bottom: 0;
+}
+
+.home-panel__row > .cf-mr-row {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.home-panel__age {
+  flex: 0 0 auto;
+  color: var(--cf-color-warning-dark);
+  font-size: var(--cf-font-size-small);
+  white-space: nowrap;
+}
+
+/* ------------------------------ 最近访问 ------------------------------ */
+
+.home-recent {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-recent__link {
+  display: flex;
+  align-items: center;
+  gap: var(--cf-space);
+  min-width: 0;
+  color: var(--cf-color-text);
+}
+
+.home-recent__name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-recent__link:hover .home-recent__name {
+  color: var(--cf-color-primary);
+}
+
+/* ------------------------------ 公告 ------------------------------ */
+
+.home-announcement {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+  margin: 0;
+  padding-left: calc(var(--cf-space) * 2);
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+  line-height: var(--cf-line-height);
+}
+
+/* ------------------------------ 门户区 ------------------------------ */
+
+.home-portal {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cf-space) * 3);
+}
+
+.home-portal__grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: calc(var(--cf-space) * 3);
+  align-items: start;
+}
+
+.home-overview {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+  margin: 0;
+}
+
+.home-overview__row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--cf-space);
+}
+
+.home-overview__row dt {
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+.home-overview__row dd {
+  margin: 0;
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size-h4);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+/* 四步入門 */
+
+.home-steps {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cf-space) * 1.5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-steps__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cf-space);
+}
+
+.home-steps__index {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--cf-space) * 3);
+  height: calc(var(--cf-space) * 3);
+  border-radius: var(--cf-radius-pill);
+  background: var(--cf-color-primary-lighter);
+  color: var(--cf-color-primary);
+  font-size: var(--cf-font-size-small);
+  font-weight: var(--cf-font-weight-bold);
+}
+
+.home-steps__text {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.home-steps__title {
+  color: var(--cf-color-text);
+  font-weight: var(--cf-font-weight-medium);
+}
+
+.home-steps__desc {
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+/* 团队规范 */
+
+.home-rules {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--cf-space) * 1.5);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-rules__item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: var(--cf-space-half) var(--cf-space);
+}
+
+.home-rules__title {
+  color: var(--cf-color-text);
+  font-weight: var(--cf-font-weight-medium);
+}
+
+.home-rules__desc {
+  grid-column: 1;
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+.home-rules__item > button {
+  grid-row: 1 / span 2;
+  grid-column: 2;
+  align-self: center;
+}
+
+/* 平台能力（两列列表，卡内仍是列表） */
+
+.home-caps {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--cf-space) calc(var(--cf-space) * 3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.home-caps__item {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--cf-space);
+  width: 100%;
+  padding: var(--cf-space-half) 0;
+  border: 0;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+
+.home-caps__icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--cf-space) * 4);
+  height: calc(var(--cf-space) * 4);
+  border-radius: var(--cf-radius);
+  background: var(--cf-color-bg-main);
+  color: var(--cf-color-primary);
+}
+
+.home-caps__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.home-caps__title {
+  color: var(--cf-color-text);
+  font-weight: var(--cf-font-weight-medium);
+}
+
+.home-caps__desc {
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+}
+
+.home-caps__item:hover .home-caps__title {
+  color: var(--cf-color-primary);
+}
+
+/* 快捷入口（常驻链接行） */
+
+.home-quick {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--cf-space-half) calc(var(--cf-space) * 2);
+  padding-top: calc(var(--cf-space) * 2);
+  border-top: 1px solid var(--cf-color-border);
+}
+
+.home-quick__label {
+  color: var(--cf-color-text-lighter);
+  font-size: var(--cf-font-size-small);
+}
+
+.home-quick__link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--cf-color-primary);
+  font-size: var(--cf-font-size-small);
+  cursor: pointer;
+}
+
+.home-quick__link:hover {
+  color: var(--cf-color-primary-dark);
+  text-decoration: underline;
+}
+
+.home-quick__link:disabled {
+  color: var(--cf-color-text-lighter);
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+/* ------------------------------ 响应式 ------------------------------ */
+/* 断点复用既有值：1200px（主页/侧栏合流）、768px（单列 + 表格降列）。 */
+
+@media (max-width: 1200px) {
+  .home-work {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-portal__grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .home-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .home-hero__clone {
+    max-width: 100%;
+    width: 100%;
+  }
+}
+
+@media (max-width: 768px) {
+  .home-portal__grid,
+  .home-caps {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .home-stats {
+    gap: calc(var(--cf-space) * 2);
+  }
+
+  .home-stats__item {
+    min-width: calc(var(--cf-space) * 12);
+  }
+}

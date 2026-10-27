@@ -7,6 +7,7 @@ import { HELP_LINKS } from '@/config/helpLinks'
 import { publicApiDocUrl } from '@/config/publicApi'
 import {
   plBell,
+  plSearch,
   plCaretDownLine,
   plCheck,
   plDraft,
@@ -20,12 +21,14 @@ import {
   psRepair,
 } from '@/config/icons'
 import { useAppData } from '@/features/app-data/AppDataProvider'
+import { docUrl } from '@/helpers/docUrl'
 import { useI18n, useT } from '@/i18n'
 import { Avatar } from '@/components/unit/Avatar'
 import { Dropdown, type MenuItemSpec } from '@/components/unit/Dropdown'
 import { Icon } from '@/components/unit/Icon'
 import { Button } from '@/components/unit/Button'
 import { SquareIconButton } from '@/components/unit/SquareIconButton'
+import { TextField } from '@/components/unit/TextField'
 // 通知抽屉只在点铃铛时用，懒加载以免把它的代码（含通知接口）带进首屏。
 const NotificationDrawer = lazy(() => import('./NotificationDrawer').then((mod) => ({ default: mod.NotificationDrawer })))
 
@@ -50,6 +53,8 @@ export function Header() {
   const { user, repositories, groups } = useAppData()
   const { lang, setLang } = useI18n()
   const [notificationOpen, setNotificationOpen] = useState(false)
+  // 页头搜索框：回车或点图标才跳转（提交式），不做输入即搜 —— 见 pages/Search.tsx 的说明。
+  const [searchKeyword, setSearchKeyword] = useState('')
 
   /** 路径是否落在 `base` 这一层（避免 `/g/repo` 误配 `/g/repo2`）。 */
   const underPath = (base: string) => pathname === base || pathname.startsWith(`${base}/`)
@@ -87,9 +92,18 @@ export function Header() {
   // 站外链接只保留"求助 / 反馈 / 贡献"三件必须出站的事。
   // 与旧版差异：旧版四项全部跳站外，站内没有帮助页；地址口径从上游 PGYER/codefever
   // 改到本仓库（见 `config/helpLinks.ts` 的说明）。
+  const submitSearch = () => {
+    const keyword = searchKeyword.trim()
+    if (!keyword) {
+      navigate('/search')
+      return
+    }
+    navigate(`/search?keyword=${encodeURIComponent(keyword)}`)
+  }
+
   const helpItems: MenuItemSpec[] = [
     { key: 'help-center', label: t('help.center'), onClick: () => navigate('/help') },
-    { key: 'docs', label: t('help.docs.title'), onClick: () => navigate(`/doc/${lang === 'en-us' ? 'en' : 'cn'}`) },
+    { key: 'docs', label: t('help.docs.title'), onClick: () => navigate(docUrl(lang)) },
     { key: 'api-docs', label: t('help.api.title'), onClick: () => navigate(publicApiDocUrl(lang)), dividerAfter: true },
     { key: 'support', label: t('label.support'), onClick: () => window.open(HELP_LINKS.support, '_blank', 'noopener') },
     { key: 'feedback', label: t('label.feedback'), onClick: () => window.open(HELP_LINKS.feedback, '_blank', 'noopener') },
@@ -112,7 +126,18 @@ export function Header() {
   return (
     <header className="app-header">
       <div className="app-header__left">
-        <img className="app-header__logo" src={logoCommunity} alt="CodeFever" onClick={() => navigate('/repositories')} />
+        <img className="app-header__logo" src={logoCommunity} alt="CodeFever" onClick={() => navigate('/home')} />
+        {/* 首页：`/home` 是员工落地页（2026-10-27 新增，见 docs/HOME_PAGE_PLAN_2026-10-27.md）。
+            logo 也指向它，但 logo 不像按钮、很多人不会去点，所以这里显式给一个文字入口；
+            当前在首页时用 `--cf-color-primary-lighter` 底标出（与仓库/组菜单的"打勾"同义）。 */}
+        <Button
+          variant="text"
+          className={pathname === '/home' ? 'app-header__nav-active' : undefined}
+          aria-current={pathname === '/home' ? 'page' : undefined}
+          onClick={() => navigate('/home')}
+        >
+          {t('label.home')}
+        </Button>
         {/* 仓库 / 仓库组：对齐官方原版 `GroupRepositoryMenu` ——
             **点击触发器 = 跳到完整列表页**（`/repositories` 全部仓库、`/groups` 仓库组卡片列表），
             **悬停 = 展开快速跳转菜单**（全量条目、分类标题、方形头像、当前项打勾）。
@@ -144,6 +169,25 @@ export function Header() {
           minWidth={272}
         />
         <SquareIconButton icon={plMerge} label={t('label.mergeRequest')} onClick={() => navigate('/mergerequests')} />
+      </div>
+
+      {/* 全局搜索：页头中部。提交式（回车/点图标）—— 三类结果各 10 条，
+          实时搜会打满后端 LIKE 查询，而真实动作是"改几次词再回车"。 */}
+      <div className="app-header__search">
+        <TextField
+          value={searchKeyword}
+          onChange={(event) => setSearchKeyword(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault()
+              submitSearch()
+            }
+          }}
+          placeholder={t('search.placeholder')}
+          startAdornment={<Icon icon={plSearch} size={16} />}
+          aria-label={t('search.title')}
+          containerClassName="app-header__search-field"
+        />
       </div>
 
       <div className="app-header__right">

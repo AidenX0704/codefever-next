@@ -39,6 +39,7 @@ const SettingsProfile = lazy(() => import('@/pages/settings/Profile'))
 const SettingsEmail = lazy(() => import('@/pages/settings/Email'))
 const SettingsSSHKey = lazy(() => import('@/pages/settings/SSHKey'))
 const SettingsNotification = lazy(() => import('@/pages/settings/Notification'))
+const SettingsTokens = lazy(() => import('@/pages/settings/Tokens'))
 const RepoSettingsGeneral = lazy(() => import('@/pages/repository/SettingsGeneral'))
 const RepoSettingsMembers = lazy(() => import('@/pages/repository/SettingsMembers'))
 const RepoSettingsBranch = lazy(() => import('@/pages/repository/SettingsBranch'))
@@ -62,6 +63,8 @@ const AdminRepositories = lazy(() => import('@/pages/admin/Repositories'))
 const AdminSettings = lazy(() => import('@/pages/admin/Settings'))
 const Doc = lazy(() => import('@/pages/Doc'))
 const Help = lazy(() => import('@/pages/Help'))
+const Home = lazy(() => import('@/pages/Home'))
+const Search = lazy(() => import('@/pages/Search'))
 const GroupSettingsGeneral = lazy(() => import('@/pages/group/SettingsGeneral'))
 const GroupSettingsMembers = lazy(() => import('@/pages/group/SettingsMembers'))
 const GroupSettingsAdvanced = lazy(() => import('@/pages/group/SettingsAdvanced'))
@@ -88,7 +91,13 @@ export const router = createBrowserRouter([
     path: '/',
     element: <AppShell />,
     children: [
-      { index: true, element: <Navigate to="/repositories" replace /> },
+      // 落地页：员工首页（`/home`）。2026-10-27 起由 `/repositories` 改为 `/home` ——
+      // 登录后第一屏要回答"我该做什么"，而不是先给一张仓库列表。
+      // 后端 `home/index` 的 302 目标已同步改为 `/home`（handlers/web.go），两处必须一起改。
+      { index: true, element: <Navigate to="/home" replace /> },
+      { path: 'home', element: suspense(<Home />) },
+      // 全局搜索（阶段一：仓库 / 仓库组 / 合并请求标题）。关键词走 query，可分享。
+      { path: 'search', element: suspense(<Search />) },
       { path: '__design', element: suspense(<DesignSystem />) },
       // 帮助中心：站内帮助落点（技术支持 / 反馈 / 贡献 / 关于 + 公开 API 说明）。
       // 与文档中心（/doc/*）的分工：那边是"产品怎么用"，这里回答"有问题去哪儿"。
@@ -127,6 +136,7 @@ export const router = createBrowserRouter([
           { path: 'email', element: suspense(<SettingsEmail />) },
           { path: 'sshkey', element: suspense(<SettingsSSHKey />) },
           { path: 'notification', element: suspense(<SettingsNotification />) },
+          { path: 'tokens', element: suspense(<SettingsTokens />) },
         ],
       },
       {

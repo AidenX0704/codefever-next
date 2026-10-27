@@ -11,6 +11,87 @@
 
 尚未发布的变更集中在此。
 
+### 新增
+
+- **员工首页 `/home`**（方案与取舍见 `docs/HOME_PAGE_PLAN_2026-10-27.md`）：
+  **登录后不再直接落到仓库列表**，而是先到工作台。页面分两层：
+  - **工作台（个人化）**：问候 + 主推仓库的 `git clone` 命令（一键复制）、
+    KPI 条（我的仓库 / 我参与的组 / **待我评审** / **我发起的**）、
+    「待我评审」「我发起的合并请求」两个待办面板、我的仓库表格（最近更新 /
+    我创建的 / 我参与的，8 行 + 查看全部）、最近访问、平台公告、团队动态；
+  - **门户（全员一致）**：平台概览（仓库 / 仓库组 / 成员 / 待合并请求，全站口径）、
+    四步上手、团队规范、平台能力矩阵 + 快捷入口行。
+  - 形态**列表优先**：KPI 是一条无外框的数字行，「我的仓库」是表格（行高 40px），
+    卡片只出现在门户区 —— 依据是同类内部平台（云效 Codeup / CODING / 工蜂 /
+    GitLab）的普遍做法：首屏密度优先，列表优先于卡片。
+  - 数据只增加 **1 个**请求：`GET /api/home/overview`（聚合待办 / 动态 / 平台概览），
+    用户与仓库、组复用页头已有的 `useAppData()`。
+- **新端点 `GET /api/home/overview`**（`home` API 控制器，需要登录）：
+  一次返回 `counts`（待我评审 / 我发起的总数）、`reviewRequests`、`myMergeRequests`
+  （各 ≤5 条）、`recentActivities`（≤10 条）、`platform`（全站计数）。
+  待办与动态都按**仓库角色**过滤，无权仓库的数据**不返回**（不是前端过滤）。
+  团队动态拆成"仓库维度 + 仓库组维度"两条索引友好的查询后在 Go 侧合并去重 ——
+  写成一条 `OR 子查询` 会让 MySQL 放弃索引、对活动表全表扫描（已用 EXPLAIN 复核）。
+  与 `repository/mergeRequests` 的差异：**不填 `commit` / `reviewers`** ——
+  填它们需要逐条 `git log`，5 条待办就是 5 次子进程，首页首屏扛不住。
+- **迁移 `011_perf_index_home.sql`**：补四个首页查询必需的索引
+  `cc_merge_request_reviewers(u_key, mrr_is_review, mr_key)`、
+  `cc_merge_requests(u_key, mr_proceed_status, mr_updated)`、
+  `cc_activities(a_relative_r_key, a_created)`、
+  `cc_activities(a_relative_g_key, a_created)`。此前"待我评审""我发起的"
+  两条查询无可用索引，数据量上千后会退化成全表扫描。
+  已在已部署实例（MySQL 8.0）执行并核对 EXPLAIN：`idx_mr_creator_status`
+  命中 `Backward index scan`（省掉 filesort），两条活动查询走 `type=range`。
+- **全局搜索（阶段一）`/search` + `GET /api/search/all`**：页头中部新增搜索框
+  （提交式：回车或点按钮），结果页分三块 —— **仓库**（名称/显示名/描述）、
+  **仓库组**（名称/显示名/描述）、**合并请求标题**，每类最多 10 条并在被截断时
+  明确提示。关键词走 query（`/search?keyword=…`），可分享、可刷新、可后退。
+  **只返回我可见的对象**：权限判定写进 SQL（JOIN 成员表），而不是查完再过滤 ——
+  后者会让 LIMIT 作用在过滤前，"取 10 条里 5 条无权"就等于只显示 5 条。
+  合并请求结果与 `MergeRequestListItem` 同形，直接复用 `MergeRequestRow` 的
+  `compact` 变体（不新造行组件）。
+  **不含代码内容搜索**：那需要 `git grep` 或独立索引 + 超时限流，属阶段二；
+  页面上已明确写出"当前只搜元数据"。已知限制：`LIKE '%x%'` 用不上索引，
+  在当前数据量级（万级以内）可接受，升级路径记在 `domain/search.go` 顶部注释。
+- **访问令牌管理页 `/settings/tokens`**（把 2026-10-25 就落地、但一直没有入口的
+  公开 API 凭据接通）：个人设置新增一页 —— 列表（名称 / 最后使用 / 创建时间）、
+  创建（**明文只在创建弹窗里显示一次**，库里只存 SHA-256）、吊销（软删除，
+  只能吊销自己名下的）。同批新增三个内部端点
+  `GET /api/user/listToken`、`POST /api/user/createToken`、`POST /api/user/deleteToken`：
+  令牌名必填、≤64 字、同一用户内唯一，每人最多 20 个；**任何响应都不回传
+  `at_sha256`**。首页「快捷入口 · 访问令牌」由置灰改为可点。
+  影响面：仅新增端点与页面，`/api/v1` 的鉴权链路一行未改。
+- **修复首页「团队动态」漏掉"我拥有的仓库"**：此前取可见范围只看
+  `cc_repository_members`（直接成员行），于是"仓库所有者但不在成员表里"的仓库
+  （真实实例上成员表为空、仓库靠 `u_key` 归属）的动态整块不显示。
+  现在与 `repository/list` 口径对齐：所有者 ∪ 直接成员 ∪ 可见组下的仓库，
+  仓库组同理（我拥有的 ∪ 我是成员的）。
+- **组件库**：`unit/Stat`（无外框指标）、`unit/SectionCard`（区块容器，
+  `plain` / `card` 两种变体，标题左侧主色竖条），`MergeRequestRow` 新增
+  **`compact` 变体**（首页待办用：隐藏最后提交人与评审人头像组）。
+- **helpers**：`cloneUrl`（克隆地址拼装）、`docUrl`（文档中心 URL 的 `cn`/`en`
+  段映射）、`recentRepos`（最近访问，localStorage）。三处原先散落在组件/页面里的
+  重复逻辑收口到 `helpers/`。
+- 新增**设计令牌**：`--cf-section-bar-width/height`（区块标题竖条）、
+  `--cf-home-*`（首页容器宽度 / HERO 高度 / 侧栏与表格列宽）。
+
+### 变更
+
+- **`/` 的落地目标由 `/repositories` 改为 `/home`**：后端 `home/index` 的 302
+  与前端路由的 index 重定向**同步修改**（只改一处会导致"直接访问 `/`"与
+  "点页内 logo"落到不同页面）。未登录访问 `/home` 仍 302 `/user/login`。
+- **页头**：新增「首页」文字入口（当前在首页时以主色浅底标出），logo 点击同样指向 `/home`。
+- **`RepositoryHeader` 的克隆地址改用 `helpers/cloneUrl`**：拼装口径不变，
+  但顺带修掉一处真实缺陷（见下）。
+
+### 修复
+
+- **克隆地址在 `ssh` 配置不带结尾分隔符时拼错**：旧实现是裸拼接 `${ssh}${path}`，
+  当站点配置的 `ssh` 为 `ssh://git@host`（无结尾 `/`）时会得到
+  `ssh://git@hostgroup/repo.git` 这种不可用地址。现在按配置的实际写法选择分隔符
+  （`git@host:` / `git@host` / `ssh://git@host` 三种都正确），HTTPS 侧同时去掉
+  了可能出现的重复斜杠。首页会把 clone 命令直接展示在首屏，这个地址必须是对的。
+
 ### 变更
 
 - **页头「仓库 / 仓库组」对齐官方原版 UI 与交互**（旧 `components/unit/GroupRepositoryMenu.js`）：

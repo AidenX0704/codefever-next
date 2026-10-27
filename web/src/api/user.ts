@@ -1,5 +1,5 @@
 import { ApiError, errorMessage, get, post } from './client'
-import type { CurrentUser, MFAData, SSHKey } from './types'
+import type { AccessToken, CurrentUser, MFAData, SSHKey } from './types'
 
 /** 取当前登录用户（含未读通知数、提交邮箱）。`GET /api/user/info`。 */
 export async function fetchCurrentUser(): Promise<CurrentUser> {
@@ -151,4 +151,35 @@ export function deleteNotification(params: { all: true } | { id: string }) {
     return post('/api/user/deleteNotification', { all: '1' })
   }
   return post('/api/user/deleteNotification', { id: params.id })
+}
+
+/* ------------------------------ 访问令牌（公开 API /api/v1） ------------------------------ */
+
+/**
+ * 列出我名下的访问令牌。
+ *
+ * 返回项**不含明文也不含摘要** —— 后端只存 SHA-256 且不回传，明文只在创建时出现一次。
+ */
+export async function listAccessTokens(): Promise<AccessToken[]> {
+  const { data } = await get<AccessToken[]>('/api/user/listToken')
+  return data ?? []
+}
+
+/**
+ * 创建访问令牌。
+ *
+ * 返回体的 `token` 是**明文，只此一次**：关掉弹窗就再也拿不到了，
+ * 所以页面上必须显式提示"复制保存，之后无法再查看"。
+ */
+export async function createAccessToken(name: string): Promise<{ token: string; item: AccessToken }> {
+  const { data } = await post<{ token: string; item: AccessToken }>('/api/user/createToken', { name })
+  if (!data) {
+    throw new ApiError(0x0200, errorMessage(0x0200))
+  }
+  return data
+}
+
+/** 吊销访问令牌（只能吊销自己名下的；后端按 `u_key + at_key` 约束）。 */
+export function deleteAccessToken(id: string) {
+  return post('/api/user/deleteToken', { id })
 }

@@ -125,6 +125,25 @@
   --cf-list-item-min-width: 160px; /* MuiListItem minWidth = spacing(20) */
   --cf-list-icon-width: 32px; /* MuiListItemIcon minWidth = spacing(4) */
 
+  /* ---------- 区块标题竖条（2026-10-27 首页新增） ----------
+     首页有 8 个区块标题，统一"标题左侧一根主色短竖条"的形态。
+     3px / 24px 都不是 8 的倍数，无法用 space() 推导，因此单独立一个令牌，
+     避免各页面各写一个 `border-left: 3px solid #3455db`。 */
+  --cf-section-bar-width: 3px;
+  --cf-section-bar-height: 24px;
+
+  /* ---------- 首页（/home）布局量（2026-10-27 新增） ----------
+     首页是唯一有"容器最大宽度 + 右窄栏"的页面，这些值没有现成令牌可推导
+     （720/320/128 都不是 8 的倍数或不是间距语义），集中在此，页面只引用。 */
+  --cf-home-container-max: 1440px;
+  --cf-home-hero-height: 128px;
+  /* 侧栏宽度：最近访问 / 公告两块用，取 8 的倍数 */
+  --cf-home-side-width: 320px;
+  /* 我的仓库表格的三列固定宽度，避免描述列被更新时间挤到换行 */
+  --cf-home-col-narrow: 72px;
+  --cf-home-col-time: 128px;
+  --cf-home-col-action: 96px;
+
   /* ---------- 输入区表面色 ---------- */
   /* .cf-field__box 的底色，也是输入框内容区"应该"呈现的颜色。
      单独列一项的原因：浏览器自动填充（Chrome autofill）会以 UA 层 !important

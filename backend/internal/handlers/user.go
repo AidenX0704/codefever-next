@@ -30,6 +30,12 @@ type UserHandler struct {
 	Sessions      *session.Store
 	Cfg           *config.Config
 
+	// Tokens 是公开 API 访问令牌仓储（`cc_access_tokens`）。
+	//
+	// 由 main 在装配时注入；为 nil 时令牌管理动作**不注册**（见 user_token.go），
+	// 测试与旧调用点因此不必凭空构造一个数据库。
+	Tokens *repo.AccessTokenRepo
+
 	// AuthKeys 负责把 SSH 公钥同步进 /home/<git 用户>/.ssh/authorized_keys。
 	//
 	// PHP 时代这一步由 misc/modify_authorized_keys.php 守护进程完成
@@ -62,6 +68,7 @@ func (h *UserHandler) Register(s *httpapi.Server) {
 	h.registerNotificationActions(actions)
 	h.registerEmailActions(actions)
 	actions["uploadAvatar"] = map[string]httpapi.ActionHandler{"POST": h.uploadAvatar}
+	h.registerTokenActions(actions)
 
 	s.Register(&httpapi.Controller{
 		Name:    "user",

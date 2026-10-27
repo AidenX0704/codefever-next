@@ -172,6 +172,65 @@ const MOCK = {
   '/api/user/notifications': [],
 }
 
+// 首页聚合（`GET /api/home/overview`，2026-10-27）：形状与 Go 侧
+// `domain.HomeOverview` 一致；合并请求**刻意不带** commit / reviewers
+// （真实后端也不带，首页靠 MergeRequestRow 的 compact 变体渲染）。
+const homeMr = (n, title, status, updatedAgo) => ({
+  id: 'mr' + n,
+  sourceRepository: 'd'.repeat(32),
+  sourceBranch: 'feat/x-' + n,
+  targetRepository: 'c'.repeat(32),
+  targetBranch: 'main',
+  number: n,
+  title,
+  status,
+  create: NOW - updatedAgo - 86400,
+  update: NOW - updatedAgo,
+  reviewers: [],
+  commit: { sha: '', commit: '', detail: '', email: '', time: 0 },
+})
+
+// 全局搜索（`/api/search/all`，2026-10-27）：返回体与 Go 侧 `domain.SearchResults` 同形。
+MOCK['/api/search/all'] = {
+  keyword: 'code',
+  repositories: [
+    { id: 'c'.repeat(32), name: 'codefever-community', displayName: 'codefever-community', description: '轻量级代码仓库管理平台', avatar: null, groupName: 'codefever_team', groupDisplayName: 'CodeFever 团队', updated: NOW - 1800 },
+    { id: 'd'.repeat(32), name: 'gitsvc', displayName: 'gitsvc', description: '轻量级代码仓库管理平台', avatar: null, groupName: 'codefever_team', groupDisplayName: 'CodeFever 团队', updated: NOW - 86400 * 3 },
+  ],
+  groups: [
+    { id: 'a'.repeat(32), name: 'codefever_team', displayName: 'CodeFever 团队', description: '社区版维护组', avatar: null, repositoryCount: 2, updated: NOW - 3600 },
+  ],
+  mergeRequests: [
+    { id: 'mr128', sourceRepository: 'd'.repeat(32), sourceBranch: 'feat/x-128', targetRepository: 'c'.repeat(32), targetBranch: 'main', number: 128, title: '支持按角色限制保护分支的推送', status: 1, create: NOW - 86400 * 4, update: NOW - 10800, reviewers: [], commit: { sha: '', commit: '', detail: '', email: '', time: 0 }, creator: 'm2'.padEnd(32, '0') },
+  ],
+  truncated: { repositories: false, groups: false, mergeRequests: false },
+}
+
+// 访问令牌（`/settings/tokens`，2026-10-27）：列表项与 Go 侧 `accessTokenView` 同形。
+MOCK['/api/user/listToken'] = [
+  { id: 'tk1', name: 'ci-deploy', scope: '', created: NOW - 86400 * 30, lastUsed: NOW - 3600 },
+  { id: 'tk2', name: 'laptop-script', scope: '', created: NOW - 86400 * 3, lastUsed: null },
+]
+
+MOCK['/api/home/overview'] = {
+  counts: { reviewRequests: 4, myOpenMergeRequests: 2 },
+  reviewRequests: [
+    homeMr(128, '支持按角色限制保护分支的推送', 1, 3600 * 3),
+    homeMr(131, '仓库组成员继承到子仓库', 1, 3600 * 26),
+    homeMr(127, '合并请求列表支持按评审人筛选', 1, 86400 * 2),
+  ],
+  myMergeRequests: [
+    homeMr(77, '首页聚合端点与索引迁移', 1, 86400 * 2),
+    homeMr(76, '公开 API 令牌管理界面', 1, 86400 * 9),
+  ],
+  recentActivities: [
+    { id: 'act1', type: 0x401, creator: 'm2'.padEnd(32, '0'), group: null, repository: 'c'.repeat(32), content: { name: 'main' }, time: NOW - 600 },
+    { id: 'act2', type: 0x701, creator: 'm3'.padEnd(32, '0'), group: null, repository: 'c'.repeat(32), content: { id: 128, sourceBranch: 'feat/x-128', targetBranch: 'main' }, time: NOW - 1800 },
+    { id: 'act3', type: 0x306, creator: 'm2'.padEnd(32, '0'), group: null, repository: 'd'.repeat(32), content: { uid: 'm3'.padEnd(32, '0') }, time: NOW - 86400 },
+  ],
+  platform: { repositories: 128, groups: 14, members: 96, openMergeRequests: 21 },
+}
+
 // 批 3：仓库浏览端点（文件内容按 path 动态返回，见下方 handler）
 MOCK['/api/repository/config'] = REPOSITORY_CONFIG
 MOCK['/api/repository/object'] = { type: 'commit', object: TREE_FILES }

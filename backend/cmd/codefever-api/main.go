@@ -155,7 +155,13 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	}
 
 	// 业务域端点。
-	handlers.NewUserHandler(cfg, users, notifications, disk, mail, sessions).Register(srv)
+	//
+	// 用户域额外注入访问令牌仓储：`/api/user/{list,create,delete}Token` 是公开 API
+	// （`/api/v1`）令牌的 Web 管理入口，2026-10-27 补齐 —— 此前令牌能创建也能校验，
+	// 但用户没有任何界面可以拿到它。
+	userHandler := handlers.NewUserHandler(cfg, users, notifications, disk, mail, sessions)
+	userHandler.Tokens = repo.NewAccessTokenRepo(sqlDB)
+	userHandler.Register(srv)
 	fileHandler := handlers.NewFileHandler(disk)
 	fileHandler.Register(srv)
 
@@ -222,6 +228,21 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 		handlers.WithRepositoryWriteSiteConfig(cfg),
 	).Register(srv)
 
+	// 首页聚合（`/api/home/overview`）：员工首页首屏的唯一聚合请求。
+	//
+	// 注意 `home` 同时是 web 控制器名（`/` 的 302 落地，见 handlers/web.go），
+	// 两者分别注册在 `s.controllers` 与 `s.webControllers`，互不影响。
+	handlers.NewHomeAPIHandler(
+		repo.NewHomeRepo(sqlDB),
+		repo.NewRepositoryRepo(sqlDB),
+	).Register(srv)
+
+	// 全局搜索（`/api/search/all`）：阶段一只搜元数据（仓库 / 仓库组 / 合并请求标题）。
+	//
+	// 结果按"我可见的对象"取（SQL 里 JOIN 成员表），不搜代码内容 —— 那需要
+	// git grep 或独立索引，是阶段二的事（见 backend/internal/domain/search.go 顶部注释）。
+	handlers.NewSearchAPIHandler(repo.NewSearchRepo(sqlDB)).Register(srv)
+
 	// 管理域（19 个端点）。
 	//
 	// 构造函数返回 error：启动自检发现 config.yaml 不可解析时**拒绝启动**，
@@ -274,6 +295,18 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	// 因此不会被 API 分发器截走；也就绕开了 contract.Parse 的
 	// Accept / Content-Type 校验（sendBeacon 发的是 text/plain + */*）。
 	handlers.NewWebVitalsHandler(logger).Register(srv)
+
+	// 首页（/home）：员工登录后的默认落地页，由 SPA 壳渲染
+	// （页面本身在 web/src/pages/Home.tsx，方案见 docs/HOME_PAGE_PLAN_2026-10-27.md）。
+	//
+	// 与 /help 同理：未注册会走 handleFallback 并以 **404 状态码**下发壳，
+	// 而首页是正常页面，必须 200。
+	srv.RegisterPage("/home", func(w http.ResponseWriter, r *http.Request) {
+		if !httpapi.ServeSPA(w, r) {
+			w.Header().Set("Content-Type", "text/html; charset=UTF-8")
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+	})
 
 	// 帮助中心（/help）：站内帮助页，由 SPA 壳渲染（页面本身在 web/src/pages/Help.tsx）。
 	//

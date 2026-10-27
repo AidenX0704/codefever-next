@@ -896,6 +896,56 @@ textarea.cf-field__input {
   box-shadow: var(--cf-shadow-card-hover);
 }
 
+/* 扁平卡片：白底 + 1px 边框，**不带**默认 elevation（2026-10-27）。
+   用于首页门户区 —— 那里需要"分区"，不需要"浮起"；`.cf-card` 原语义（带阴影）保持不变，
+   两者别混用。 */
+.cf-card--flat {
+  border: 1px solid var(--cf-color-border);
+  box-shadow: none;
+}
+
+/* 区块卡片：SectionCard 的 card 变体（标题行 + 内容纵向排布）。 */
+.cf-section-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space);
+}
+
+/* ============================== Stat（指标） ============================== */
+/* 只有"数字 + 标签"两行，无外框无底色 —— 理由见 docs/HOME_PAGE_PLAN_2026-10-27.md §2.2。
+   数字字号取 --cf-font-size-h1（20px/700），不新造字号。 */
+.cf-stat {
+  display: flex;
+  flex-direction: column;
+  gap: var(--cf-space-half);
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  text-align: left;
+}
+
+.cf-stat__value {
+  color: var(--cf-color-text);
+  font-size: var(--cf-font-size-h1);
+  font-weight: var(--cf-font-weight-bold);
+  line-height: var(--cf-line-height-tight);
+}
+
+.cf-stat__label {
+  color: var(--cf-color-text-light);
+  font-size: var(--cf-font-size-small);
+  white-space: nowrap;
+}
+
+.cf-stat--link {
+  cursor: pointer;
+}
+
+.cf-stat--link:hover .cf-stat__value {
+  color: var(--cf-color-primary);
+}
+
 /* ============================== EmptyState / Loading ============================== */
 /* EmptyListNotice：图 160px、标题 bold、说明 text-light、maxWidth 480px */
 .cf-empty {

@@ -19,6 +19,15 @@ export interface MergeRequestRowProps {
   href: string
   /** 是否展示目标仓库前缀（全局/组内看板需要，仓库内列表不需要）。 */
   showRepository?: boolean
+  /**
+   * 紧凑变体：去掉"最后提交人 / 评审人头像组"，只留标题、状态、仓库、分支与更新时间。
+   *
+   * 用途是**首页工作台**（`view/home/MergeRequestPanel`）。那里的数据来自
+   * `GET /api/home/overview`，刻意不带 `commit` 与 `reviewers`（否则 5 条待办要跑
+   * 5 次 `git log`，见 docs/HOME_PAGE_PLAN_2026-10-27.md 的 D2）。
+   * 不传 `commit` 时旧渲染会显示"更新于 1970-01-01"，所以必须有这个变体。
+   */
+  compact?: boolean
 }
 
 /** 状态徽标配色：旧版 open=success、merged=info、closed=warning。 */
@@ -47,7 +56,7 @@ function commitsLink(groupName: string, repositoryName: string, branch: string):
  *   - 最后提交人（源仓库成员 → 目标仓库成员 → 邮箱本身）与"编辑于"时间；
  *   - 评审人头像组（已/未评审角标）与"更新时间"。
  */
-export function MergeRequestRow({ item, href, showRepository = false }: MergeRequestRowProps) {
+export function MergeRequestRow({ item, href, showRepository = false, compact = false }: MergeRequestRowProps) {
   const t = useT()
   const { repositories } = useAppData()
 
@@ -61,13 +70,16 @@ export function MergeRequestRow({ item, href, showRepository = false }: MergeReq
   const targetName = target ? target.displayName || target.name : item.targetRepository.slice(0, 8)
 
   // 最后提交人：源仓库成员 → 目标仓库成员 → 提交邮箱本身（旧版 getUserInfo 的三级回退）。
-  const fromSource = resolveMember(source?.members, item.commit?.email)
-  const updater = !fromSource.temporary
-    ? fromSource.name
-    : (() => {
-        const fromTarget = resolveMember(target?.members, item.commit?.email)
-        return fromTarget.temporary ? (item.commit?.email ?? '') : fromTarget.name
-      })()
+  // compact 变体不展示这一段（且数据里没有 commit），直接跳过解析。
+  const fromSource = compact ? null : resolveMember(source?.members, item.commit?.email)
+  const updater = !fromSource
+    ? ''
+    : !fromSource.temporary
+      ? fromSource.name
+      : (() => {
+          const fromTarget = resolveMember(target?.members, item.commit?.email)
+          return fromTarget.temporary ? (item.commit?.email ?? '') : fromTarget.name
+        })()
 
   const sourceHref = source ? commitsLink(source.group.name, source.name, item.sourceBranch) : null
   const targetHref = target ? commitsLink(target.group.name, target.name, item.targetBranch) : null
@@ -92,17 +104,27 @@ export function MergeRequestRow({ item, href, showRepository = false }: MergeReq
             {targetHref ? <AppLink to={targetHref}>{item.targetBranch}</AppLink> : <span>{item.targetBranch}</span>}
           </span>
           <span aria-hidden="true">·</span>
-          <span>
-            {updater} {t('label.editIn')}: <FormattedTime timestamp={Number(item.commit?.time ?? 0)} />
-          </span>
+          {compact ? (
+            // 紧凑变体：首页工作台拿不到 commit（后端刻意不跑 git），
+            // 因此这里显示 MR 自身的更新时间，而不是"最后提交人 + 编辑于"。
+            <span>
+              {t('label.updateTime')}: <FormattedTime timestamp={Number(item.update)} />
+            </span>
+          ) : (
+            <span>
+              {updater} {t('label.editIn')}: <FormattedTime timestamp={Number(item.commit?.time ?? 0)} />
+            </span>
+          )}
         </div>
       </div>
-      <div className="cf-mr-row__side">
-        <MergeRequestReviewers reviewers={item.reviewers ?? []} members={target?.members ?? []} />
-        <span>
-          {t('label.updateTime')}: <FormattedTime timestamp={Number(item.update)} />
-        </span>
-      </div>
+      {compact ? null : (
+        <div className="cf-mr-row__side">
+          <MergeRequestReviewers reviewers={item.reviewers ?? []} members={target?.members ?? []} />
+          <span>
+            {t('label.updateTime')}: <FormattedTime timestamp={Number(item.update)} />
+          </span>
+        </div>
+      )}
     </div>
   )
 }
