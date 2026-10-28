@@ -281,7 +281,7 @@ export default function FileTree() {
               <TR>
                 <TH style={{ width: '30%' }}>{t('label.name')}</TH>
                 <TH>{t('label.lastCommit')}</TH>
-                <TH style={{ width: 'calc(var(--cf-space) * 26)' }}>{t('label.lastUpdate')}</TH>
+                <TH style={{ width: 'calc(var(--sp-4) * 26)' }}>{t('label.lastUpdate')}</TH>
               </TR>
             </THead>
             <TBody>

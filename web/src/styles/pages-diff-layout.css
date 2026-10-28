@@ -14,33 +14,33 @@
 .cf-diff__summary {
   display: flex;
   align-items: center;
-  gap: var(--cf-space);
-  padding: var(--cf-space) calc(var(--cf-space) * 2);
-  border: 1px solid var(--cf-color-border);
-  border-radius: var(--cf-radius);
-  background: var(--cf-color-bg-main);
-  color: var(--cf-color-text);
-  font-size: var(--cf-font-size);
+  gap: var(--sp-4);
+  padding: var(--sp-4) calc(var(--sp-4) * 2);
+  border: 1px solid var(--bd);
+  border-radius: var(--r-md);
+  background: var(--bg-canvas);
+  color: var(--fg);
+  font-size: var(--fs-14);
 }
 
 .cf-diff__summary-files {
-  font-weight: var(--cf-font-weight-medium);
+  font-weight: var(--fw-medium);
 }
 
 .cf-diff__layout {
   margin-left: auto;
-  padding: 0 var(--cf-space);
-  border: 1px solid var(--cf-color-border);
-  border-radius: var(--cf-radius);
-  background: var(--cf-color-bg);
-  color: var(--cf-color-primary);
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--bd);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
+  color: var(--ac-primary);
   cursor: pointer;
-  font-size: var(--cf-font-size-small);
-  line-height: var(--cf-control-height-sm);
+  font-size: var(--fs-12);
+  line-height: var(--ctl-h-sm);
 }
 
 .cf-diff__layout:hover {
-  background: var(--cf-color-primary-lighter);
+  background: var(--ac-primary-tint);
 }
 
 /* 折叠面板头：文件名可点展开/收起，操作按钮靠右。 */
@@ -52,7 +52,7 @@
   display: inline-flex;
   flex: 1 1 auto;
   align-items: center;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
   min-width: 0;
   padding: 0;
   border: 0;
@@ -65,18 +65,18 @@
 
 .cf-diff__mode {
   flex: 0 0 auto;
-  color: var(--cf-color-text-light);
-  font-family: var(--cf-font-family-mono);
-  font-size: var(--cf-font-size-small);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
 }
 
 .cf-diff__actions {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
   margin-left: auto;
-  color: var(--cf-color-text-light);
+  color: var(--fg-muted);
 }
 
 .cf-diff__actions a {
@@ -94,39 +94,39 @@
 }
 
 .cf-diff__code--del {
-  background: var(--cf-color-diff-deletion);
+  background: var(--diff-del-bg);
 }
 
 .cf-diff__code--add {
-  background: var(--cf-color-diff-addition);
+  background: var(--diff-add-bg);
 }
 
 .cf-diff__no--del {
-  background: var(--cf-color-diff-deletion-dark);
+  background: var(--diff-del-gutter);
 }
 
 .cf-diff__no--add {
-  background: var(--cf-color-diff-addition-dark);
+  background: var(--diff-add-gutter);
 }
 
 .cf-diff__hunk {
-  padding: 0 var(--cf-space);
-  background: var(--cf-color-diff-label);
-  color: var(--cf-color-text-light);
+  padding: 0 var(--sp-4);
+  background: var(--diff-hunk-bg);
+  color: var(--fg-muted);
 }
 
 /* "展开完整文件"的内容区。 */
 .cf-diff__full {
-  max-height: calc(var(--cf-space) * 40);
+  max-height: calc(var(--sp-4) * 40);
   overflow: auto;
 }
 
 .cf-diff__full--image {
-  padding: calc(var(--cf-space) * 2);
+  padding: calc(var(--sp-4) * 2);
   text-align: center;
 }
 
 .cf-diff__full--image img {
   max-width: 80%;
-  border: 1px solid var(--cf-color-border);
+  border: 1px solid var(--bd);
 }

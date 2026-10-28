@@ -3,15 +3,15 @@
  *
  * 口径来源：旧版 `components/unit/RefFilter.js` —— TabHeader 左边、搜索框与
  * 排序按钮在右、新建按钮最右；搜索框宽 240px(spacing 30)。
- * 所有取值走 var(--cf-*)，不写字面值（AGENTS §5）。
+ * 所有取值走语义令牌与尺寸令牌，不写字面值（AGENTS §5）。
  */
 
 .cf-filter-bar {
   display: flex;
   align-items: center;
-  gap: var(--cf-space);
-  padding: var(--cf-space) 0;
-  border-bottom: 1px solid var(--cf-color-border);
+  gap: var(--sp-4);
+  padding: var(--sp-4) 0;
+  border-bottom: 1px solid var(--bd);
 }
 
 .cf-filter-bar__tools {
@@ -19,17 +19,17 @@
   flex: 1 1 auto;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--cf-space);
+  gap: var(--sp-4);
   min-width: 0;
 }
 
 .cf-filter-bar__search {
-  width: calc(var(--cf-space) * 30);
+  width: calc(var(--sp-4) * 30);
 }
 
 .cf-filter-bar__actions {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--cf-space);
+  gap: var(--sp-4);
 }

@@ -112,23 +112,66 @@
 **要求**
 
 1. 下列视觉维度必须全站一致：**颜色、字体、字号、间距、圆角、边框、阴影、
-   表格密度、按钮样式、弹窗样式、表单样式**。
+   表格行高、按钮样式、弹窗样式、表单样式、动效时长、焦点环**。
+
 2. 本项目的事实标准：**自研设计令牌 + 自研组件库**（2026-10 前端重写后：
    不再使用任何 UI 框架，MUI 已随旧 `www/view` 一起删除）。
-   - 颜色/间距/圆角/阴影/字号**只允许**出现在 `web/src/theme/theme.css` 的 `:root`，
-     组件与页面通过 `var(--cf-*)` 引用（TS 侧用 `web/src/theme/tokens.ts` 的类型化引用）；
-   - 通用能力一律走 `web/src/components/unit/`，页面不得自绘按钮/输入框/表格/弹窗；
-   - 间距用 `space(n)`（8px 单位，等价旧 `theme.spacing`）；栅格用现有 `group-grid` /
-     `FormGrid`；断点写在组件 CSS 的 `@media` 里并复用既有断点值。
-3. **禁止**硬编码视觉值：`#3455db`、`padding: 13px`、`border-radius: 5px`、
-   自造阴影或表格行高等。需要新值时，先加到主题 / 样式变量，再在页面引用。
-4. 按钮、弹窗、表单、表格一律复用既有组件或既有变体，**不要**为单个页面
-   定制一套外观。
-5. 有明确外部来源的常量（第三方品牌色、代码高亮主题）允许例外，
-   但必须集中定义并注释来源。
+   令牌基线与取值见 `docs/design-v3/DESIGN_TOKENS_V3.md`
+   （Git Platform Design System V3），可视化见
+   `docs/design-v3/tokens-v3-prototype.html`。
 
-**验收自检**：把两个不相干页面的截图并排放，按钮高度、圆角、间距节奏、
-表头背景、弹窗标题字号应当看不出差异。
+3. 令牌分三层，**依赖只能单向向下**：
+
+   | 层 | 前缀 | 谁能引用 |
+   |---|---|---|
+   | 原始层 | `--p-*` | **只有 `theme.css` 内部**；组件与页面一律不得引用 |
+   | 语义层 | `--bg-` `--fg-` `--bd-` `--ac-` `--st-` `--code-` `--diff-` `--tok-` `--chart-` `--shadow-` `--scrim` `--chrome-` | 组件与页面的**唯一**颜色来源 |
+   | 尺寸层 | `--sp-` `--r-` `--fs-` `--fw-` `--lh-` `--ctl-` `--row-` `--cell-` `--tab-` `--layout-` `--icon-` `--dur-` `--ease-` `--z-` `--focus-` | 组件与页面的**唯一**尺寸来源 |
+
+4. **禁止**硬编码视觉值：`#2563eb`、`padding: 13px`、`border-radius: 5px`、
+   自造阴影或表格行高。需要新值时，先看既有令牌能否用 `calc()` 组合；
+   不能则加到对应层，再引用。
+
+5. 语义层按主题成对定义：`:root`（浅色）与 `:root[data-theme="dark"]`。
+   两组**必须键名一一对应**（当前 95 个）。新增颜色令牌时两个主题一起加 ——
+   只加一边会让那一处在切主题时静默回退到继承值，不报错、肉眼极难发现。
+
+6. 组件内部量（某个组件自己的 padding / 宽度 / 字号）**不进** `theme.css`，
+   放在该组件所在 CSS 的组件令牌块里：组件库在 `styles/components.css` 顶部，
+   认证页在 `styles/pages-auth.css` 顶部，首页在 `styles/pages-home.css` 顶部。
+   页面规则不得引用这些令牌。
+
+7. 间距一律用 `--sp-*` 阶梯或 `space(n)`（`n × 8px`）；栅格用既有
+   `group-grid` / `FormGrid`；断点写在组件 CSS 的 `@media` 里并复用既有断点值。
+
+8. **焦点规范**（键盘可达性，不可省略）：
+
+   - **输入框 / 选择器 / 文本域**：聚焦时**只把边框换成 `--bd-focus`**，
+     **不加光晕、不加外环、不改边框宽度**（改宽度会让整行内容位移）。
+   - 其余可交互元素（链接、按钮、`[role="button"]`、`summary`）：用
+     `outline: var(--focus-w) solid var(--focus-ring)` + `outline-offset: var(--focus-offset)`。
+   - 不允许移除 outline 而不提供等价的可见样式；不允许用 `box-shadow` 模拟输入框焦点。
+
+9. **时间与数字**：UI 上的绝对时间**只有一种格式** `yyyy-MM-dd HH:mm:ss`（到秒），
+   一律经 `web/src/components/unit/FormattedTime`（及其 `formatDateTime()`）
+   统一输出，禁止直接渲染 ISO 串、斜杠日期、分钟级截断；无效时间显示 `—`。
+   时间戳、数量、耗时、行号、版本号用 `font-variant-numeric: tabular-nums`；
+   SHA / 分支名 / 路径 / 版本号用 `--font-mono`。
+
+10. 按钮、弹窗、表单、表格一律复用既有组件或既有变体，**不要**为单个页面
+    定制一套外观。
+
+11. 有明确外部来源的常量（第三方品牌色、代码高亮主题）允许例外，
+    但必须集中定义并注释来源。
+
+**验收自检**
+
+- 把两个不相干页面的截图并排放，按钮高度、圆角、间距节奏、表头背景、
+  弹窗标题字号应当看不出差异。
+- 在 `<html>` 上加 `data-theme="dark"` 走查一遍：**不得出现看不清的文字或
+  消失的边线**。出现即说明有组件引用了原始层或写了字面值。
+- 键盘 Tab 走一遍：每个可聚焦元素都有可见焦点；**输入框聚焦只有边框变色，
+  没有光晕**。
 
 ---
 
@@ -238,7 +281,7 @@
 |---|---|
 | 改了 `web/src` 却没重建 `build/` | `web/build` 是**入库产物**，Dockerfile 只 `COPY` 不构建前端；改 src 后必须 `npm run build` 并提交 |
 | 从 `web/src/assets/icons/` 造 barrel 全量导入 | 会把 154 个图标全部打进产物（旧版踩过）。图标一律从 `web/src/config/icons.ts` 按需 import |
-| 在页面/组件里写颜色、间距、圆角字面值 | 违反 §5：唯一允许的地方是 `web/src/theme/theme.css`；其他位置用 `var(--cf-*)` |
+| 在页面/组件里写颜色、间距、圆角字面值 | 违反 §5：色值唯一允许出现在 `web/src/theme/theme.css` 的原始层（`--p-*`）；其他位置一律引用语义令牌（`--bg-*` / `--fg-*` / `--bd-*` / `--ac-*` / `--st-*`）与尺寸令牌 |
 | 改了 Go 的页面 GET 却忘了 SPA 壳 | `/user/*`、`/doc/*` 的 GET 现在统一下发 `web/build/index.html`（`httpapi/spa.go`）；新增页面 GET 时直接调 `httpapi.ServeSPA` |
 | 用 `view.type === 'tree'` 判断目录 | `repository/object` 在 `parent` 是**提交**时返回 `type: 'commit'`（最常见），只有 tree SHA 才返回 `'tree'`。判目录请用 `api/types.ts` 的 `isDirectoryView()`，否则文件列表会是空的（2026-10 真实踩过） |
 | 壳被缓存导致发布白屏 | 壳必须 `Cache-Control: no-cache`（引用的是带哈希的资源名）；`/static/js|css` 才是一年 immutable |

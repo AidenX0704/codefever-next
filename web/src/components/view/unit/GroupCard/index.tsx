@@ -53,7 +53,7 @@ export function GroupCard({ group, repositoryCount }: GroupCardProps) {
       <div className="group-card__stats">
         <Icon icon={plRepository} size={14} />
         {repositoryCount}
-        <span style={{ display: 'inline-block', width: 'var(--cf-space)' }} />
+        <span style={{ display: 'inline-block', width: 'var(--sp-4)' }} />
         <Icon icon={plMember} size={14} />
         {group.members.length}
       </div>

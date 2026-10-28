@@ -132,7 +132,7 @@ export function SettingsNotificationMatrix({ groups, repositories, refused, onTo
                 <TD>
                   <span>
                     {/* 旧版：组内仓库显示成"组名/仓库名"（UserSettingNotification.js:322） */}
-                    <span className="muted" style={{ marginInlineStart: 'var(--cf-space)' }}>
+                    <span className="muted" style={{ marginInlineStart: 'var(--sp-4)' }}>
                       {group.displayName}/
                     </span>
                     {repo.displayName}

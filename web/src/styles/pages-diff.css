@@ -1,6 +1,6 @@
 /*
  * diff 视图样式。
- * 颜色取旧主题 preset 的 diff 专用底色（theme.css 的 --cf-color-diff-*）：
+ * 颜色取 theme.css 的 diff 专用令牌（--diff-add-* / --diff-del-* / --diff-hunk-*）：
  *   新增行 #e6ffed、删除行 #ffeef0、hunk 头 #f1f8ff。
  * 行号列宽 40px，等宽 12px 字号。
  */
@@ -8,111 +8,111 @@
 .cf-diff {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--cf-space) * 2);
+  gap: calc(var(--sp-4) * 2);
 }
 
 .cf-diff__file {
   overflow: hidden;
-  border: 1px solid var(--cf-color-border);
-  border-radius: var(--cf-radius);
+  border: 1px solid var(--bd);
+  border-radius: var(--r-md);
 }
 
 .cf-diff__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--cf-space);
-  padding: var(--cf-space) calc(var(--cf-space) * 2);
-  background: var(--cf-color-bg-main);
-  font-size: var(--cf-font-size);
+  gap: var(--sp-4);
+  padding: var(--sp-4) calc(var(--sp-4) * 2);
+  background: var(--bg-canvas);
+  font-size: var(--fs-14);
 }
 
 .cf-diff__name {
   display: inline-flex;
   align-items: center;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
   min-width: 0;
   overflow: hidden;
-  color: var(--cf-color-text);
+  color: var(--fg);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .cf-diff__old {
-  color: var(--cf-color-text-light);
+  color: var(--fg-muted);
   text-decoration: line-through;
 }
 
 .cf-diff__arrow {
-  color: var(--cf-color-text-lighter);
+  color: var(--fg-subtle);
 }
 
 .cf-diff__stats {
   display: inline-flex;
-  gap: var(--cf-space);
+  gap: var(--sp-4);
   flex: 0 0 auto;
-  font-size: var(--cf-font-size-small);
+  font-size: var(--fs-12);
 }
 
 .cf-diff__add {
-  color: var(--cf-color-success-dark);
+  color: var(--st-success-text);
 }
 
 .cf-diff__del {
-  color: var(--cf-color-danger-dark);
+  color: var(--ac-danger-active);
 }
 
 .cf-diff__oversize {
-  padding: calc(var(--cf-space) * 2);
-  color: var(--cf-color-text-light);
-  font-size: var(--cf-font-size);
+  padding: calc(var(--sp-4) * 2);
+  color: var(--fg-muted);
+  font-size: var(--fs-14);
 }
 
 .cf-diff__table {
   width: 100%;
   border-collapse: collapse;
-  font-family: var(--cf-font-family-mono);
-  font-size: var(--cf-font-size-small);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
 }
 
 .cf-diff__no {
-  width: calc(var(--cf-space) * 5);
-  padding: 0 var(--cf-space);
-  color: var(--cf-color-text-lighter);
-  line-height: calc(var(--cf-space) * 2);
+  width: calc(var(--sp-4) * 5);
+  padding: 0 var(--sp-4);
+  color: var(--fg-subtle);
+  line-height: calc(var(--sp-4) * 2);
   text-align: right;
   vertical-align: top;
   user-select: none;
 }
 
 .cf-diff__code {
-  padding: 0 var(--cf-space);
-  line-height: calc(var(--cf-space) * 2);
+  padding: 0 var(--sp-4);
+  line-height: calc(var(--sp-4) * 2);
   overflow-wrap: break-word;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
 .cf-diff__row--add {
-  background: var(--cf-color-diff-addition);
+  background: var(--diff-add-bg);
 }
 
 .cf-diff__row--add .cf-diff__no {
-  background: var(--cf-color-diff-addition-dark);
+  background: var(--diff-add-gutter);
 }
 
 .cf-diff__row--del {
-  background: var(--cf-color-diff-deletion);
+  background: var(--diff-del-bg);
 }
 
 .cf-diff__row--del .cf-diff__no {
-  background: var(--cf-color-diff-deletion-dark);
+  background: var(--diff-del-gutter);
 }
 
 .cf-diff__row--hunk {
-  background: var(--cf-color-diff-label);
+  background: var(--diff-hunk-bg);
 }
 
 .cf-diff__row--hunk .cf-diff__code {
-  color: var(--cf-color-text-light);
+  color: var(--fg-muted);
 }

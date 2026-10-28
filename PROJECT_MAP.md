@@ -228,7 +228,7 @@ handler（业务写）
 | `src/helpers/recentRepos.ts` | 最近访问仓库（localStorage，LRU 6 条，容错解析）；由 `RepositoryLayout` 写入、首页读取 |
 | `src/config/homeLinks.ts` | 首页「平台能力」8 项 + 「快捷入口」6 项（含未就绪标记）的唯一数据源 |
 | `src/config/homeOnboarding.ts` | 首页「四步上手」4 步 + 「团队规范」3 条（全部指向文档中心真实存在的文件） |
-| `src/styles/pages-home.css` | 首页布局与区块样式（零字面值，全部 `var(--cf-*)`） |
+| `src/styles/pages-home.css` | 首页布局与区块样式（零字面值，全部引用语义/尺寸令牌；文件顶部有首页专属令牌块） |
 | `src/pages/Doc.tsx` | 文档中心（`/doc/{lang}/{path}`）：菜单树 + Markdown 渲染（react-markdown + remark-gfm） |
 | `src/pages/Search.tsx` | **全局搜索页（`/search?keyword=…`，2026-10-27 新增）**：提交式搜索框 + 三类结果（仓库 / 仓库组 / 合并请求标题，各 ≤10 条，截断时提示"仅显示前 10 条"）+ 空态/无结果态 + 范围说明。合并请求行复用 `MergeRequestRow` 的 `compact` 变体；关键词在主键解析上复用 AppData 的成员字典 |
 | `src/api/search.ts` | `fetchSearchResults()`（`GET /api/search/all`）+ 三类结果类型 |

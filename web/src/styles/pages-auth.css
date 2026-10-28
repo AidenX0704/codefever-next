@@ -6,30 +6,54 @@
  *                             .login-top / .login-wrap / .login-wrap-inner
  *   www/static/css/common.css .btn-self-primary / .font-26 / .color-*
  * 卡片 1184×644、左图 644 宽、右侧表单列 360 宽、≤1184px 隐藏左图。
- * 所有取值走 var(--cf-*)，此处不写字面值。
+ * 所有取值走语义令牌与尺寸令牌，此处不写字面值。
  */
+
+/* ============================================================================
+ * 认证页令牌（只服务本文件：登录 / 注册 / 二次验证 / 重置口令）
+ *
+ * 认证页的版式尺寸与主应用不同（1184×644 的左右分栏卡片），
+ * 因此单独一组，不进 theme.css 全局层。主色已统一走 --ac-primary，
+ * 不再保留旧版 #0035ec 的第二套主色。
+ * ========================================================================== */
+:root {
+  --auth-card-w: 1184px;
+  --auth-card-h: 644px;
+  --auth-hero-w: 644px;
+  --auth-logo-h: 60px;
+  --auth-title-size: 26px;
+  --auth-input-size: 15px;
+  --auth-card-pad: 60px 0;
+  --auth-top-gap: 50px;
+  --auth-link-gap-top: 20px;
+  --auth-link-gap-bottom: 30px;
+  --auth-form-w: 360px;
+  --auth-panel-bg: var(--bg-surface);
+  --auth-input-h: 44px;
+}
+
 
 .auth-body {
   display: flex;
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  background: var(--cf-color-bg-auth);
+  background: var(--bg-canvas);
 }
 
 .auth-card {
   display: flex;
-  width: var(--cf-auth-card-width);
-  height: var(--cf-auth-card-height);
+  width: var(--auth-card-w);
+  height: var(--auth-card-h);
   overflow: hidden;
-  border-radius: var(--cf-radius);
-  background: var(--cf-auth-panel-bg);
-  box-shadow: var(--cf-shadow-auth-card);
+  border-radius: var(--r-md);
+  background: var(--auth-panel-bg);
+  box-shadow: var(--shadow-2);
 }
 
 .auth-card__hero {
-  flex: 0 0 var(--cf-auth-hero-width);
-  width: var(--cf-auth-hero-width);
+  flex: 0 0 var(--auth-hero-w);
+  width: var(--auth-hero-w);
   height: 100%;
 }
 
@@ -45,13 +69,13 @@
   flex: 1 1 auto;
   align-items: center;
   justify-content: center;
-  padding: var(--cf-auth-card-padding);
-  background: var(--cf-auth-panel-bg);
+  padding: var(--auth-card-pad);
+  background: var(--auth-panel-bg);
 }
 
 .auth-card__inner {
   width: 100%;
-  max-width: var(--cf-auth-form-width);
+  max-width: var(--auth-form-w);
 }
 
 /* 表单头部：logo + 欢迎语 + 品牌名 */
@@ -59,49 +83,49 @@
   display: flex;
   align-items: center;
   gap: 20px;
-  margin-bottom: var(--cf-auth-top-gap);
+  margin-bottom: var(--auth-top-gap);
 }
 
 .auth-head__logo {
-  height: var(--cf-auth-logo-height);
+  height: var(--auth-logo-h);
   width: auto;
 }
 
 .auth-head__text {
   display: flex;
   flex-direction: column;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
 }
 
 .auth-head__title {
-  color: var(--cf-color-auth-title);
-  font-size: var(--cf-auth-title-size);
-  font-weight: var(--cf-font-weight-normal);
-  line-height: var(--cf-line-height-tight);
+  color: var(--fg-strong);
+  font-size: var(--auth-title-size);
+  font-weight: var(--fw-regular);
+  line-height: var(--lh-tight);
 }
 
 .auth-head__subtitle {
-  color: var(--cf-color-auth-subtitle);
-  font-size: var(--cf-font-size);
+  color: var(--fg-muted);
+  font-size: var(--fs-14);
 }
 
 .auth-form {
   display: flex;
   flex-direction: column;
-  gap: var(--cf-space);
+  gap: var(--sp-4);
 }
 
 .auth-form__links {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: var(--cf-auth-link-gap-top);
-  margin-bottom: var(--cf-auth-link-gap-bottom);
+  margin-top: var(--auth-link-gap-top);
+  margin-bottom: var(--auth-link-gap-bottom);
 }
 
 .auth-link {
-  color: var(--cf-color-auth-primary);
-  font-size: var(--cf-font-size);
+  color: var(--ac-primary);
+  font-size: var(--fs-14);
   cursor: pointer;
 }
 
@@ -110,8 +134,8 @@
 }
 
 .auth-footnote {
-  color: var(--cf-color-auth-muted);
-  font-size: var(--cf-font-size);
+  color: var(--fg-subtle);
+  font-size: var(--fs-14);
 }
 
 .auth-submit {
@@ -120,16 +144,16 @@
 }
 
 .auth-message {
-  color: var(--cf-color-danger);
-  font-size: var(--cf-font-size);
-  line-height: var(--cf-line-height);
+  color: var(--ac-danger);
+  font-size: var(--fs-14);
+  line-height: var(--lh-normal);
   text-align: center;
 }
 
 .auth-hint {
-  color: var(--cf-color-auth-subtitle);
-  font-size: var(--cf-font-size);
-  line-height: var(--cf-line-height);
+  color: var(--fg-muted);
+  font-size: var(--fs-14);
+  line-height: var(--lh-normal);
 }
 
 @media (max-width: 1184px) {
@@ -153,6 +177,6 @@
 @media (max-width: 576px) {
   /* 旧样式：.login-wrap-inner{ padding: 60px 20px } */
   .auth-card__panel {
-    padding: var(--cf-auth-card-padding) calc(var(--cf-space) * 2.5);
+    padding: var(--auth-card-pad) calc(var(--sp-4) * 2.5);
   }
 }

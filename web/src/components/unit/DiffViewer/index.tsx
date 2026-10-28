@@ -175,8 +175,8 @@ export interface DiffViewerProps {
  *
  * 视觉口径来自旧 `components/unit/CodeDiffViewer.js`：
  *   - 每个文件一个区块：文件名（改名时显示 `旧名 → 新名`）+ `+x -y` 统计；
- *   - 行级着色取 `--cf-color-diff-addition` / `--cf-color-diff-deletion` /
- *     `--cf-color-diff-label`（旧主题 preset 的 `background.addition` 等）；
+ *   - 行级着色取 `--diff-add-bg` / `--diff-del-bg` /
+ *     `--diff-hunk-bg`（旧主题 preset 的 `background.addition` 等）；
  *   - 双列行号（旧 | 新）。
  * `type === 'oversize'` 的文件按旧版语义只显示提示，不渲染正文。
  *

@@ -7,7 +7,7 @@
  *   components/unit/ObjectViewer.js        —— 文件信息条 + 详情区边框；
  *   components/unit/RepositoryEmpty.js     —— 代码块圆角 4px、背景 bg-main。
  *
- * 所有取值走 var(--cf-*)，不写字面值（AGENTS §5）。
+ * 所有取值走语义令牌与尺寸令牌，不写字面值（AGENTS §5）。
  */
 
 /* ------------------------------ 仓库头 ------------------------------ */
@@ -15,7 +15,7 @@
 .repo-head__top {
   display: flex;
   align-items: center;
-  gap: calc(var(--cf-space) * 2);
+  gap: calc(var(--sp-4) * 2);
 }
 
 .repo-head__identity {
@@ -24,37 +24,37 @@
 }
 
 .repo-head__fork {
-  font-size: var(--cf-font-size);
-  font-weight: var(--cf-font-weight-normal);
+  font-size: var(--fs-14);
+  font-weight: var(--fw-regular);
 }
 
 .repo-head__actions {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--cf-space);
+  gap: var(--sp-4);
 }
 
 .repo-clone {
   display: flex;
   flex-direction: column;
-  gap: var(--cf-space);
-  padding: var(--cf-space);
-  border: 1px solid var(--cf-color-border);
-  border-radius: var(--cf-radius);
-  background: var(--cf-color-bg);
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border: 1px solid var(--bd);
+  border-radius: var(--r-md);
+  background: var(--bg-surface);
 }
 
 .repo-clone__hint {
   margin: 0;
-  color: var(--cf-color-text-light);
-  font-size: var(--cf-font-size-small);
+  color: var(--fg-muted);
+  font-size: var(--fs-12);
 }
 
 .repo-clone__row {
   display: flex;
   align-items: center;
-  gap: var(--cf-space);
+  gap: var(--sp-4);
 }
 
 .repo-clone__field {
@@ -66,30 +66,30 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: calc(var(--cf-space) * 2);
-  color: var(--cf-color-text-light);
-  font-size: var(--cf-font-size);
+  gap: calc(var(--sp-4) * 2);
+  color: var(--fg-muted);
+  font-size: var(--fs-14);
 }
 
 .repo-stat {
   display: inline-flex;
   align-items: center;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
 }
 
 .repo-stat__value {
-  color: var(--cf-color-text);
-  font-weight: var(--cf-font-weight-medium);
+  color: var(--fg);
+  font-weight: var(--fw-medium);
 }
 
 .repo-stat__label {
-  color: var(--cf-color-text-light);
+  color: var(--fg-muted);
 }
 
 /* ------------------------------ 文件浏览 ------------------------------ */
 
 .file-toolbar__search {
-  width: calc(var(--cf-space) * 30);
+  width: calc(var(--sp-4) * 30);
 }
 
 /* ------------------------------ 分支 / 标签行 ------------------------------ */
@@ -98,45 +98,45 @@
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
 }
 
 .ref-row__detail {
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
-  color: var(--cf-color-text-light);
-  font-size: var(--cf-font-size-small);
+  color: var(--fg-muted);
+  font-size: var(--fs-12);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .ref-row__updater {
   flex: 0 0 auto;
-  color: var(--cf-color-text-light);
-  font-size: var(--cf-font-size-small);
+  color: var(--fg-muted);
+  font-size: var(--fs-12);
 }
 
 .ref-row__actions {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
 }
 
 /* 分组标题（活跃 / 非活跃） */
 .ref-group__title {
-  padding: var(--cf-space) 0 var(--cf-space-half);
-  color: var(--cf-color-text);
-  font-size: var(--cf-font-size-h4);
-  font-weight: var(--cf-font-weight-bold);
+  padding: var(--sp-4) 0 var(--sp-2);
+  color: var(--fg);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-bold);
 }
 
 /* 列表底部的"查看更多 / 没有更多" */
 .list-more {
   display: flex;
   justify-content: center;
-  padding-top: var(--cf-space);
+  padding-top: var(--sp-4);
 }
 
 /* ------------------------------ 文件查看器 ------------------------------ */
@@ -145,20 +145,20 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--cf-space);
-  padding: var(--cf-space);
-  border: 1px solid var(--cf-color-border);
-  border-radius: var(--cf-radius) var(--cf-radius) 0 0;
-  background: var(--cf-color-bg-main);
+  gap: var(--sp-4);
+  padding: var(--sp-4);
+  border: 1px solid var(--bd);
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  background: var(--bg-canvas);
 }
 
 .file-view__meta {
   display: flex;
   align-items: center;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
   min-width: 0;
-  color: var(--cf-color-text);
-  font-size: var(--cf-font-size);
+  color: var(--fg);
+  font-size: var(--fs-14);
 }
 
 .file-view__path {
@@ -169,60 +169,60 @@
 
 .file-view__size {
   flex: 0 0 auto;
-  color: var(--cf-color-text-light);
-  font-size: var(--cf-font-size-small);
+  color: var(--fg-muted);
+  font-size: var(--fs-12);
 }
 
 .file-view__actions {
   display: flex;
   flex: 0 0 auto;
   align-items: center;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
 }
 
 .file-view__body {
   overflow-x: auto;
-  border: 1px solid var(--cf-color-border);
+  border: 1px solid var(--bd);
   border-top: 0;
-  border-radius: 0 0 var(--cf-radius) var(--cf-radius);
-  background: var(--cf-color-bg);
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  background: var(--bg-surface);
 }
 
 .file-view__media {
   display: block;
   max-width: 80%;
-  margin: calc(var(--cf-space) * 5) auto;
+  margin: calc(var(--sp-4) * 5) auto;
 }
 
 .file-view__placeholder {
-  padding: calc(var(--cf-space) * 8) var(--cf-space);
-  color: var(--cf-color-text-light);
+  padding: calc(var(--sp-4) * 8) var(--sp-4);
+  color: var(--fg-muted);
   text-align: center;
 }
 
 .file-view__markdown {
   box-sizing: border-box;
-  min-width: calc(var(--cf-space) * 25);
-  max-width: calc(var(--cf-space) * 122);
+  min-width: calc(var(--sp-4) * 25);
+  max-width: calc(var(--sp-4) * 122);
   margin: 0 auto;
-  padding: calc(var(--cf-space) * 5);
+  padding: calc(var(--sp-4) * 5);
 }
 
 /* blame 归属列表 */
 .blame-list {
   display: flex;
   flex-direction: column;
-  border-bottom: 1px solid var(--cf-color-border);
+  border-bottom: 1px solid var(--bd);
 }
 
 .blame-row {
   display: flex;
   align-items: center;
-  gap: var(--cf-space);
-  padding: var(--cf-space-half) var(--cf-space);
-  border-bottom: 1px solid var(--cf-color-border);
-  color: var(--cf-color-text-light);
-  font-size: var(--cf-font-size-small);
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--bd);
+  color: var(--fg-muted);
+  font-size: var(--fs-12);
 }
 
 .blame-row:last-child {
@@ -231,7 +231,7 @@
 
 .blame-row__lines {
   flex: 0 0 auto;
-  font-family: var(--cf-font-family-mono);
+  font-family: var(--font-mono);
 }
 
 /* ------------------------------ 空仓库引导 ------------------------------ */
@@ -239,76 +239,76 @@
 .repo-empty {
   display: flex;
   flex-direction: column;
-  gap: var(--cf-space);
-  padding: calc(var(--cf-space) * 3);
-  border: 1px solid var(--cf-color-border);
-  border-radius: var(--cf-radius) var(--cf-radius) 0 0;
-  background: var(--cf-color-bg);
+  gap: var(--sp-4);
+  padding: calc(var(--sp-4) * 3);
+  border: 1px solid var(--bd);
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  background: var(--bg-surface);
 }
 
 .repo-empty--flush {
   border-top: 0;
-  border-radius: 0 0 var(--cf-radius) var(--cf-radius);
+  border-radius: 0 0 var(--r-md) var(--r-md);
 }
 
 .repo-empty__title {
-  color: var(--cf-color-text);
-  font-size: var(--cf-font-size-h1);
-  font-weight: var(--cf-font-weight-bold);
+  color: var(--fg);
+  font-size: var(--fs-20);
+  font-weight: var(--fw-bold);
 }
 
 .repo-empty__code {
   position: relative;
-  margin-top: var(--cf-space);
-  padding: calc(var(--cf-space) * 1.5);
-  border-radius: var(--cf-radius);
-  background: var(--cf-color-bg-main);
+  margin-top: var(--sp-4);
+  padding: calc(var(--sp-4) * 1.5);
+  border-radius: var(--r-md);
+  background: var(--bg-canvas);
 }
 
 .repo-empty__copy {
   position: absolute;
-  top: calc(var(--cf-space) * 1.5);
-  right: calc(var(--cf-space) * 1.5);
+  top: calc(var(--sp-4) * 1.5);
+  right: calc(var(--sp-4) * 1.5);
 }
 
 .repo-empty__line {
-  color: var(--cf-color-text);
-  font-family: var(--cf-font-family-mono);
-  font-size: var(--cf-font-size-small);
+  color: var(--fg);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
 }
 
 /* ------------------------------ 提交详情的父提交 / 包含引用 ------------------------------ */
 
 .commit-refs {
   overflow: hidden;
-  border: 1px solid var(--cf-color-border);
-  border-radius: var(--cf-radius);
+  border: 1px solid var(--bd);
+  border-radius: var(--r-md);
 }
 
 .commit-refs__block {
   display: flex;
   flex-direction: column;
-  gap: var(--cf-space-half);
-  padding: var(--cf-space) 0;
+  gap: var(--sp-2);
+  padding: var(--sp-4) 0;
 }
 
 .commit-refs__block + .commit-refs__block {
-  border-top: 1px solid var(--cf-color-border);
+  border-top: 1px solid var(--bd);
 }
 
 .commit-refs__label {
-  color: var(--cf-color-text);
-  font-size: var(--cf-font-size);
+  color: var(--fg);
+  font-size: var(--fs-14);
 }
 
 .commit-refs__links {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--cf-space);
-  padding: 0 var(--cf-space);
+  gap: var(--sp-4);
+  padding: 0 var(--sp-4);
 }
 
 .commit-refs__link {
-  font-family: var(--cf-font-family-mono);
-  font-size: var(--cf-font-size-small);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
 }

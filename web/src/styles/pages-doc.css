@@ -6,24 +6,24 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background: var(--cf-color-bg);
+  background: var(--bg-surface);
 }
 
 .doc-header {
   position: sticky;
   top: 0;
-  z-index: var(--cf-z-header);
+  z-index: var(--z-header);
   display: flex;
   align-items: center;
-  gap: var(--cf-space);
-  height: var(--cf-header-height);
-  padding: 0 calc(var(--cf-space) * 3);
-  border-bottom: 1px solid var(--cf-color-border);
-  background: var(--cf-color-bg);
+  gap: var(--sp-4);
+  height: var(--layout-header);
+  padding: 0 calc(var(--sp-4) * 3);
+  border-bottom: 1px solid var(--bd);
+  background: var(--bg-surface);
 }
 
 .doc-header__logo {
-  height: calc(var(--cf-space) * 4);
+  height: calc(var(--sp-4) * 4);
 }
 
 .doc-header__spacer {
@@ -31,27 +31,27 @@
 }
 
 .doc-header__lang--active {
-  color: var(--cf-color-text);
-  font-weight: var(--cf-font-weight-bold);
+  color: var(--fg);
+  font-weight: var(--fw-bold);
 }
 
 .doc-body {
   display: flex;
   align-items: flex-start;
-  gap: calc(var(--cf-space) * 4);
+  gap: calc(var(--sp-4) * 4);
   width: 100%;
-  max-width: calc(var(--cf-space) * 160);
+  max-width: calc(var(--sp-4) * 160);
   margin: 0 auto;
-  padding: calc(var(--cf-space) * 4) calc(var(--cf-space) * 3);
+  padding: calc(var(--sp-4) * 4) calc(var(--sp-4) * 3);
 }
 
 .doc-menu {
   position: sticky;
-  top: calc(var(--cf-header-height) + var(--cf-space) * 4);
-  flex: 0 0 calc(var(--cf-space) * 28);
+  top: calc(var(--layout-header) + var(--sp-4) * 4);
+  flex: 0 0 calc(var(--sp-4) * 28);
   display: flex;
   flex-direction: column;
-  gap: var(--cf-space);
+  gap: var(--sp-4);
 }
 
 .doc-menu__group {
@@ -61,23 +61,23 @@
 }
 
 .doc-menu__item {
-  color: var(--cf-color-text-light);
-  font-size: var(--cf-font-size);
+  color: var(--fg-muted);
+  font-size: var(--fs-14);
   text-decoration: none;
 }
 
 .doc-menu__item--sub {
-  padding-left: var(--cf-space);
+  padding-left: var(--sp-4);
 }
 
 .doc-menu__item:hover {
-  color: var(--cf-color-primary);
+  color: var(--ac-primary);
   text-decoration: none;
 }
 
 .doc-menu__item--active {
-  color: var(--cf-color-primary);
-  font-weight: var(--cf-font-weight-bold);
+  color: var(--ac-primary);
+  font-weight: var(--fw-bold);
 }
 
 .doc-content {

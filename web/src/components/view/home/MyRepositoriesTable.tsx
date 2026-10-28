@@ -29,7 +29,7 @@ export interface MyRepositoriesTableProps {
  *
  * 形态依据：`docs/HOME_PAGE_PLAN_2026-10-27.md` §2.2 的行业结论 —— 对内平台普遍
  * "列表优先于卡片"，云效 Codeup 首页直接用表格，卡片只出现在项目管理语境。
- * 另：行高取 `--cf-table-row-height`（40px），与全站表格密度一致。
+ * 另：行高取 `--row-h`（40px），与全站表格密度一致。
  *
  * 与云效的**有意差异**：不显示提交数 / 分支数 / 语言分布 —— 这三个都要逐库调用
  * `git`，8 个仓库就是 8 次子进程，首屏会掉到秒级（见方案 D2）。
@@ -86,25 +86,25 @@ export function MyRepositoriesTable({ onViewAll }: MyRepositoriesTableProps) {
     {
       key: 'openMergeRequest',
       title: t('label.mrStatusPending'),
-      width: 'var(--cf-home-col-narrow)',
+      width: 'var(--home-col-narrow)',
       render: (row) => (row.mergeRequestCount.open > 0 ? row.mergeRequestCount.open : '—'),
     },
     {
       key: 'members',
       title: t('label.member_pl'),
-      width: 'var(--cf-home-col-narrow)',
+      width: 'var(--home-col-narrow)',
       render: (row) => row.members.length,
     },
     {
       key: 'updated',
       title: t('label.updatedIn'),
-      width: 'var(--cf-home-col-time)',
+      width: 'var(--home-col-time)',
       render: (row) => <FormattedTime timestamp={row.updated} />,
     },
     {
       key: 'actions',
       title: '',
-      width: 'var(--cf-home-col-action)',
+      width: 'var(--home-col-action)',
       render: (row) => {
         const urls = cloneUrls(user, row.group.name, row.name)
         return <CopyButton text={urls.ssh || urls.https} label={t('home.copyClone')} />

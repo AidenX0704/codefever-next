@@ -1,7 +1,7 @@
 /*
  * 全局基础样式。
  * 逐项对应旧 `www/view/src/assets/styles/App.styl`，只保留仍然成立的规则；
- * 所有色值都走 var(--cf-*)，此处不出现字面值（AGENTS §5）。
+ * 所有色值都走语义令牌（--bg-* / --fg-* / --bd-*），此处不出现字面值（AGENTS §5）。
  */
 
 * {
@@ -16,11 +16,11 @@ body {
 body {
   margin: 0;
   padding: 0;
-  font-family: var(--cf-font-family);
-  font-size: var(--cf-font-size);
-  line-height: var(--cf-line-height);
-  color: var(--cf-color-text);
-  background: var(--cf-color-bg-main);
+  font-family: var(--font-sans);
+  font-size: var(--fs-14);
+  line-height: var(--lh-normal);
+  color: var(--fg);
+  background: var(--bg-canvas);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -30,7 +30,7 @@ body {
 }
 
 a {
-  color: var(--cf-color-primary);
+  color: var(--ac-primary);
   text-decoration: none;
 }
 
@@ -43,26 +43,26 @@ pre {
 }
 
 code {
-  font-family: var(--cf-font-family-mono);
-  font-size: var(--cf-font-size-small);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
   white-space: break-spaces;
 }
 
 h1,
 h2,
 h3 {
-  font-size: var(--cf-font-size-h1);
-  font-weight: var(--cf-font-weight-bold);
-  color: var(--cf-color-text);
+  font-size: var(--fs-20);
+  font-weight: var(--fw-bold);
+  color: var(--fg);
   margin: 0;
 }
 
 h4,
 h5,
 h6 {
-  font-size: var(--cf-font-size-h4);
-  font-weight: var(--cf-font-weight-bold);
-  color: var(--cf-color-text);
+  font-size: var(--fs-16);
+  font-weight: var(--fw-bold);
+  color: var(--fg);
   margin: 0;
 }
 
@@ -105,27 +105,35 @@ h6 {
 }
 
 .muted {
-  color: var(--cf-color-text-light);
+  color: var(--fg-muted);
 }
 
 .lighter {
-  color: var(--cf-color-text-lighter);
+  color: var(--fg-subtle);
 }
 
 /* code diff：暗色标记（原 .marker-dark / .marker-dark-clickable） */
 .marker-dark {
-  color: var(--cf-color-bg) !important;
+  color: var(--bg-surface) !important;
 }
 
 .marker-dark-clickable {
-  color: var(--cf-color-bg) !important;
+  color: var(--bg-surface) !important;
   cursor: pointer;
 }
 
 /* markdown 正文容器（原 markdown-body.css 的挂载点） */
 .markdown-body {
-  font-size: var(--cf-font-size);
-  color: var(--cf-color-text);
+  font-size: var(--fs-14);
+  color: var(--fg);
   line-height: 1.6;
   word-wrap: break-word;
+}
+
+/* 键盘可见焦点：输入框走 .cf-field__box 的边框高亮（不加环），
+   其余交互元素统一 2px 描边环，保证 Tab 走查时焦点始终可见。 */
+:where(a, button, [role="button"], summary):focus-visible {
+  outline: var(--focus-w) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+  border-radius: var(--r-sm);
 }

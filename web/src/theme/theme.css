@@ -1,225 +1,496 @@
 /*
- * CodeFever Next —— 设计令牌（Design Tokens）
+ * CodeFever Next —— 设计令牌（Design Tokens）v3
  *
- * 本文件是**全仓库唯一**存放颜色 / 间距 / 圆角 / 阴影 / 字号字面值的地方（AGENTS §5）。
- * 组件与页面只能引用 var(--cf-*)，TS 侧通过 src/theme/tokens.ts 取类型化引用。
+ * 基线：Git Platform Design System V3（docs/design-v3/DESIGN_TOKENS_V3.md）
+ * 原型：docs/design-v3/tokens-v3-prototype.html
  *
- * 数值出处（均为改造前旧前端的现值，逐项抄录，未做"重新设计"）：
- *   www/view/node_modules/@pgyer/mui-theme-preset/color-presets/CodeFever.js
- *   www/view/node_modules/@pgyer/mui-theme-preset/style/{Typography,BoxShadow}.js
- *   www/view/node_modules/@pgyer/mui-theme-preset/component/*.js（33 个组件 overrides）
- *   www/view/src/config/colors/theme1.js（对 preset 的覆盖：primary=#3455db、caption=14px）
- * MUI v4 默认 spacing = 8px、shape.borderRadius = 4px，故所有 padding/height 均按 8 的倍数推导。
+ * ============================ 分层约定（AGENTS §5） ============================
+ *
+ *   原始层 primitive   --p-*                     ← 全仓库唯一允许出现色值的地方
+ *        ↓ 只能向下引用
+ *   语义层 semantic    --bg- --fg- --bd- --ac- --st- --code- --diff- --tok-
+ *                      --chart- --shadow- --scrim --chrome-
+ *        ↓ 只能向下引用
+ *   尺寸层 dimension   --sp- --r- --fs- --fw- --lh- --ctl- --row- --cell-
+ *                      --layout- --icon- --dur- --ease- --z- --focus-
+ *
+ * 规则：
+ *   1. 色值只出现在本文件：浅色语义层一律引用 --p-* 原始色阶；
+ *      深色语义层给具体值（深色色阶不在浅色 palette 上，避免造一堆单次使用的原始令牌）。
+ *      组件与页面**不得**出现任何色值字面值，也**不得**引用 --p-*。
+ *   2. 浅色 / 深色语义键必须一一对应（96 个键），少一个就会"静默丢色"。
+ *   3. 组件内部量（某个组件自己的 padding / 宽度）不进本文件，
+ *      放在对应组件的 CSS 里（见 styles/components.css 顶部的组件令牌块）。
+ *   4. 结构与尺寸不随主题变化；主题只重绑语义层。
+ *
+ * 主题切换：<html data-theme="light|dark">，由 features/theme 写入，首屏前应用。
+ *
+ * 取值出处：Git Platform Design System V3 §4；其中 4 处按实测对比度修订，
+ * 修订明细见 DESIGN_TOKENS_V3.md §3（深色 --fg-subtle、危险 text 变体、
+ * 实心状态色不承载文字、边线对比度记录为已知偏离）。
  */
 
+/* ============================ 1. 原始层 Primitives ============================ */
 :root {
-  /* ============================ 颜色 ============================ */
-  /* 主色：theme1.js 把 preset 的 #0035ec 覆盖为 #3455db */
-  --cf-color-primary: #3455db;
-  --cf-color-primary-light: #4d72f2; /* hover */
-  --cf-color-primary-dark: #002dbd; /* active */
-  --cf-color-primary-lighter: #e5ebfd; /* text 按钮 hover 底色、分页 hover 底色 */
-  --cf-color-on-primary: #ffffff; /* contrastText */
+  /* Neutral（slate） */
+  --p-n-0:   #ffffff;
+  --p-n-25:  #fcfcfd;
+  --p-n-50:  #f8fafc;
+  --p-n-100: #f1f5f9;
+  --p-n-150: #e9eef5;
+  --p-n-200: #e2e8f0;
+  --p-n-300: #cbd5e1;
+  --p-n-400: #94a3b8;
+  --p-n-500: #64748b;
+  --p-n-600: #475569;
+  --p-n-700: #334155;
+  --p-n-800: #1e293b;
+  --p-n-900: #0f172a;
+  --p-n-950: #080e18;
 
-  /* 次色（与 info 同值） */
-  --cf-color-secondary: #319ffc;
-  --cf-color-secondary-light: #5ab2fc;
-  --cf-color-secondary-dark: #226fb0;
-  --cf-color-secondary-lighter: #eaf5ff;
+  /* Brand blue */
+  --p-blue-50:  #eff6ff;
+  --p-blue-100: #dbeafe;
+  --p-blue-200: #bfdbfe;
+  --p-blue-300: #93c5fd;
+  --p-blue-400: #60a5fa;
+  --p-blue-500: #3b82f6;
+  --p-blue-600: #2563eb;
+  --p-blue-700: #1d4ed8;
+  --p-blue-800: #1e40af;
+  --p-blue-900: #1e3a8a;
 
-  /* 语义色 */
-  --cf-color-success: #25bd21;
-  --cf-color-success-light: #50ca4d;
-  --cf-color-success-dark: #198417;
-  --cf-color-success-lighter: #ebfaea;
+  /* Green：成功 / CI 通过 / 已合并 */
+  --p-green-50:  #f0fdf4;
+  --p-green-100: #dcfce7;
+  --p-green-200: #bbf7d0;
+  --p-green-300: #86efac;
+  --p-green-500: #22c55e;
+  --p-green-600: #16a34a;
+  --p-green-700: #15803d;
+  --p-green-800: #166534;
 
-  --cf-color-warning: #f6b811;
-  --cf-color-warning-light: #f7c640;
-  --cf-color-warning-dark: #ac800b;
+  /* Amber：警告 / 待处理 */
+  --p-amber-50:  #fffbeb;
+  --p-amber-100: #fef3c7;
+  --p-amber-200: #fde68a;
+  --p-amber-300: #fcd34d;
+  --p-amber-500: #f59e0b;
+  --p-amber-600: #d97706;
+  --p-amber-700: #b45309;
+  --p-amber-800: #92400e;
 
-  /* MUI 的 error，本项目按"危险/删除"语义使用 */
-  --cf-color-danger: #ea4848;
-  --cf-color-danger-light: #ee6c6c;
-  --cf-color-danger-dark: #a33232;
-  --cf-color-danger-lighter: #fdecec;
+  /* Red：危险 / 删除 / 失败 */
+  --p-red-50:  #fef2f2;
+  --p-red-100: #fee2e2;
+  --p-red-200: #fecaca;
+  --p-red-300: #fca5a5;
+  --p-red-500: #ef4444;
+  --p-red-600: #dc2626;
+  --p-red-700: #b91c1c;
+  --p-red-800: #991b1b;
 
-  /* 中性色 */
-  --cf-color-border: #dee2ec; /* 表格、输入框、分割线、抽屉右边框 */
-  --cf-color-text: #2f354d;
-  --cf-color-text-light: #7a859e;
-  --cf-color-text-lighter: #b1b6c3;
-  --cf-color-bg: #ffffff;
-  --cf-color-bg-main: #f1f3f7; /* 页面底、表头、抽屉、手风琴标题 */
-  --cf-color-bg-dark: #e9edf4; /* 表格行 hover */
-  --cf-color-backdrop: rgba(75, 79, 74, 0.4); /* MuiBackdrop */
+  /* Violet：合并请求 / 评审元信息 */
+  --p-violet-50:  #f5f3ff;
+  --p-violet-100: #ede9fe;
+  --p-violet-200: #ddd6fe;
+  --p-violet-300: #c4b5fd;
+  --p-violet-500: #8b5cf6;
+  --p-violet-600: #7c3aed;
+  --p-violet-700: #6d28d9;
 
-  /* diff 专用（code-diff 视图） */
-  --cf-color-diff-addition: #e6ffed;
-  --cf-color-diff-addition-dark: #cdffd8;
-  --cf-color-diff-addition-darker: #acf2bd;
-  --cf-color-diff-deletion: #ffeef0;
-  --cf-color-diff-deletion-dark: #ffdce0;
-  --cf-color-diff-deletion-darker: #fdb8c0;
-  --cf-color-diff-label: #f1f8ff;
-  --cf-color-diff-label-dark: #dbedff;
+  /* Teal / Cyan：代码类型色与数据可视化，不承载业务状态语义 */
+  --p-teal-700: #0f766e;
+  --p-cyan-500: #06b6d4;
+  --p-cyan-600: #0891b2;
+}
 
-  /* ============================ 字体 ============================ */
-  /* theme1.js 在 preset 基础上追加了 system-ui 回退栈，取 theme1 的全量 */
-  --cf-font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
-    "Noto Sans", "Liberation Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
-    "Segoe UI Symbol", "Noto Color Emoji", "PingFang SC", "Hiragino Sans GB",
-    "Microsoft Yahei", "WenQuanYi Micro Hei";
-  --cf-font-family-mono: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace;
+/* ============================ 2. 语义层 · 浅色 ============================ */
+:root,
+:root[data-theme="light"] {
+  color-scheme: light;
 
-  --cf-font-size: 14px; /* typography.fontSize 基准 */
-  --cf-font-size-h1: 20px; /* h1~h3 = 20/700 */
-  --cf-font-size-h4: 16px; /* h4~h6 = 16/700 */
-  --cf-font-size-small: 12px; /* caption 在 theme1 被提到 14px，此处 12 仅用于 ListSubheader/Tooltip/代码 */
-  --cf-font-weight-bold: 700;
-  --cf-font-weight-medium: 500;
-  --cf-font-weight-normal: 400;
-  --cf-line-height: 1.5;
-  --cf-line-height-tight: 1.14;
+  /* 表面 */
+  --bg-canvas: var(--p-n-50);
+  --bg-surface: var(--p-n-0);
+  --bg-sunken: var(--p-n-100);
+  --bg-raised: var(--p-n-0);
+  --bg-overlay: var(--p-n-0);
+  --bg-hover: var(--p-n-100);
+  --bg-active: var(--p-n-150);
+  --bg-selected: var(--p-blue-50);
+  --bg-selected-hover: var(--p-blue-100);
+  --bg-inverse: var(--p-n-900);
 
-  /* ============================ 间距 ============================ */
-  --cf-space: 8px; /* MUI v4 spacing 单位 */
-  --cf-space-half: 4px;
+  /* 文字 */
+  --fg-strong: var(--p-n-900);
+  --fg: var(--p-n-700);
+  --fg-muted: var(--p-n-500);
+  --fg-subtle: var(--p-n-400); /* 仅占位符 / 禁用态，不得承载正文 */
+  --fg-disabled: var(--p-n-400);
+  --fg-inverse: var(--p-n-0);
+  --fg-link: var(--p-blue-700);
 
-  /* ============================ 圆角 ============================ */
-  --cf-radius: 4px; /* shape.borderRadius */
-  --cf-radius-sm: 2px;
-  --cf-radius-pill: 999px;
+  /* 描边 */
+  --bd-subtle: var(--p-n-150);
+  --bd: var(--p-n-200);
+  --bd-strong: var(--p-n-300);
+  --bd-focus: var(--p-blue-600);
 
-  /* ============================ 阴影（仅 4 档 + 弹窗） ============================ */
-  --cf-shadow-default: 0px 8px 16px 0px rgba(63, 70, 62, 0.2); /* Paper elevation2/8、Popover */
-  --cf-shadow-card: 0px 2px 8px 0px rgba(122, 133, 158, 0.2);
-  --cf-shadow-card-hover: 0px 10px 30px 0px rgba(122, 133, 158, 0.2);
-  --cf-shadow-bar: 0px 2px 10px 0px rgba(122, 133, 158, 0.15); /* Toast / Snackbar */
-  /* 弹窗：preset 未覆盖 elevation24，沿用 MUI v4 Dialog 的原值 */
-  --cf-shadow-dialog: 0px 11px 15px -7px rgba(0, 0, 0, 0.2), 0px 24px 38px 3px rgba(0, 0, 0, 0.14),
-    0px 9px 46px 8px rgba(0, 0, 0, 0.12);
+  /* 主操作 */
+  --ac-primary: var(--p-blue-600);
+  --ac-primary-hover: var(--p-blue-700);
+  --ac-primary-active: var(--p-blue-800);
+  --ac-primary-fg: var(--p-n-0);
+  --ac-primary-tint: var(--p-blue-50);
+  --ac-primary-border: var(--p-blue-200);
 
-  /* ============================ 组件尺寸（表格密度等） ============================ */
-  --cf-control-height: 32px; /* Button / Input / MenuItem：spacing(4) */
-  --cf-control-height-sm: 26px;
-  --cf-control-min-width: 104px; /* Button：spacing(13) */
-  --cf-control-min-width-sm: 64px; /* spacing(8) */
-  --cf-input-padding-y: 6.5px; /* MuiOutlinedInput.input padding */
-  --cf-input-padding-x: 16px; /* spacing(2) */
-  --cf-input-line-height: 19px; /* MuiInputBase.input height/lineHeight */
-  /* 输入框盒子高度：旧版实测 **32px**（padding 6.5+6.5 + 行高 19 = 32）。
-     注意别再凭感觉放大 —— 曾误设为 52px 导致"输入框太大、整页被撑高"。 */
-  --cf-input-height: 32px;
-  --cf-table-row-height: 40px; /* MuiTableCell height = spacing(5)，表格密度由此决定 */
-  --cf-table-cell-padding-x: 16px;
-  --cf-tab-height: 40px; /* MuiTab/MuiTabs minHeight */
-  --cf-tab-padding-x: 24px;
-  --cf-dialog-title-padding: 20px 24px; /* spacing(2.5) spacing(3) */
-  --cf-dialog-content-padding: 8px 24px;
-  --cf-dialog-actions-padding: 8px 24px 16px;
-  --cf-dialog-max-width: 600px;
-  --cf-sidebar-width: 240px; /* 侧边抽屉 */
-  --cf-header-height: 64px; /* MUI v4 Toolbar 桌面端 min-height */
-  --cf-empty-image-width: 160px; /* EmptyListNotice: spacing(20) */
-  --cf-empty-text-max-width: 480px; /* spacing(60) */
-  --cf-list-item-min-width: 160px; /* MuiListItem minWidth = spacing(20) */
-  --cf-list-icon-width: 32px; /* MuiListItemIcon minWidth = spacing(4) */
+  /* 危险操作 */
+  --ac-danger: var(--p-red-600);
+  --ac-danger-hover: var(--p-red-700);
+  --ac-danger-active: var(--p-red-800);
+  --ac-danger-fg: var(--p-n-0);
+  --ac-danger-tint: var(--p-red-50);
+  --ac-danger-border: var(--p-red-200);
 
-  /* ---------- 区块标题竖条（2026-10-27 首页新增） ----------
-     首页有 8 个区块标题，统一"标题左侧一根主色短竖条"的形态。
-     3px / 24px 都不是 8 的倍数，无法用 space() 推导，因此单独立一个令牌，
-     避免各页面各写一个 `border-left: 3px solid #3455db`。 */
-  --cf-section-bar-width: 3px;
-  --cf-section-bar-height: 24px;
+  /* 状态：solid 只做圆点/图标/进度条，文字一律用 -text 压 -tint */
+  --st-success: var(--p-green-600);
+  --st-success-text: var(--p-green-800);
+  --st-success-tint: var(--p-green-50);
+  --st-success-border: var(--p-green-200);
 
-  /* ---------- 首页（/home）布局量（2026-10-27 新增） ----------
-     首页是唯一有"容器最大宽度 + 右窄栏"的页面，这些值没有现成令牌可推导
-     （720/320/128 都不是 8 的倍数或不是间距语义），集中在此，页面只引用。 */
-  --cf-home-container-max: 1440px;
-  --cf-home-hero-height: 128px;
-  /* 侧栏宽度：最近访问 / 公告两块用，取 8 的倍数 */
-  --cf-home-side-width: 320px;
-  /* 我的仓库表格的三列固定宽度，避免描述列被更新时间挤到换行 */
-  --cf-home-col-narrow: 72px;
-  --cf-home-col-time: 128px;
-  --cf-home-col-action: 96px;
+  --st-warning: var(--p-amber-700);
+  --st-warning-text: var(--p-amber-800);
+  --st-warning-tint: var(--p-amber-50);
+  --st-warning-border: var(--p-amber-200);
 
-  /* ---------- 输入区表面色 ---------- */
-  /* .cf-field__box 的底色，也是输入框内容区"应该"呈现的颜色。
-     单独列一项的原因：浏览器自动填充（Chrome autofill）会以 UA 层 !important
-     强制给 input 铺 rgb(232,240,254)，作者层无法用 background-color 覆盖，
-     只能用 inset box-shadow 盖住 —— 盖色必须与输入区表面色一致，
-     否则"盖住了"也会变成另一种色差。认证页 underline 变体另有覆盖。 */
-  --cf-field-surface: var(--cf-color-bg);
+  --st-danger: var(--p-red-600);
+  --st-danger-text: var(--p-red-700);
+  --st-danger-tint: var(--p-red-50);
+  --st-danger-border: var(--p-red-200);
 
-  /* ---------- 组件内部复合值（同样是"现值"，不许在组件 CSS 里重写） ---------- */
-  --cf-btn-padding: 2px 24px; /* MuiButton contained/outlined: spacing(0.25) spacing(3) */
-  --cf-btn-text-padding: 4px 8px; /* MuiButton text: spacing(0.5) spacing(1) */
-  --cf-btn-text-min-width: 16px; /* spacing(2) */
-  --cf-card-padding: 16px; /* spacing(2) */
-  --cf-empty-padding: 48px 8px; /* spacing(6) spacing(1) */
-  --cf-page-loading-min-height: 240px; /* spacing(30) */
-  --cf-dialog-backdrop-padding: 16px; /* spacing(2) */
-  --cf-toast-min-width: 288px; /* spacing(36) */
-  --cf-toast-max-width: 560px; /* spacing(70) */
-  --cf-toast-stack-top: 24px; /* spacing(3) */
-  --cf-tooltip-padding: 6px 16px;
-  --cf-tag-padding: 2px 8px;
-  --cf-avatar-size: 32px; /* = control height */
-  --cf-avatar-size-sm: 24px;
-  --cf-avatar-size-lg: 40px; /* spacing(5) */
-  --cf-switch-width: 34px;
-  --cf-switch-height: 20px;
-  --cf-switch-thumb: 16px;
-  --cf-checkbox-size: 16px;
-  --cf-focus-ring: 2px;
-  --cf-menu-min-width: 144px; /* spacing(18) */
-  --cf-menu-max-height: 50vh; /* preset MuiMenu.paper maxHeight: 50% */
-  --cf-menu-width-user: 240px; /* 用户菜单旧版 width: spacing(30) */
-  --cf-badge-bg: #ff3f35; /* 旧版未读角标（第三方品牌色之外的项目内固定值） */
-  --cf-badge-border: 2px;
-  --cf-icon-btn-size: 34px;
-  --cf-color-sidebar-control: #64728c; /* 旧 Drawer 折叠按钮颜色 */
-  /* 文本按钮的文字色：旧版实测为 MUI 默认 text.primary = rgba(0,0,0,0.87)
-     （preset 的 typography.button 色并未作用于实际按钮，实测以浏览器为准）。 */
-  --cf-color-text-button: rgba(0, 0, 0, 0.87);
-  /* text 变体按钮的左右内边距：旧版实测 4px 24px 4px 8px（右侧 24px 是 MUI 的留白）； */
-  --cf-btn-text-padding-4: 4px 24px 4px 8px;
+  --st-info: var(--p-blue-700);
+  --st-info-text: var(--p-blue-800);
+  --st-info-tint: var(--p-blue-50);
+  --st-info-border: var(--p-blue-200);
 
-  /* ---------- 认证页（登录/注册/二次验证/重置口令）专属现值 ----------
-     出处：www/static/css/main.css（.login-body / .section-body / .activityBox /
-     .login-top / .login-wrap）与 www/static/css/common.css（.btn-self-primary）。
-     注意：认证页的主色是 #0035EC，**与应用内壳的 #3455db 不同**（旧版就是两套），
-     重写保持原样，不要统一。 */
-  --cf-color-auth-primary: #0035ec;
-  --cf-color-auth-primary-light: #4d72f2; /* .btn-self-primary:hover */
-  --cf-color-auth-primary-dark: #002dbd; /* .btn-self-primary:active */
-  --cf-color-auth-title: #2f3950; /* .color-2F3950 / .login-top-des */
-  --cf-color-auth-subtitle: #687089; /* .color-687089 */
-  --cf-color-auth-muted: #aab0c4; /* .color-AAB0C4 */
-  --cf-color-bg-auth: #f7f8fa; /* .login-body */
-  --cf-shadow-auth-card: 0px 10px 20px 0px rgba(96, 104, 120, 0.1); /* .section-body */
-  --cf-auth-card-width: 1184px;
-  --cf-auth-card-height: 644px;
-  --cf-auth-hero-width: 644px; /* .activityBox */
-  --cf-auth-logo-height: 60px; /* .login-logo img */
-  --cf-auth-title-size: 26px; /* .font-26 */
-  --cf-auth-input-size: 15px; /* 占位符字号（.login-wrap input::placeholder） */
-  --cf-auth-card-padding: 60px 0; /* .login-wrap-inner */
-  --cf-auth-top-gap: 50px; /* .login-top margin-bottom */
-  --cf-auth-link-gap-top: 20px; /* .forget-sign margin-top */
-  --cf-auth-link-gap-bottom: 30px; /* .forget-sign margin-bottom */
-  --cf-auth-form-width: 360px; /* .login-wrap-inner 的 col-lg-8：(1184-644)*8/12 */
-  --cf-auth-panel-bg: #ffffff; /* .login-wrap */
-  --cf-auth-input-height: 44px; /* .form-control-lg 输入框高度 */
-  --cf-control-height-lg: 46px; /* .btn-lg 提交按钮高度 */
-  --cf-font-size-lg: 20px; /* .btn-lg 字号 */
+  --st-merged: var(--p-violet-600);
+  --st-merged-text: var(--p-violet-700);
+  --st-merged-tint: var(--p-violet-50);
+  --st-merged-border: var(--p-violet-200);
 
-  /* ============================ 层级 ============================ */
-  --cf-z-header: 100;
-  --cf-z-drawer: 200;
-  --cf-z-backdrop: 1200;
-  --cf-z-dialog: 1300;
-  --cf-z-toast: 1400;
-  --cf-z-tooltip: 1500;
+  /* 代码 / diff */
+  --code-bg: var(--p-n-50);
+  --code-gutter-bg: var(--p-n-100);
+  --code-gutter-fg: var(--p-n-500);
+  --code-border: var(--p-n-200);
+  --diff-add-bg: var(--p-green-50);
+  --diff-add-gutter: var(--p-green-100);
+  --diff-add-word: var(--p-green-200);
+  --diff-del-bg: var(--p-red-50);
+  --diff-del-gutter: var(--p-red-100);
+  --diff-del-word: var(--p-red-200);
+  --diff-hunk-bg: var(--p-blue-50);
+  --diff-hunk-fg: var(--p-blue-800);
+
+  /* 语法高亮：只用于代码查看器，不作业务状态色 */
+  --tok-kw: var(--p-violet-600);
+  --tok-str: var(--p-green-700);
+  --tok-num: var(--p-amber-700);
+  --tok-fn: var(--p-blue-700);
+  --tok-com: var(--p-n-500);
+  --tok-type: var(--p-teal-700);
+  --tok-var: var(--p-n-700);
+  --tok-punct: var(--p-n-600);
+
+  /* 图表：不得只用颜色传达信息 */
+  --chart-1: var(--p-blue-600);
+  --chart-2: var(--p-cyan-600);
+  --chart-3: var(--p-amber-600);
+  --chart-4: var(--p-red-600);
+  --chart-5: var(--p-violet-600);
+  --chart-6: var(--p-green-600);
+  --chart-7: var(--p-blue-400);
+  --chart-8: var(--p-n-500);
+
+  /* 遮罩 / 阴影：只给真正浮起的层 */
+  --scrim: rgb(15 23 42 / 42%);
+  --shadow-1: 0 1px 2px rgb(15 23 42 / 5%);
+  --shadow-2: 0 4px 12px rgb(15 23 42 / 9%);
+  --shadow-3: 0 12px 28px rgb(15 23 42 / 12%);
+  --shadow-4: 0 20px 48px rgb(15 23 42 / 16%);
+
+  /* 应用壳层（本期只做白壳；深色下自动跟随） */
+  --chrome-bg: var(--p-n-0);
+  --chrome-fg: var(--p-n-900);
+  --chrome-fg-muted: var(--p-n-500);
+  --chrome-bd: var(--p-n-200);
+  --chrome-hover: var(--p-n-100);
+  --chrome-active: var(--p-blue-50);
+  --chrome-active-fg: var(--p-blue-700);
+
+  /* 标题字重：中文 700 在小字号发糊，浅色 600 / 深色 500 */
+  --theme-heading-weight: 600;
+  --theme-body-weight: 400;
+}
+
+/* ============================ 3. 语义层 · 深色 ============================ */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  /* 表面：多层石墨，不用纯黑 */
+  --bg-canvas: #0b1120;
+  --bg-surface: #111827;
+  --bg-sunken: #0f172a;
+  --bg-raised: #172033;
+  --bg-overlay: #182235;
+  --bg-hover: #1b2638;
+  --bg-active: #243249;
+  --bg-selected: #172b49;
+  --bg-selected-hover: #1d365a;
+  --bg-inverse: #f8fafc;
+
+  /* 文字：柔和浅灰，不用纯白铺正文 */
+  --fg-strong: #e5eaf2;
+  --fg: #c0cad8;
+  --fg-muted: #91a0b5;
+  --fg-subtle: #7b8a9f; /* 修订：V3 原值 #718096 只有 4.42:1 */
+  --fg-disabled: #7b8a9f;
+  --fg-inverse: #0b1120;
+  --fg-link: #8ab4ff;
+
+  /* 描边 */
+  --bd-subtle: #202b3d;
+  --bd: #2a374b;
+  --bd-strong: #3b4b63;
+  --bd-focus: #8ab4ff;
+
+  /* 主操作 */
+  --ac-primary: #6d9eff;
+  --ac-primary-hover: #8ab4ff;
+  --ac-primary-active: #a6c6ff;
+  --ac-primary-fg: #0b1120;
+  --ac-primary-tint: rgb(109 158 255 / 13%);
+  --ac-primary-border: rgb(109 158 255 / 34%);
+
+  /* 危险操作 */
+  --ac-danger: #f87171;
+  --ac-danger-hover: #fca5a5;
+  --ac-danger-active: #fecaca;
+  --ac-danger-fg: #2b0b0b;
+  --ac-danger-tint: rgb(248 113 113 / 13%);
+  --ac-danger-border: rgb(248 113 113 / 34%);
+
+  /* 状态 */
+  --st-success: #4ade80;
+  --st-success-text: #86efac;
+  --st-success-tint: rgb(74 222 128 / 12%);
+  --st-success-border: rgb(74 222 128 / 30%);
+
+  --st-warning: #fbbf24;
+  --st-warning-text: #fcd34d;
+  --st-warning-tint: rgb(251 191 36 / 12%);
+  --st-warning-border: rgb(251 191 36 / 30%);
+
+  --st-danger: #f87171;
+  --st-danger-text: #fca5a5;
+  --st-danger-tint: rgb(248 113 113 / 12%);
+  --st-danger-border: rgb(248 113 113 / 30%);
+
+  --st-info: #8ab4ff;
+  --st-info-text: #a6c6ff;
+  --st-info-tint: rgb(138 180 255 / 12%);
+  --st-info-border: rgb(138 180 255 / 30%);
+
+  --st-merged: #b69cff;
+  --st-merged-text: #c8b5ff;
+  --st-merged-tint: rgb(182 156 255 / 12%);
+  --st-merged-border: rgb(182 156 255 / 30%);
+
+  /* 代码 / diff：必须单独定义，不能套浅色 */
+  --code-bg: #0f172a;
+  --code-gutter-bg: #111c2e;
+  --code-gutter-fg: #91a0b5;
+  --code-border: #2a374b;
+  --diff-add-bg: rgb(34 197 94 / 10%);
+  --diff-add-gutter: rgb(34 197 94 / 17%);
+  --diff-add-word: rgb(34 197 94 / 24%);
+  --diff-del-bg: rgb(248 113 113 / 10%);
+  --diff-del-gutter: rgb(248 113 113 / 17%);
+  --diff-del-word: rgb(248 113 113 / 24%);
+  --diff-hunk-bg: rgb(109 158 255 / 12%);
+  --diff-hunk-fg: #a6c6ff;
+
+  /* 语法高亮 */
+  --tok-kw: #c4a7ff;
+  --tok-str: #86efac;
+  --tok-num: #fcd34d;
+  --tok-fn: #8ab4ff;
+  --tok-com: #91a0b5;
+  --tok-type: #5eead4;
+  --tok-var: #c0cad8;
+  --tok-punct: #a9b6c8;
+
+  /* 图表 */
+  --chart-1: #8ab4ff;
+  --chart-2: #5eead4;
+  --chart-3: #fbbf24;
+  --chart-4: #f87171;
+  --chart-5: #b69cff;
+  --chart-6: #4ade80;
+  --chart-7: #60a5fa;
+  --chart-8: #91a0b5;
+
+  /* 遮罩 / 阴影：深色下弱化阴影，靠表面提亮 + 描边表达层级 */
+  --scrim: rgb(0 0 0 / 62%);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 18%);
+  --shadow-2: 0 4px 12px rgb(0 0 0 / 24%);
+  --shadow-3: 0 12px 28px rgb(0 0 0 / 30%);
+  --shadow-4: 0 20px 48px rgb(0 0 0 / 38%);
+
+  /* 应用壳层 */
+  --chrome-bg: #111827;
+  --chrome-fg: #e5eaf2;
+  --chrome-fg-muted: #91a0b5;
+  --chrome-bd: #2a374b;
+  --chrome-hover: #1b2638;
+  --chrome-active: #172b49;
+  --chrome-active-fg: #a6c6ff;
+
+  /* 深色标题降一档，避免中文发糊 */
+  --theme-heading-weight: 500;
+  --theme-body-weight: 400;
+}
+
+/* ============================ 4. 尺寸层 ============================ */
+:root {
+  /* 间距：4px 基准的 12 级阶梯 */
+  --sp-1: 2px;
+  --sp-2: 4px;
+  --sp-3: 6px;
+  --sp-4: 8px;
+  --sp-5: 12px;
+  --sp-6: 16px;
+  --sp-7: 20px;
+  --sp-8: 24px;
+  --sp-9: 32px;
+  --sp-10: 40px;
+  --sp-11: 48px;
+  --sp-12: 64px;
+  --sp-gutter: 24px;
+  --sp-section: 32px;
+
+  /* 圆角：控件 6 / 容器 8 / 浮层 12 */
+  --r-xs: 2px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-xl: 12px;
+  --r-2xl: 16px;
+  --r-full: 9999px;
+
+  /* 字号阶梯 */
+  --fs-11: 11px;
+  --fs-12: 12px;
+  --fs-13: 13px;
+  --fs-14: 14px;
+  --fs-16: 16px;
+  --fs-18: 18px;
+  --fs-20: 20px;
+  --fs-24: 24px;
+  --fs-30: 30px;
+
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  --lh-tight: 1.25;
+  --lh-snug: 1.35;
+  --lh-normal: 1.5;
+  --lh-prose: 1.7;
+
+  /* 系统字体栈：不联网下载字体（离线部署零额外请求） */
+  --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
+    "PingFang SC", "苹方", "Noto Sans SC", "Microsoft YaHei", "微软雅黑",
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "SFMono-Regular", "SF Mono", "Cascadia Code",
+    "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace;
+
+  /* 控件 */
+  --ctl-h-sm: 28px;
+  --ctl-h: 34px;
+  --ctl-h-lg: 40px;
+  --ctl-px: 12px;
+  --ctl-px-lg: 16px;
+  --ctl-min-w: 104px;
+  --ctl-min-w-sm: 64px;
+  --ctl-icon-size: 16px;
+  --ctl-border-width: 1px;
+
+  /* 表格 */
+  --row-h: 42px;
+  --cell-px: 12px;
+
+  /* 标签页 */
+  --tab-h: 40px;
+  --tab-px: 24px;
+
+  /* 图标 */
+  --icon-xs: 12px;
+  --icon-sm: 14px;
+  --icon: 16px;
+  --icon-lg: 20px;
+  --icon-xl: 24px;
+  --icon-btn-hit: 32px;
+
+  /* 焦点：输入框只变边框（--bd-focus），其余交互元素用 2px 描边环 */
+  --focus-w: 2px;
+  --focus-offset: 2px;
+  --focus-ring: var(--bd-focus);
+
+  /* 布局骨架 */
+  --layout-side: 232px;
+  --layout-side-collapsed: 64px;
+  --layout-header: 56px;
+  --layout-toolbar: 48px;
+  --layout-content-max: 1600px;
+  --layout-prose-max: 760px;
+  --layout-page-px: 32px;
+  --layout-page-py: 28px;
+
+  /* 浮层尺寸 */
+  --dialog-max-w: 600px;
+
+  /* 动效：硬上限 220ms（V3 §8），禁止 transition: all */
+  --dur-instant: 0ms;
+  --dur-fast: 100ms;
+  --dur: 160ms;
+  --dur-slow: 220ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-linear: linear;
+
+  /* 层级 */
+  --z-base: 0;
+  --z-sticky: 10;
+  --z-header: 100;
+  --z-dropdown: 500;
+  --z-drawer: 800;
+  --z-overlay: 1000;
+  --z-dialog: 1100;
+  --z-toast: 1200;
+  --z-tooltip: 1300;
+}
+
+/* ============================ 5. 减少动效 ============================ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

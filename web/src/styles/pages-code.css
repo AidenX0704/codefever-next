@@ -9,24 +9,24 @@
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
-  font-family: var(--cf-font-family-mono);
-  font-size: var(--cf-font-size-small);
+  font-family: var(--font-mono);
+  font-size: var(--fs-12);
 }
 
 .cf-code__lineno {
-  width: calc(var(--cf-space) * 4);
-  padding: 0 var(--cf-space);
-  color: var(--cf-color-text-lighter);
-  background: var(--cf-color-bg-main);
-  line-height: calc(var(--cf-space) * 2);
+  width: calc(var(--sp-4) * 4);
+  padding: 0 var(--sp-4);
+  color: var(--fg-subtle);
+  background: var(--bg-canvas);
+  line-height: calc(var(--sp-4) * 2);
   text-align: right;
   vertical-align: top;
   user-select: none;
 }
 
 .cf-code__cell {
-  padding: 0 var(--cf-space);
-  line-height: calc(var(--cf-space) * 2);
+  padding: 0 var(--sp-4);
+  line-height: calc(var(--sp-4) * 2);
   overflow-wrap: break-word;
   vertical-align: top;
 }
@@ -40,5 +40,5 @@
 
 .cf-code__row--focus .cf-code__lineno,
 .cf-code__row--focus .cf-code__cell {
-  background: var(--cf-color-primary-lighter);
+  background: var(--ac-primary-tint);
 }

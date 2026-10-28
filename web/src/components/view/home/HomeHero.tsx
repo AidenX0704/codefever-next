@@ -30,7 +30,7 @@ function greetingKey(hour: number): string {
 /**
  * 首页顶部 HERO。
  *
- * 形态约束（docs/HOME_PAGE_PLAN_2026-10-27.md §2.5）：通栏 `--cf-color-primary-lighter`
+ * 形态约束（docs/HOME_PAGE_PLAN_2026-10-27.md §2.5）：通栏 `--ac-primary-tint`
  * 色块，**无图、无渐变、无动效** —— 全页唯一的有色块，克制。
  *
  * 内容只做三件事：打招呼、说清"这是哪儿"、给三个最高频动作；

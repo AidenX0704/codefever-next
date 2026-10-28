@@ -129,7 +129,7 @@ export function Header() {
         <img className="app-header__logo" src={logoCommunity} alt="CodeFever" onClick={() => navigate('/home')} />
         {/* 首页：`/home` 是员工落地页（2026-10-27 新增，见 docs/HOME_PAGE_PLAN_2026-10-27.md）。
             logo 也指向它，但 logo 不像按钮、很多人不会去点，所以这里显式给一个文字入口；
-            当前在首页时用 `--cf-color-primary-lighter` 底标出（与仓库/组菜单的"打勾"同义）。 */}
+            当前在首页时用 `--ac-primary-tint` 底标出（与仓库/组菜单的"打勾"同义）。 */}
         <Button
           variant="text"
           className={pathname === '/home' ? 'app-header__nav-active' : undefined}

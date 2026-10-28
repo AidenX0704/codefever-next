@@ -9,42 +9,42 @@
  *   components/view/MergeRequest.js            —— "查看更多" 按钮区 paddingTop spacing(2)；
  *   components/unit/MergeRequestDiff.js        —— 排序图标升序时 rotateX(180deg)。
  *
- * 颜色 / 间距 / 圆角一律取 theme.css 的 --cf-* 令牌（AGENTS §5）。
+ * 颜色 / 间距 / 圆角一律取 theme.css 的语义令牌与尺寸令牌（AGENTS §5）。
  */
 
 .cf-mr-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--cf-space);
-  padding: calc(var(--cf-space) * 1.5) calc(var(--cf-space) * 3);
-  border-top: 1px solid var(--cf-color-border);
+  gap: var(--sp-4);
+  padding: calc(var(--sp-4) * 1.5) calc(var(--sp-4) * 3);
+  border-top: 1px solid var(--bd);
 }
 
 .cf-mr-row:hover {
-  background: var(--cf-color-bg-dark);
+  background: var(--bg-hover);
 }
 
 .cf-mr-row__main {
   display: flex;
   flex-direction: column;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
   min-width: 0;
 }
 
 .cf-mr-row__title {
   display: flex;
   align-items: center;
-  gap: var(--cf-space);
+  gap: var(--sp-4);
   min-width: 0;
-  color: var(--cf-color-text);
-  font-weight: var(--cf-font-weight-bold);
+  color: var(--fg);
+  font-weight: var(--fw-bold);
 }
 
 .cf-mr-row__title a {
   overflow: hidden;
-  color: var(--cf-color-text);
-  font-weight: var(--cf-font-weight-bold);
+  color: var(--fg);
+  font-weight: var(--fw-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -53,15 +53,15 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--cf-space-half);
-  color: var(--cf-color-text-light);
-  font-size: var(--cf-font-size);
+  gap: var(--sp-2);
+  color: var(--fg-muted);
+  font-size: var(--fs-14);
 }
 
 .cf-mr-row__merge {
   display: inline-flex;
   align-items: center;
-  gap: var(--cf-space-half);
+  gap: var(--sp-2);
 }
 
 .cf-mr-row__side {
@@ -69,9 +69,9 @@
   flex: 0 0 auto;
   flex-direction: column;
   align-items: flex-end;
-  gap: var(--cf-space-half);
-  color: var(--cf-color-text-light);
-  font-size: var(--cf-font-size);
+  gap: var(--sp-2);
+  color: var(--fg-muted);
+  font-size: var(--fs-14);
 }
 
 /* 评审人头像组：右对齐、互相叠压 8px（旧版 marginLeft -8px）。 */
@@ -87,7 +87,7 @@
 }
 
 .cf-mr-reviewer + .cf-mr-reviewer {
-  margin-left: calc(var(--cf-space) * -1);
+  margin-left: calc(var(--sp-4) * -1);
 }
 
 .cf-mr-reviewer__badge {
@@ -98,16 +98,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: calc(var(--cf-space) * 1.5);
-  height: calc(var(--cf-space) * 1.5);
-  border: var(--cf-badge-border) solid var(--cf-color-bg);
-  border-radius: var(--cf-radius-pill);
-  background: var(--cf-color-bg);
-  color: var(--cf-color-text-light);
+  width: calc(var(--sp-4) * 1.5);
+  height: calc(var(--sp-4) * 1.5);
+  border: var(--badge-border) solid var(--bg-surface);
+  border-radius: var(--r-full);
+  background: var(--bg-surface);
+  color: var(--fg-muted);
 }
 
 .cf-mr-reviewer__badge--done {
-  color: var(--cf-color-success);
+  color: var(--st-success);
 }
 
 /* 排序按钮：升序时把"降序"图标翻转（旧版 rotateX(180deg)）。 */
@@ -119,5 +119,5 @@
 .cf-mr-more {
   display: flex;
   justify-content: center;
-  padding-top: calc(var(--cf-space) * 2);
+  padding-top: calc(var(--sp-4) * 2);
 }
