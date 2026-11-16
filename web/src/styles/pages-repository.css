@@ -24,7 +24,7 @@
 }
 
 .repo-head__fork {
-  font-size: var(--fs-14);
+  font-size: var(--fs-body);
   font-weight: var(--fw-regular);
 }
 
@@ -40,15 +40,15 @@
   flex-direction: column;
   gap: var(--sp-4);
   padding: var(--sp-4);
-  border: 1px solid var(--bd);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
-  background: var(--bg-surface);
+  background: var(--bg-sheet);
 }
 
 .repo-clone__hint {
   margin: 0;
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
 }
 
 .repo-clone__row {
@@ -62,13 +62,45 @@
   min-width: 0;
 }
 
+/* Star 计数按钮（DESIGN.md §7.5 二级头部）：圆角按钮 + 计数，已标星金色填充。 */
+.repo-head__star {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  height: var(--ctl-h);
+  padding: 0 var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  cursor: pointer;
+}
+
+.repo-head__star:hover {
+  background: var(--bg-muted);
+}
+
+.repo-head__star--on {
+  color: var(--warning-text);
+  border-color: var(--warning-border);
+  background: var(--warning-subtle);
+}
+
+.repo-head__star-count {
+  font-variant-numeric: tabular-nums;
+}
+
 .repo-head__stats {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: calc(var(--sp-4) * 2);
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  gap: var(--sp-6);
+  padding-top: var(--sp-5);
+  border-top: 1px solid var(--line);
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
 }
 
 .repo-stat {
@@ -78,12 +110,12 @@
 }
 
 .repo-stat__value {
-  color: var(--fg);
+  color: var(--text-primary);
   font-weight: var(--fw-medium);
 }
 
 .repo-stat__label {
-  color: var(--fg-muted);
+  color: var(--text-secondary);
 }
 
 /* ------------------------------ 文件浏览 ------------------------------ */
@@ -105,16 +137,16 @@
   flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .ref-row__updater {
   flex: 0 0 auto;
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
 }
 
 .ref-row__actions {
@@ -127,8 +159,8 @@
 /* 分组标题（活跃 / 非活跃） */
 .ref-group__title {
   padding: var(--sp-4) 0 var(--sp-2);
-  color: var(--fg);
-  font-size: var(--fs-16);
+  color: var(--text-primary);
+  font-size: var(--fs-h3);
   font-weight: var(--fw-bold);
 }
 
@@ -147,9 +179,9 @@
   justify-content: space-between;
   gap: var(--sp-4);
   padding: var(--sp-4);
-  border: 1px solid var(--bd);
+  border: 1px solid var(--line);
   border-radius: var(--r-md) var(--r-md) 0 0;
-  background: var(--bg-canvas);
+  background: var(--bg-sheet);
 }
 
 .file-view__meta {
@@ -157,8 +189,8 @@
   align-items: center;
   gap: var(--sp-2);
   min-width: 0;
-  color: var(--fg);
-  font-size: var(--fs-14);
+  color: var(--text-primary);
+  font-size: var(--fs-body);
 }
 
 .file-view__path {
@@ -169,8 +201,8 @@
 
 .file-view__size {
   flex: 0 0 auto;
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
 }
 
 .file-view__actions {
@@ -182,10 +214,10 @@
 
 .file-view__body {
   overflow-x: auto;
-  border: 1px solid var(--bd);
+  border: 1px solid var(--line);
   border-top: 0;
   border-radius: 0 0 var(--r-md) var(--r-md);
-  background: var(--bg-surface);
+  background: var(--bg-sheet);
 }
 
 .file-view__media {
@@ -196,7 +228,7 @@
 
 .file-view__placeholder {
   padding: calc(var(--sp-4) * 8) var(--sp-4);
-  color: var(--fg-muted);
+  color: var(--text-secondary);
   text-align: center;
 }
 
@@ -212,7 +244,7 @@
 .blame-list {
   display: flex;
   flex-direction: column;
-  border-bottom: 1px solid var(--bd);
+  border-bottom: 1px solid var(--line);
 }
 
 .blame-row {
@@ -220,9 +252,9 @@
   align-items: center;
   gap: var(--sp-4);
   padding: var(--sp-2) var(--sp-4);
-  border-bottom: 1px solid var(--bd);
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
 }
 
 .blame-row:last-child {
@@ -241,9 +273,9 @@
   flex-direction: column;
   gap: var(--sp-4);
   padding: calc(var(--sp-4) * 3);
-  border: 1px solid var(--bd);
+  border: 1px solid var(--line);
   border-radius: var(--r-md) var(--r-md) 0 0;
-  background: var(--bg-surface);
+  background: var(--bg-sheet);
 }
 
 .repo-empty--flush {
@@ -252,8 +284,8 @@
 }
 
 .repo-empty__title {
-  color: var(--fg);
-  font-size: var(--fs-20);
+  color: var(--text-primary);
+  font-size: var(--fs-h2);
   font-weight: var(--fw-bold);
 }
 
@@ -261,8 +293,8 @@
   position: relative;
   margin-top: var(--sp-4);
   padding: calc(var(--sp-4) * 1.5);
-  border-radius: var(--r-md);
-  background: var(--bg-canvas);
+  border-radius: var(--r-sm);
+  background: var(--bg-sheet);
 }
 
 .repo-empty__copy {
@@ -272,17 +304,17 @@
 }
 
 .repo-empty__line {
-  color: var(--fg);
+  color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: var(--fs-12);
+  font-size: var(--fs-caption);
 }
 
 /* ------------------------------ 提交详情的父提交 / 包含引用 ------------------------------ */
 
 .commit-refs {
   overflow: hidden;
-  border: 1px solid var(--bd);
-  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
 }
 
 .commit-refs__block {
@@ -293,12 +325,12 @@
 }
 
 .commit-refs__block + .commit-refs__block {
-  border-top: 1px solid var(--bd);
+  border-top: 1px solid var(--line);
 }
 
 .commit-refs__label {
-  color: var(--fg);
-  font-size: var(--fs-14);
+  color: var(--text-primary);
+  font-size: var(--fs-body);
 }
 
 .commit-refs__links {
@@ -310,5 +342,106 @@
 
 .commit-refs__link {
   font-family: var(--font-mono);
-  font-size: var(--fs-12);
+  font-size: var(--fs-caption);
+}
+
+/* ------------------------------ v5 §6 G4 文件列表纸页 ------------------------------ */
+/* 最新提交条：48px 页首（头像 20 + 作者 + 提交标题 + 短哈希 + 时间 + 历史）。 */
+.file-sheet-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-height: calc(var(--sp-4) * 6);
+  padding: 0 var(--sp-6);
+  border-bottom: 1px solid var(--line);
+}
+
+.file-sheet-head__avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--sp-4) * 2.5);
+  height: calc(var(--sp-4) * 2.5);
+  border-radius: var(--r-full);
+  background: var(--bg-well);
+  color: var(--text-primary);
+  font-size: 9px;
+  font-weight: var(--fw-semibold);
+}
+
+.file-sheet-head__author {
+  flex: 0 0 auto;
+  color: var(--text-primary);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+}
+
+.file-sheet-head__message {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  text-overflow: ellipsis;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.file-sheet-head__message:hover {
+  color: var(--brand-text);
+}
+
+.file-sheet-head__hash {
+  flex: 0 0 auto;
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: 4px;
+  background: var(--bg-well);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
+  text-decoration: none;
+}
+
+.file-sheet-head__time {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+}
+
+.file-sheet-head__spacer {
+  flex: 1 1 auto;
+}
+
+.file-sheet-head__history {
+  display: inline-flex;
+  color: var(--text-tertiary);
+}
+
+.file-sheet-head__history:hover {
+  color: var(--text-primary);
+}
+
+/* 40px 行：名称 13/500 + 提交说明 fg-3（fill）+ 时间右对齐 12 fg-3；悬停整行。 */
+.cf-table--file .cf-td {
+  height: 40px;
+  padding: 0 var(--sp-6);
+}
+
+.cf-table--file .file-table__name-cell {
+  width: 32%;
+}
+
+.cf-table--file tbody tr:hover {
+  background: var(--bg-hover);
+}
+
+.cf-table--file tbody tr:last-child .cf-td {
+  border-bottom: 0;
+}
+
+.cf-table--file td:last-child {
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  text-align: right;
 }

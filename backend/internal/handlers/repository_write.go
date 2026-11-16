@@ -101,6 +101,8 @@ type RepositoryStore interface {
 	NextMergeRequestID(ctx context.Context, targetRKey string) (int, error)
 	GetMergeRequestByKey(ctx context.Context, mrKey string) (*domain.RepositoryMergeRequest, error)
 	ReviewPending(ctx context.Context, mrKey string) (bool, error)
+	// ApprovedReviewCount 统计已通过的评审人数（r_min_reviewers 校验用）。
+	ApprovedReviewCount(ctx context.Context, mrKey string) (int, error)
 	GetWebhook(ctx context.Context, rwKey string) (*domain.RepositoryWebhook, *string, error)
 	ListWebhooks(ctx context.Context, rKey string) ([]domain.RepositoryWebhook, map[string]*string, error)
 	ListWebhookLogs(ctx context.Context, rwKey string) ([]domain.RepositoryWebhookLog, error)
@@ -145,6 +147,14 @@ type RepositoryWriteHandler struct {
 	Bus EventBus
 	// Cfg 提供站点配置（头像存储根目录）。
 	Cfg *config.Config
+
+	// Stars 负责仓库标星（star / unstar 端点）。未注入时不注册（见 repository_star.go）。
+	Stars *repo.StarRepo
+	// Comments 负责合并请求评论（addMergeRequestComment 端点）。未注入时不注册。
+	Comments *repo.MRCommentRepo
+	// Requeuer 负责 webhook 投递日志的重发（redeliverWebhookLog 端点）。
+	// 未注入时不注册（见 repository_webhook_redeliver.go）。
+	Requeuer WebhookRequeuer
 }
 
 // RepositoryWriteOption 是 RepositoryWriteHandler 的可选依赖。
@@ -248,6 +258,10 @@ func (h *RepositoryWriteHandler) Register(s *httpapi.Server) {
 	for action, methods := range h.WriteActions() {
 		ctrl.Actions[action] = methods
 	}
+	// 本仓库新增的写端点：依赖注入齐备才注册（各自文件里有说明）。
+	h.registerStarActions(ctrl.Actions)
+	h.registerMergeRequestCommentWrite(ctrl.Actions)
+	h.registerWebhookRedeliverAction(ctrl.Actions)
 }
 
 // MergeRepositoryWriteActions 把写端点并入服务器上已注册的控制器。
@@ -661,11 +675,34 @@ func (h *RepositoryWriteHandler) update(ctx context.Context, req *httpapi.Reques
 		return nil, phpFatalError()
 	}
 
+	// 合并设置（本仓库新增，可选）：只在参数出现时才更新对应列，
+	// 与 team / role 在 user/updateBasicInfo 里的白名单式更新同一风格。
+	//
+	//   allowMergeCommit / allowSquash 是布尔（multipart 下是 "1"/"0"）；
+	//   minReviewers 取值 0–10，越界返回 0x0202。
+	//
+	// 注意 update 端点本身的必填参数（displayName / description）不放宽 ——
+	// 前端设置页会把这些字段一起提交。
+	fields := map[string]any{
+		"r_display_name": displayName,
+		"r_description":  description,
+	}
+	if p.HasParam("allowMergeCommit") {
+		fields["r_allow_merge_commit"] = boolToInt(bodyParamBool(p, "allowMergeCommit", true))
+	}
+	if p.HasParam("allowSquash") {
+		fields["r_allow_squash"] = boolToInt(bodyParamBool(p, "allowSquash", true))
+	}
+	if p.HasParam("minReviewers") {
+		minReviewers := atoiOrZero(p.ParamString("minReviewers"))
+		if minReviewers < 0 || minReviewers > domain.MinReviewersMax {
+			return nil, contract.NewError(contract.CodeAmountOutOfRange)
+		}
+		fields["r_min_reviewers"] = minReviewers
+	}
+
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
-		if err := tx.Update(ctx, rKey, map[string]any{
-			"r_display_name": displayName,
-			"r_description":  description,
-		}); err != nil {
+		if err := tx.Update(ctx, rKey, fields); err != nil {
 			return err
 		}
 		if current.DisplayName != displayName {
@@ -2539,6 +2576,10 @@ func (h *RepositoryWriteHandler) mergeRequestClose(ctx context.Context, req *htt
 //  2. MR 不存在或不是待合并状态 → 0x0201
 //  3. 无 MR 合并权限 → 0x0106
 //  4. 返回 {"canBeFastForward": bool}
+//
+// 本仓库新增：响应追加 allowMergeCommit / allowSquash（目标仓库的
+// 合并方式设置，015_repo_merge_settings.sql）—— 前端用它决定给
+// 用户展示哪些合并方式，mergeBranch 侧会按同一份设置拒绝越界请求。
 func (h *RepositoryWriteHandler) checkMergeType(ctx context.Context, req *httpapi.Request) (any, error) {
 	uKey := req.UserKey()
 	if uKey == "" {
@@ -2562,6 +2603,17 @@ func (h *RepositoryWriteHandler) checkMergeType(ctx context.Context, req *httpap
 		return nil, err
 	}
 
+	target, err := h.repository(ctx, mr.TargetRKey)
+	if err != nil {
+		return nil, err
+	}
+	allowMergeCommit := true
+	allowSquash := true
+	if target != nil {
+		allowMergeCommit = target.AllowMergeCommit
+		allowSquash = target.AllowSquash
+	}
+
 	sourcePath, err := h.repoPath(ctx, mr.SourceRKey)
 	if err != nil {
 		return nil, err
@@ -2579,7 +2631,11 @@ func (h *RepositoryWriteHandler) checkMergeType(ctx context.Context, req *httpap
 	if err != nil {
 		return nil, err
 	}
-	return map[string]any{"canBeFastForward": fastForward}, nil
+	return map[string]any{
+		"canBeFastForward": fastForward,
+		"allowMergeCommit": allowMergeCommit,
+		"allowSquash":      allowSquash,
+	}, nil
 }
 
 // mergeBranch 实现 POST /api/repository/mergeBranch。
@@ -2592,6 +2648,11 @@ func (h *RepositoryWriteHandler) checkMergeType(ctx context.Context, req *httpap
 //  4. 目标分支受保护 → 0x040F
 //  5. 还有评审人未评审 → 0x0405
 //  6. 合并冲突 → {"conflict": true}；成功 → 标记已合并并发事件；其它失败 → 0x0405
+//
+// 本仓库新增（PHP 侧没有）：
+//   - 可选参数 deleteSourceBranch(bool)：合并成功后（事务外）删除源分支；
+//   - 评审校验按仓库设置 r_min_reviewers 收敛（见 mergeBranchLocked）；
+//   - usingSquash 与 r_allow_squash 冲突时拒绝。
 func (h *RepositoryWriteHandler) mergeBranch(ctx context.Context, req *httpapi.Request) (any, error) {
 	uKey := req.UserKey()
 	if uKey == "" {
@@ -2604,6 +2665,8 @@ func (h *RepositoryWriteHandler) mergeBranch(ctx context.Context, req *httpapi.R
 	// PHP 侧：trim($data['usingSquash']) === 'false' 才用非 squash 模式，
 	// 其余（含缺省）一律走 squash。
 	usingSquash := domain.PHPTrim(bodyOrEmpty(p, "usingSquash")) != "false"
+	// deleteSourceBranch 是可选布尔（缺省 false，保持既有行为）。
+	deleteSource := bodyParamBool(p, "deleteSourceBranch", false)
 
 	if !domain.PHPTruthy(mrKey) {
 		return nil, contract.NewError(contract.CodeMissingParameter)
@@ -2618,12 +2681,12 @@ func (h *RepositoryWriteHandler) mergeBranch(ctx context.Context, req *httpapi.R
 		var out any
 		err := locker.WithMergeLock(ctx, mrKey, func() error {
 			var runErr error
-			out, runErr = h.mergeBranchLocked(ctx, uKey, mrKey, message, usingSquash)
+			out, runErr = h.mergeBranchLocked(ctx, uKey, mrKey, message, usingSquash, deleteSource)
 			return runErr
 		})
 		return out, err
 	}
-	return h.mergeBranchLocked(ctx, uKey, mrKey, message, usingSquash)
+	return h.mergeBranchLocked(ctx, uKey, mrKey, message, usingSquash, deleteSource)
 }
 
 // mergeLocker 是仓库写仓储的可选扩展能力（生产实现是 *repo.RepositoryWriteRepo）。
@@ -2632,7 +2695,7 @@ type mergeLocker interface {
 }
 
 // mergeBranchLocked 在持有 MR 级锁的前提下执行合并。
-func (h *RepositoryWriteHandler) mergeBranchLocked(ctx context.Context, uKey, mrKey, message string, usingSquash bool) (any, error) {
+func (h *RepositoryWriteHandler) mergeBranchLocked(ctx context.Context, uKey, mrKey, message string, usingSquash, deleteSource bool) (any, error) {
 	mr, err := h.Repos.GetMergeRequestByKey(ctx, mrKey)
 	if err != nil {
 		return nil, err
@@ -2647,13 +2710,30 @@ func (h *RepositoryWriteHandler) mergeBranchLocked(ctx context.Context, uKey, mr
 		return nil, err
 	}
 
-	pending, err := h.Repos.ReviewPending(ctx, mrKey)
+	// 合并方式与评审校验按**目标仓库**的设置收敛（015_repo_merge_settings.sql）。
+	//
+	// 默认值（allow_merge_commit=1、allow_squash=1、min_reviewers=0）与
+	// 迁移一致，存量仓库在迁移后的行为不变：
+	//   - r_allow_squash = 0 时拒绝 squash 合并；
+	//   - r_allow_merge_commit = 0 时拒绝 --no-ff 的 merge commit
+	//     （message 非空且非 squash 正是 --no-ff 的唯一入口）；
+	//   - r_min_reviewers > 0 时"已通过评审人数 ≥ min"即放行，
+	//     = 0 保持旧行为（全部评审人通过）。
+	target, err := h.repository(ctx, mr.TargetRKey)
 	if err != nil {
 		return nil, err
 	}
-	if pending {
-		// 还有评审人没评审 → 0x0405。
+	if target == nil {
+		return nil, contract.NewError(contract.CodeActionNotAllowed)
+	}
+	if usingSquash && !target.AllowSquash {
 		return nil, contract.NewError(contract.CodeOperateFail)
+	}
+	if !usingSquash && message != "" && !target.AllowMergeCommit {
+		return nil, contract.NewError(contract.CodeOperateFail)
+	}
+	if err := h.reviewRequirementMet(ctx, mrKey, target.MinReviewers); err != nil {
+		return nil, err
 	}
 
 	sourcePath, err := h.repoPath(ctx, mr.SourceRKey)
@@ -2701,7 +2781,84 @@ func (h *RepositoryWriteHandler) mergeBranchLocked(ctx context.Context, uKey, mr
 	}); err != nil {
 		return nil, contract.NewError(contract.CodeOperateFail)
 	}
+
+	// 删源分支在**合并事务提交成功之后**（事务外）执行：
+	//   - git 操作绝不进事务（AGENTS §9：事务里禁止 git/网络 IO）；
+	//   - 删除失败只记日志不影响返回 —— 合并本身已经成功，
+	//     让用户因为"清理步骤失败"看到一个错误是本末倒置。
+	if deleteSource && mr.SourceBranch != mr.TargetBranch {
+		h.deleteMergedSourceBranch(ctx, mr, uKey)
+	}
 	return []any{}, nil
+}
+
+// reviewRequirementMet 按 r_min_reviewers 校验评审进度。
+//
+// minReviewers > 0：已通过评审人数（mrr_is_review = GLOBAL_TRUE）达到阈值即放行；
+// minReviewers = 0：保持旧行为 —— 存在未评审的评审人即拒绝。
+// 两种口径不满足时都返回 0x0405（与旧实现"还有评审人未评审"同码）。
+func (h *RepositoryWriteHandler) reviewRequirementMet(ctx context.Context, mrKey string, minReviewers int) error {
+	if minReviewers > 0 {
+		approved, err := h.Repos.ApprovedReviewCount(ctx, mrKey)
+		if err != nil {
+			return err
+		}
+		if approved < minReviewers {
+			return contract.NewError(contract.CodeOperateFail)
+		}
+		return nil
+	}
+	pending, err := h.Repos.ReviewPending(ctx, mrKey)
+	if err != nil {
+		return err
+	}
+	if pending {
+		return contract.NewError(contract.CodeOperateFail)
+	}
+	return nil
+}
+
+// deleteMergedSourceBranch 删除已合并 MR 的源分支（尽力而为）。
+//
+// 权限：合并者对目标仓库有 UAC_MR_MERGE，但源分支可能在 fork 仓库里，
+// 因此**单独**校验源仓库的 UAC_REPO_BRANCH_REMOVE（与 deleteBranch 端点
+// 同款权限）；没有权限时静默跳过 —— 删不掉源分支不该把合并拖成失败。
+// git 删除与 BRANCH_REMOVE 事件的任何失败都只记日志。
+func (h *RepositoryWriteHandler) deleteMergedSourceBranch(ctx context.Context, mr *domain.RepositoryMergeRequest, uKey string) {
+	role, err := h.Guard.RepositoryRole(ctx, mr.SourceRKey, uKey)
+	if err != nil {
+		slog.Warn("删除已合并源分支前读取权限失败", "rKey", mr.SourceRKey, "error", err)
+		return
+	}
+	if !domain.CheckPermission(domain.UACRepoBranchRemove, role) {
+		// fork 场景下合并者未必能删别人的分支：按"跳过"处理而不是报错。
+		slog.Info("无源仓库删分支权限，跳过删除已合并源分支",
+			"rKey", mr.SourceRKey, "branch", mr.SourceBranch)
+		return
+	}
+	sourcePath, err := h.repoPath(ctx, mr.SourceRKey)
+	if err != nil {
+		slog.Warn("解析已合并源分支仓库路径失败", "rKey", mr.SourceRKey, "error", err)
+		return
+	}
+	if err := h.Git.DeleteBranch(ctx, sourcePath, mr.SourceBranch); err != nil {
+		slog.Warn("删除已合并源分支失败", "rKey", mr.SourceRKey, "branch", mr.SourceBranch, "error", err)
+		return
+	}
+	// 事件尽力而为：分支已经删了，事件写失败只影响活动流展示。
+	source, err := h.repository(ctx, mr.SourceRKey)
+	if err != nil || source == nil {
+		return
+	}
+	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
+		return h.emit(ctx, raw, domain.EventTypeBRANCH_REMOVE, domain.EventDataDescBRANCH_REMOVE_D, map[string]any{
+			"gKey": source.GroupKey,
+			"rKey": mr.SourceRKey,
+			"name": mr.SourceBranch,
+		}, uKey)
+	}); err != nil {
+		slog.Warn("记录删除已合并源分支事件失败", "rKey", mr.SourceRKey, "branch", mr.SourceBranch, "error", err)
+	}
 }
 
 // groupKeyOf 读取仓库所属的仓库组主键（事件数据需要）。
@@ -2745,6 +2902,14 @@ func atoiOrZero(raw string) int {
 		return -n
 	}
 	return n
+}
+
+// boolToInt 把布尔值转成 tinyint 列的取值（1 / 0）。
+func boolToInt(v bool) int {
+	if v {
+		return 1
+	}
+	return 0
 }
 
 // nowString 返回当前时间的 MySQL 字符串形态。

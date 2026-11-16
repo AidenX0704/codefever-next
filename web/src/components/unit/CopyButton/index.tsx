@@ -1,29 +1,31 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import { cn } from '@/helpers/cn'
-
+import { copyIcon, checkIcon } from '@/config/icons'
+import { Icon } from '@/components/unit/Icon'
 import { useToast } from '@/components/unit/Toast'
 
 
 export interface CopyButtonProps {
   /** 要复制的文本。 */
   text: string
-  /** 成功提示文案（默认"已复制"）。 */
+  /** 成功提示文案；传空串则不出 Toast（DESIGN.md §9：图标反馈已足够时可省略）。 */
   message?: string
   className?: string
-  /** 图标内容；默认使用一个纯 CSS/文本符号，业务需要可换成图标组件。 */
-  children?: ReactNode
   label?: string
 }
 
 /**
- * 复制按钮。
- *
- * 旧版各页面重复实现 `navigator.clipboard.writeText` + 成功提示（含降级分支）；
- * 这里统一实现一次：Clipboard API 不可用时退回 `document.execCommand`。
+ * 复制按钮（DESIGN.md §9）：点击后图标 Copy → Check 保持 1.5s；
+ * Toast 默认省略（图标反馈已足够），失败时仍然 Toast。
+ * 旧版各页面重复实现的剪贴板降级逻辑统一在这里。
  */
-export function CopyButton({ text, message = '已复制', className, children, label = '复制' }: CopyButtonProps) {
+export function CopyButton({ text, message = '', className, label = '复制' }: CopyButtonProps) {
   const toast = useToast()
+  const [done, setDone] = useState(false)
+  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  useEffect(() => () => clearTimeout(timer.current), [])
 
   const copy = async () => {
     try {
@@ -39,7 +41,12 @@ export function CopyButton({ text, message = '已复制', className, children, l
         document.execCommand('copy')
         document.body.removeChild(area)
       }
-      toast.success(message)
+      setDone(true)
+      clearTimeout(timer.current)
+      timer.current = setTimeout(() => setDone(false), 1500)
+      if (message) {
+        toast.success(message)
+      }
     } catch {
       toast.error('复制失败，请手动选择文本')
     }
@@ -47,7 +54,7 @@ export function CopyButton({ text, message = '已复制', className, children, l
 
   return (
     <button type="button" className={cn('cf-copy-btn', className)} aria-label={label} title={label} onClick={copy}>
-      {children ?? '⧉'}
+      <Icon icon={done ? checkIcon : copyIcon} size={16} />
     </button>
   )
 }

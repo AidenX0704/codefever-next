@@ -34,7 +34,7 @@ func NewUserRepo(db *sql.DB) *UserRepo { return &UserRepo{db: db} }
 // 那是原实现的一处潜在缺陷，新后端不再沿用该白名单。
 const userColumns = "u_key, u_email, u_password, u_name, u_avatar, u_tel, u_calling_code, " +
 	"u_team, u_role, u_location, u_notification_status, u_register_ip, u_2fa, u_admin, " +
-	"u_created, u_updated, u_status"
+	"u_created, u_updated, u_status, u_bio"
 
 // Get 按主键读取用户。
 func (r *UserRepo) Get(ctx context.Context, uKey string) (*domain.User, error) {
@@ -124,6 +124,7 @@ func (r *UserRepo) UpdateFields(ctx context.Context, uKey string, fields map[str
 		"u_location": true, "u_avatar": true, "u_admin": true, "u_2fa": true,
 		"u_password": true, "u_notification_status": true, "u_status": true,
 		"u_updated": true,
+		"u_bio":     true,
 	}
 	set := ""
 	args := make([]any, 0, len(fields)+1)
@@ -346,7 +347,7 @@ func scanUser(row scanner) (*domain.User, error) {
 	var avatar, tel, callingCode, team, role, location, registerIP, twoFA sql.NullString
 	err := row.Scan(&u.Key, &u.Email, &u.Password, &u.Name, &avatar, &tel, &callingCode,
 		&team, &role, &location, &u.NotificationStatus, &registerIP, &twoFA, &adminRaw,
-		&u.Created, &u.Updated, &u.Status)
+		&u.Created, &u.Updated, &u.Status, &u.Bio)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}

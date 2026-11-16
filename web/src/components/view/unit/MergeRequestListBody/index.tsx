@@ -50,7 +50,8 @@ export function MergeRequestListBody({
 
   return (
     <>
-      <div className="list-body">
+      {/* v5 §6 G8：行式列表装进一张纸页（行间发丝线，不逐条包卡片）。 */}
+      <div className="list-body list-sheet">
         {items.map((item) => (
           <MergeRequestRow key={item.id} item={item} href={hrefOf(item)} showRepository={showRepository} />
         ))}

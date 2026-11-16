@@ -13,13 +13,12 @@ export async function fetchCurrentUser(): Promise<CurrentUser> {
 /* ------------------------------ 个人设置（写操作） ------------------------------ */
 
 /**
- * 更新基本信息（`name` / `email` 必填，`team` / `role` 可选）。
+ * 更新基本信息（`name` / `email` 必填，`team` / `role` / `bio` 可选）。
  *
- * 后端 `handlers/user_profile.go:148-227` 的 `updateBasicInfo` 支持
- * `name` / `email` / `team` / `role` 四个字段；`role` 是旧版资料页的可编辑项
- * （旧 `UserSettingGeneral.js:476-493` 随基本信息一起提交）。
+ * 后端 `handlers/user_profile.go` 的 `updateBasicInfo` 支持白名单字段；
+ * `bio`（个人简介，≤255 字）是 v4 新增。
  */
-export function updateBasicInfo(body: { name: string; email: string; team?: string; role?: string }) {
+export function updateBasicInfo(body: { name: string; email: string; team?: string; role?: string; bio?: string }) {
   return post('/api/user/updateBasicInfo', body)
 }
 

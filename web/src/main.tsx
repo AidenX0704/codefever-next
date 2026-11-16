@@ -5,12 +5,16 @@ import { RouterProvider } from 'react-router'
 import { setUnauthorizedHandler } from '@/api/client'
 import { ConfirmProvider } from '@/components/unit/Confirm'
 import { ToastProvider } from '@/components/unit/Toast'
+import { initTheme } from '@/helpers/theme'
 import { I18nProvider } from '@/i18n'
 
 import { router } from './router'
 
 import '@/styles/index.css'
 
+
+// 首屏渲染前落主题，避免深色用户先看到一帧浅色（AGENTS §5 / V3 §9）。
+initTheme()
 
 const container = document.getElementById('root')
 if (!container) {

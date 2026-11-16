@@ -32,6 +32,7 @@ import (
 	"codefever-next/backend/internal/repo"
 	"codefever-next/backend/internal/session"
 	"codefever-next/backend/internal/storage"
+	"codefever-next/backend/internal/webhook"
 )
 
 // defaultBaseDir 是容器内的应用根目录（保留给文档与兼容说明）。
@@ -101,7 +102,9 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	users := repo.NewUserRepo(sqlDB)
 	notifications := repo.NewNotificationRepo(sqlDB)
 	disk := storage.NewDisk(cfg.FileStoragePath())
-	mail := mailer.FromEnv(cfg.SiteConfig().Email.From)
+	// SMTP 走「config.yaml 的 smtp 段 → CODEFEVER_SMTP_* 环境变量」的顺序：
+	// 管理界面在线改的配置优先于部署期写死的环境变量。
+	mail := mailer.FromConfig(cfg)
 	sessions := session.NewStore(sqlDB, sessionTTL)
 	// 过期会话清理：旧实现只在"恰好有人拿过期 Cookie 访问"时才删，
 	// cc_sessions 会无限增长。这里每小时主动清一次。
@@ -213,11 +216,16 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	).Register(srv)
 
 	// 仓库域：只读端点 + 写端点（同一控制器）。
+	//
+	// 标星 / MR 评论是本仓库新增的能力，仓储分别注入读侧与写侧；
+	// webhook 重发依赖同一 *sql.DB 上的队列存储（webhook.MySQLStore）。
 	handlers.NewRepositoryHandler(
 		repo.NewRepositoryRepo(sqlDB),
 		gitSvc,
 		guard,
 		handlers.WithRepositorySiteConfig(cfg),
+		handlers.WithRepositoryStars(repo.NewStarRepo(sqlDB)),
+		handlers.WithRepositoryComments(repo.NewMRCommentRepo(sqlDB)),
 	).Register(srv)
 	handlers.NewRepositoryWriteHandler(
 		repo.NewRepositoryWriteRepo(sqlDB),
@@ -226,6 +234,23 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 		gitSvc,
 		eventBus,
 		handlers.WithRepositoryWriteSiteConfig(cfg),
+		handlers.WithRepositoryWriteStars(repo.NewStarRepo(sqlDB)),
+		handlers.WithRepositoryWriteComments(repo.NewMRCommentRepo(sqlDB)),
+		handlers.WithRepositoryWriteRequeuer(webhook.NewMySQLStore(sqlDB)),
+	).Register(srv)
+
+	// 站点公开端点（/api/site/*）：统计、更新日志、公告，匿名可访问。
+	handlers.NewSiteHandler(repo.NewSiteRepo(sqlDB)).Register(srv)
+
+	// 归档下载（GET /api/repository/archive）：二进制流，
+	// 注册为字面量路由绕开 JSON 信封分发器（保持会话鉴权、匿名拒绝）。
+	handlers.NewArchiveHandler(
+		cfg,
+		sessions,
+		users,
+		repo.NewRepositoryRepo(sqlDB),
+		gitSvc,
+		guard,
 	).Register(srv)
 
 	// 首页聚合（`/api/home/overview`）：员工首页首屏的唯一聚合请求。
@@ -260,6 +285,8 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	}
 	// 管理端禁用账号 / 重置口令时需要吊销会话。
 	admin.Sessions = sessions
+	// 站点内容管理端点（changelog / announcement 的保存与删除）。
+	admin.Site = repo.NewSiteRepo(sqlDB)
 	admin.Register(srv)
 
 	// 内部网关回调（Go 网关与 git 钩子的唯一通道）。

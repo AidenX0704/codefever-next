@@ -2,10 +2,10 @@
  * CodeFever Next 组件库样式（AGENTS §4：通用 UI 原子件只在这里定义一次）。
  *
  * 硬约束（AGENTS §5）：
- *   - 只允许引用 --ac-* / --bg-* / --fg-* / --bd-* 等语义令牌与尺寸令牌，
- *     不出现颜色/间距/圆角/阴影字面值；
+ *   - 只允许引用 --bg-* / --text-* / --line / --brand-* / --success-* 等语义令牌
+ *     与尺寸令牌，不出现颜色/间距/圆角/阴影字面值；
  *   - 例外仅结构性数值（0 / 100% / 1px 边框 / 50% 圆形）。
- * 视觉口径来源：旧主题 preset（见 theme.css 顶部注释）。
+ * 视觉口径来源：docs/design-v4/DESIGN.md（§6 组件规范）。
  */
 
 /* ============================================================================
@@ -15,8 +15,8 @@
  * 页面不得引用本区块的令牌 —— 需要新尺寸时先看 --sp-* / --ctl-* 能否组合。
  * ========================================================================== */
 :root {
-  /* 输入框内部量 */
-  --field-surface: var(--bg-surface);
+  /* 输入框内部量：输入框是画布白底（DESIGN.md §6.2） */
+  --field-surface: var(--bg-sheet);
   --input-pad-y: 6.5px;
   --input-pad-x: 16px;
   --input-line-h: 19px;
@@ -32,7 +32,10 @@
 
   /* 标签 / 提示 */
   --tag-pad: 2px 8px;
+  --tag-h: 22px;
   --tooltip-pad: 6px 16px;
+  --tooltip-arrow-size: 6px;
+  --tooltip-arrow-lift: 9px;
 
   /* 头像 */
   --avatar-size: 32px;
@@ -44,6 +47,10 @@
   --switch-h: 20px;
   --switch-thumb: 16px;
   --checkbox-size: 16px;
+
+  /* 方形图标按钮（旧版 SquareIconButton 实测 34×34） */
+  --icon-btn-min-w: 34px;
+  --icon-btn-pad: 7px 8px;
 
   /* 角标 */
   --badge-border: 2px;
@@ -57,15 +64,16 @@
   --list-item-min-w: 160px;
   --list-icon-w: 32px;
 
-  /* 区块标题竖条 */
-  --section-bar-w: 3px;
-  --section-bar-h: 24px;
-
-  /* 空态 / 加载 */
+  /* 空态 / 加载（DESIGN.md §6.10：64px duotone 图标） */
+  --empty-icon-size: 64px;
   --empty-image-w: 160px;
   --empty-text-max-w: 480px;
   --empty-pad: 48px 8px;
   --page-loading-min-h: 240px;
+  --empty-icon-color: var(--brand-text);
+
+  /* 骨架屏 */
+  --skeleton-radius: var(--r-sm);
 
   /* 弹窗 */
   --dialog-title-pad: 20px 24px;
@@ -91,11 +99,11 @@
   min-width: var(--ctl-min-w);
   padding: var(--btn-pad);
   border: 1px solid transparent;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: transparent;
-  color: var(--fg-strong);
+  color: var(--text-primary);
   font-family: inherit;
-  font-size: var(--fs-14);
+  font-size: var(--fs-body);
   font-weight: var(--fw-regular);
   line-height: 1;
   text-decoration: none;
@@ -125,76 +133,90 @@
 /* 大号按钮：认证页提交按钮（旧 .btn-lg + .btn-self-primary） */
 .cf-btn--lg {
   height: var(--ctl-h-lg);
-  font-size: var(--fs-20);
+  font-size: var(--fs-h3);
 }
 
 /* 认证页主色：旧 .btn-self-primary 用的是 #0035EC（与内壳 #3455db 不同，保持原样） */
 .cf-btn--contained.cf-btn--auth {
-  border-color: var(--ac-primary);
-  background: var(--ac-primary);
+  border-color: var(--brand-text);
+  background: var(--brand);
 }
 
 .cf-btn--contained.cf-btn--auth:hover:not(:disabled) {
-  border-color: var(--ac-primary-hover);
-  background: var(--ac-primary-hover);
+  border-color: var(--brand-text);
+  background: var(--brand-hover);
 }
 
 .cf-btn--contained.cf-btn--auth:active:not(:disabled) {
-  border-color: var(--ac-primary-active);
-  background: var(--ac-primary-active);
+  border-color: var(--brand-text);
+  background: var(--brand-active);
 }
 
 .cf-btn--contained {
-  border-color: var(--ac-primary);
-  background: var(--ac-primary);
-  color: var(--ac-primary-fg);
+  border-color: var(--brand-text);
+  background: var(--brand);
+  color: var(--text-inverse);
 }
 
 .cf-btn--contained:hover:not(:disabled) {
-  border-color: var(--ac-primary-hover);
-  background: var(--ac-primary-hover);
+  border-color: var(--brand-text);
+  background: var(--brand-hover);
 }
 
 .cf-btn--contained:active:not(:disabled) {
-  border-color: var(--ac-primary-active);
-  background: var(--ac-primary-active);
+  border-color: var(--brand-text);
+  background: var(--brand-active);
 }
 
 .cf-btn--contained.cf-btn--danger {
-  border-color: var(--ac-danger);
-  background: var(--ac-danger);
+  border-color: var(--danger);
+  background: var(--danger);
 }
 
 .cf-btn--contained.cf-btn--danger:hover:not(:disabled) {
-  border-color: var(--ac-danger-hover);
-  background: var(--ac-danger-hover);
+  border-color: var(--danger-hover);
+  background: var(--danger-hover);
 }
 
 .cf-btn--contained.cf-btn--danger:active:not(:disabled) {
-  border-color: var(--ac-danger-active);
-  background: var(--ac-danger-active);
+  border-color: var(--danger-active);
+  background: var(--danger-active);
 }
 
+/* Secondary（DESIGN.md §6.1）：--bg-subtle 底、无边框；hover --bg-muted。
+   历史类名 --outlined 保留（调用方零改动），语义已从"描边"改为"次级实底"。 */
 .cf-btn--outlined {
-  border-color: var(--bd);
-  color: var(--fg-muted);
+  border-color: transparent;
+  background: var(--bg-subtle);
+  color: var(--text-primary);
 }
 
 .cf-btn--outlined:hover:not(:disabled) {
-  border-color: var(--ac-primary-active);
-  color: var(--ac-primary-active);
+  border-color: transparent;
+  background: var(--bg-muted);
+  color: var(--text-primary);
 }
 
 .cf-btn--outlined:active:not(:disabled) {
-  border-color: var(--ac-primary-hover);
-  color: var(--ac-primary-hover);
+  border-color: transparent;
+  background: var(--bg-muted);
+  color: var(--text-primary);
 }
 
+.cf-btn--outlined.cf-btn--danger {
+  background: var(--danger-subtle);
+  color: var(--danger-text);
+}
+
+/* soft 危险按钮 hover 变实心（GitHub 模式）：--danger-text 压 --danger-border 只有 3.82:1，
+   实心 + 反白（--danger #d63636 上 4.74:1）才是达标的可见反馈。 */
 .cf-btn--outlined.cf-btn--danger:hover:not(:disabled) {
-  border-color: var(--ac-danger-active);
-  color: var(--ac-danger-active);
+  border-color: transparent;
+  background: var(--danger);
+  color: var(--text-inverse);
 }
 
+/* Ghost（DESIGN.md §6.1）：透明底；hover --bg-subtle。历史类名 --text 保留。 */
 .cf-btn--text {
   min-width: var(--btn-text-min-w);
   padding: var(--btn-text-pad-4); /* 4px 24px 4px 8px（旧版实测） */
@@ -204,13 +226,29 @@
 
 .cf-btn--text:hover:not(:disabled),
 .cf-btn--text:active:not(:disabled) {
-  color: var(--ac-primary);
-  background: var(--ac-primary-tint);
+  color: var(--text-primary);
+  background: var(--bg-subtle);
 }
 
 .cf-btn--text.cf-btn--danger:hover:not(:disabled) {
-  color: var(--ac-danger);
-  background: var(--st-danger-tint);
+  color: var(--danger-text);
+  background: var(--danger-subtle);
+}
+
+/* Link（DESIGN.md §6.1）：品牌色文字，hover 下划线。 */
+.cf-btn--link {
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--brand-text);
+}
+
+.cf-btn--link:hover:not(:disabled) {
+  background: transparent;
+  color: var(--brand-text);
+  text-decoration: underline;
 }
 
 .cf-btn__spinner {
@@ -219,12 +257,12 @@
 }
 
 /* 尾部图标（下拉箭头 ▾）：只做"容器 + 展开时旋转"两件事。
- * 与文字的间距由 `.cf-btn` 的 `gap` 提供；旋转时长与 `.cf-btn` 的 transition 一致（0.12s）。
+ * 与文字的间距由 `.cf-btn` 的 `gap` 提供；旋转时长与 `.cf-btn` 的 transition 一致（--dur-fast）。
  * 箭头翻转是"菜单已展开"的可见反馈（对齐 GitHub / GitLab 的习惯）。 */
 .cf-btn__end-icon {
   display: inline-flex;
   align-items: center;
-  transition: transform 0.12s ease;
+  transition: transform var(--dur-fast) var(--ease-standard);
 }
 
 .cf-dropdown__trigger[aria-expanded='true'] .cf-btn__end-icon {
@@ -243,7 +281,7 @@
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--fg-muted);
+  color: var(--text-secondary);
   cursor: pointer;
   transition:
     background-color 0.12s ease,
@@ -251,8 +289,8 @@
 }
 
 .cf-icon-btn:hover:not(:disabled) {
-  color: var(--ac-primary);
-  background: var(--ac-primary-tint);
+  color: var(--brand-text);
+  background: var(--brand-subtle);
 }
 
 .cf-icon-btn:disabled {
@@ -261,8 +299,8 @@
 }
 
 .cf-icon-btn--bordered {
-  border: 1px solid var(--bd);
-  border-radius: var(--r-md);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
 }
 
 /* ============================== Field（Input / Select / Textarea） ============================== */
@@ -275,47 +313,47 @@
 }
 
 .cf-field__label {
-  color: var(--fg);
-  font-size: var(--fs-14);
+  color: var(--text-primary);
+  font-size: var(--fs-body);
   line-height: var(--lh-tight);
 }
 
 .cf-field__required {
-  margin-left: 2px;
-  color: var(--ac-danger);
+  margin-left: var(--sp-1);
+  color: var(--danger);
 }
 
 .cf-field__box {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  /* 高度由 --ctl-h（v3 = 34px）固定，配合 border-box 精确成盒：
-     19 行高 + 6.5×2 内边距 + 1×2 边框 = 34px，改 padding 不会把行撑高。 */
+  /* 高度由 --ctl-h（32px）固定，配合 border-box 精确成盒：
+     19 行高 + 6.5×2 内边距 + 1×2 边框 = 32px，改 padding 不会把行撑高。 */
   box-sizing: border-box;
   height: var(--ctl-h);
   padding: var(--input-pad-y) var(--input-pad-x);
-  border: 1px solid var(--bd-strong);
-  border-radius: var(--r-md);
-  background: var(--bg-surface);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  background: var(--bg-sheet);
   transition: border-color var(--dur-fast) var(--ease-standard);
 }
 
-/* 聚焦只把边框换成 --bd-focus：不加光晕、不加外环、不改边框宽度。
-   改宽度会让整行内容位移；从 --bd-strong 的灰到 --bd-focus 的蓝已是高对比跳变，
+/* 聚焦只把边框换成 --brand：不加光晕、不加外环、不改边框宽度。
+   改宽度会让整行内容位移；从 --line-strong 的灰到 --brand 的蓝已是高对比跳变，
    可见性足够，且不产生任何布局抖动。 */
 .cf-field__box:focus-within {
-  border-color: var(--bd-focus);
+  border-color: var(--brand-text);
 }
 
 .cf-field--error .cf-field__box {
-  border-color: var(--ac-danger);
+  border-color: var(--danger);
 }
 
 .cf-field--disabled .cf-field__box {
-  background: var(--bg-canvas);
+  background: var(--bg-sheet);
   cursor: not-allowed;
   /* 禁用态的输入框底色不同，autofill 盖色要跟着换。 */
-  --field-surface: var(--bg-canvas);
+  --field-surface: var(--bg-sheet);
 }
 
 .cf-field__input {
@@ -326,14 +364,14 @@
   border: 0;
   outline: 0;
   background: transparent;
-  color: var(--fg);
+  color: var(--text-primary);
   font-family: inherit;
-  font-size: var(--fs-14);
+  font-size: var(--fs-body);
   line-height: var(--input-line-h);
 }
 
 .cf-field__input::placeholder {
-  color: var(--fg-subtle);
+  color: var(--text-tertiary);
 }
 
 /* ---------- 浏览器自动填充（autofill）中性化 ----------
@@ -375,8 +413,8 @@
 .cf-field__select:autofill,
 .cf-field__select:-webkit-autofill {
   background-color: var(--field-surface) !important;
-  -webkit-text-fill-color: var(--fg);
-  caret-color: var(--fg);
+  -webkit-text-fill-color: var(--text-primary);
+  caret-color: var(--text-primary);
   -webkit-box-shadow: 0 0 0 1000px var(--field-surface) inset;
   box-shadow: 0 0 0 1000px var(--field-surface) inset;
   transition: background-color 0s 600000s;
@@ -397,9 +435,9 @@ textarea.cf-field__input {
   border: 0;
   outline: 0;
   background: transparent;
-  color: var(--fg);
+  color: var(--text-primary);
   font-family: inherit;
-  font-size: var(--fs-14);
+  font-size: var(--fs-body);
   cursor: pointer;
   appearance: none;
 }
@@ -408,7 +446,7 @@ textarea.cf-field__input {
   flex: 0 0 auto;
   width: 0;
   height: 0;
-  border-top: 5px solid var(--fg-muted);
+  border-top: 5px solid var(--text-secondary);
   border-right: 5px solid transparent;
   border-left: 5px solid transparent;
   pointer-events: none;
@@ -418,26 +456,26 @@ textarea.cf-field__input {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
   white-space: nowrap;
 }
 
 .cf-field__help {
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
   line-height: var(--lh-tight);
 }
 
 .cf-field--error .cf-field__help {
-  color: var(--ac-danger);
+  color: var(--danger);
 }
 
 /* 认证页输入框：只有底边框、无圆角、大号字（旧 `.login-wrap input.form-control`） */
 .cf-field--underline .cf-field__box {
   padding: var(--sp-4) 0;
   border: 0;
-  border-bottom: 1px solid var(--bd);
+  border-bottom: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
   /* 认证页输入框直接落在 .auth-card__panel 上（不是应用底色），
@@ -446,7 +484,7 @@ textarea.cf-field__input {
 }
 
 .cf-field--underline .cf-field__box:focus-within {
-  border-bottom-color: var(--bd-focus);
+  border-bottom-color: var(--brand-text);
 }
 
 .cf-field--underline .cf-field__input {
@@ -455,7 +493,7 @@ textarea.cf-field__input {
 }
 
 .cf-field--underline.cf-field--error .cf-field__box {
-  border-bottom-color: var(--ac-danger);
+  border-bottom-color: var(--danger);
 }
 
 /* 认证页"获取验证码"内联按钮（旧 `.get_code_button`） */
@@ -464,15 +502,15 @@ textarea.cf-field__input {
   min-width: 0;
   padding: 0 0 0 var(--sp-4);
   border: 0;
-  border-left: 1px solid var(--bd);
+  border-left: 1px solid var(--line);
   border-radius: 0;
-  color: var(--ac-primary);
-  font-size: var(--fs-14);
+  color: var(--brand-text);
+  font-size: var(--fs-body);
 }
 
 .cf-auth-code-btn:hover:not(:disabled) {
   background: transparent;
-  color: var(--ac-primary-hover);
+  color: var(--brand-text);
 }
 
 /* ============================== Checkbox / Switch ============================== */
@@ -480,8 +518,8 @@ textarea.cf-field__input {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  color: var(--fg);
-  font-size: var(--fs-14);
+  color: var(--text-primary);
+  font-size: var(--fs-body);
   cursor: pointer;
 }
 
@@ -489,7 +527,7 @@ textarea.cf-field__input {
   width: var(--checkbox-size);
   height: var(--checkbox-size);
   margin: 0;
-  accent-color: var(--ac-primary);
+  accent-color: var(--brand-text);
   cursor: pointer;
 }
 
@@ -502,8 +540,8 @@ textarea.cf-field__input {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  color: var(--fg);
-  font-size: var(--fs-14);
+  color: var(--text-primary);
+  font-size: var(--fs-body);
   cursor: pointer;
 }
 
@@ -519,8 +557,8 @@ textarea.cf-field__input {
   width: var(--switch-w);
   height: var(--switch-h);
   border-radius: var(--r-full);
-  background: var(--fg-subtle);
-  transition: background-color 0.16s ease;
+  background: var(--text-tertiary);
+  transition: background-color var(--dur) var(--ease-standard);
 }
 
 .cf-switch__track::after {
@@ -531,12 +569,12 @@ textarea.cf-field__input {
   width: var(--switch-thumb);
   height: var(--switch-thumb);
   border-radius: 50%;
-  background: var(--bg-surface);
-  transition: transform 0.16s ease;
+  background: var(--bg-sheet);
+  transition: transform var(--dur) var(--ease-standard);
 }
 
 .cf-switch__input:checked + .cf-switch__track {
-  background: var(--ac-primary);
+  background: var(--brand);
 }
 
 .cf-switch__input:checked + .cf-switch__track::after {
@@ -581,12 +619,13 @@ textarea.cf-field__input {
 }
 
 /* ============================== Table ============================== */
-/* preset MuiTable/MuiTableCell/MuiTableRow：外框 1px、圆角 4、行高 40px、表头 bg-main */
+/* DESIGN.md §6.5：表格外框是 L1（1px --line）允许的明确边界；行间仅分割线。
+   行高走 --row-h（舒适 56，data-density=compact 时 40）。 */
 .cf-table-wrap {
   overflow: hidden;
-  border: 1px solid var(--bd);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
-  background: var(--bg-surface);
+  background: var(--bg-sheet);
 }
 
 .cf-table {
@@ -594,19 +633,30 @@ textarea.cf-field__input {
   border-collapse: collapse;
 }
 
+/* v5：可点行整行悬停（只变底色，不位移）。 */
+.cf-table tbody tr {
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+
+.cf-table tbody tr:hover {
+  background: var(--bg-hover);
+}
+
 .cf-th,
 .cf-td {
   height: var(--row-h);
   padding: 0 var(--cell-px);
-  border-bottom: 1px solid var(--bd);
-  font-size: var(--fs-14);
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-body);
   text-align: left;
   vertical-align: middle;
 }
 
+/* 表头（DESIGN.md §6.5）：--bg-subtle 底、Caption 字号、--text-secondary，无竖线。 */
 .cf-th {
-  background: var(--bg-canvas);
-  color: var(--fg);
+  background: var(--bg-sheet-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
   font-weight: var(--fw-medium);
   white-space: nowrap;
 }
@@ -621,7 +671,7 @@ textarea.cf-field__input {
 }
 
 .cf-tbody tr:hover {
-  background: var(--bg-hover);
+  background: var(--bg-subtle);
 }
 
 .cf-tr--clickable {
@@ -644,8 +694,8 @@ textarea.cf-field__input {
 
 .cf-pagination__info {
   margin-right: var(--sp-2);
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
 }
 
 .cf-pagination__btn {
@@ -653,21 +703,21 @@ textarea.cf-field__input {
   height: var(--ctl-h);
   padding: 0 var(--sp-2);
   border: 0;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: transparent;
-  color: var(--fg-muted);
+  color: var(--text-secondary);
   font-family: inherit;
-  font-size: var(--fs-14);
+  font-size: var(--fs-body);
   cursor: pointer;
 }
 
 .cf-pagination__btn:hover:not(:disabled) {
-  color: var(--ac-primary);
-  background: var(--ac-primary-tint);
+  color: var(--brand-text);
+  background: var(--brand-subtle);
 }
 
 .cf-pagination__btn--active {
-  color: var(--ac-primary);
+  color: var(--brand-text);
   font-weight: var(--fw-bold);
 }
 
@@ -695,14 +745,14 @@ textarea.cf-field__input {
   width: min(100%, var(--dialog-max-w));
   max-height: 90vh;
   border-radius: var(--r-md);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-4);
+  background: var(--bg-sheet);
+  box-shadow: var(--shadow-2);
 }
 
 .cf-dialog__title {
   padding: var(--dialog-title-pad);
-  color: var(--fg);
-  font-size: var(--fs-16);
+  color: var(--text-primary);
+  font-size: var(--fs-h3);
   font-weight: var(--fw-bold);
   text-align: center;
 }
@@ -742,27 +792,27 @@ textarea.cf-field__input {
   max-width: var(--toast-max-w);
   padding: var(--sp-4);
   border-radius: var(--r-md);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-3);
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  background: var(--bg-sheet);
+  box-shadow: var(--shadow-2);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
   pointer-events: auto;
 }
 
 .cf-toast--success {
-  border-left: 3px solid var(--st-success);
+  border-left: 3px solid var(--success);
 }
 
 .cf-toast--danger {
-  border-left: 3px solid var(--ac-danger);
+  border-left: 3px solid var(--danger);
 }
 
 .cf-toast--warning {
-  border-left: 3px solid var(--st-warning);
+  border-left: 3px solid var(--warning);
 }
 
 .cf-toast--info {
-  border-left: 3px solid var(--ac-primary);
+  border-left: 3px solid var(--brand);
 }
 
 .cf-toast__close {
@@ -770,8 +820,8 @@ textarea.cf-field__input {
   padding: 0 var(--sp-2);
   border: 0;
   background: transparent;
-  color: var(--fg-subtle);
-  font-size: var(--fs-16);
+  color: var(--text-tertiary);
+  font-size: var(--fs-h3);
   line-height: 1;
   cursor: pointer;
 }
@@ -782,8 +832,8 @@ textarea.cf-field__input {
   display: flex;
   align-items: center;
   min-height: var(--tab-h);
-  border-bottom: 1px solid var(--bd);
-  background: var(--bg-surface);
+  border-bottom: 1px solid var(--line);
+  background: transparent;
 }
 
 .cf-tab {
@@ -792,19 +842,19 @@ textarea.cf-field__input {
   padding: 0 var(--tab-px);
   border: 0;
   background: transparent;
-  color: var(--fg-muted);
+  color: var(--text-secondary);
   font-family: inherit;
-  font-size: var(--fs-14);
+  font-size: var(--fs-body);
   cursor: pointer;
 }
 
 .cf-tab:hover {
-  color: var(--fg);
+  color: var(--text-primary);
 }
 
 .cf-tab--active {
-  color: var(--fg);
-  font-weight: 600;
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
 }
 
 .cf-tab--active::after {
@@ -814,7 +864,29 @@ textarea.cf-field__input {
   bottom: -1px;
   left: 0;
   height: 2px;
-  background: var(--ac-primary);
+  background: var(--brand);
+}
+
+/* Tab 计数徽标（DESIGN.md §6.6：--bg-muted 胶囊）。 */
+.cf-tab__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: calc(var(--sp-4) * 2.5);
+  margin-left: var(--sp-2);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-full);
+  background: var(--bg-muted);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
+  line-height: calc(var(--sp-4) * 2.5);
+}
+
+.cf-tab--active .cf-tab__count {
+  background: var(--brand-subtle);
+  color: var(--brand-text);
 }
 
 /* ============================== Tooltip ============================== */
@@ -827,15 +899,15 @@ textarea.cf-field__input {
   position: absolute;
   z-index: var(--z-tooltip);
   padding: var(--tooltip-pad);
-  border-radius: var(--r-xs);
-  background: var(--fg);
-  color: var(--bg-surface);
-  font-size: var(--fs-12);
+  border-radius: var(--r-md);
+  background: var(--text-primary);
+  color: var(--text-inverse);
+  font-size: var(--fs-caption);
   line-height: 13px;
   white-space: nowrap;
   pointer-events: none;
   opacity: 0;
-  transition: opacity 0.12s ease;
+  transition: opacity var(--dur-fast) var(--ease-standard);
 }
 
 .cf-tooltip::after {
@@ -843,7 +915,7 @@ textarea.cf-field__input {
   position: absolute;
   width: 12px;
   height: 12px;
-  background: var(--fg);
+  background: var(--text-primary);
   transform: rotate(45deg);
 }
 
@@ -856,8 +928,8 @@ textarea.cf-field__input {
 .cf-tooltip--top::after {
   top: 100%;
   left: 50%;
-  margin-top: -9px;
-  margin-left: -6px;
+  margin-top: calc(-1 * var(--tooltip-arrow-lift));
+  margin-left: calc(-1 * var(--tooltip-arrow-size));
 }
 
 .cf-tooltip--bottom {
@@ -867,9 +939,9 @@ textarea.cf-field__input {
 }
 
 .cf-tooltip--bottom::after {
-  top: -6px;
+  top: calc(-1 * var(--tooltip-arrow-size));
   left: 50%;
-  margin-left: -6px;
+  margin-left: calc(-1 * var(--tooltip-arrow-size));
 }
 
 .cf-tooltip-wrap:hover > .cf-tooltip,
@@ -888,14 +960,14 @@ textarea.cf-field__input {
   height: var(--avatar-size);
   overflow: hidden;
   border-radius: 50%;
-  background: var(--bg-hover);
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  background: var(--bg-subtle);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
   text-transform: uppercase;
 }
 
 .cf-avatar--square {
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
 }
 
 .cf-avatar--sm {
@@ -920,63 +992,72 @@ textarea.cf-field__input {
   align-items: center;
   gap: var(--sp-2);
   padding: var(--tag-pad);
-  border-radius: var(--r-xs);
-  background: var(--bg-canvas);
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  border-radius: var(--r-sm);
+  background: var(--bg-sheet);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
   line-height: 16px;
   white-space: nowrap;
+  height: var(--tag-h);
+  border: 1px solid transparent;
 }
 
+/* 品牌浅底上的文字用 --brand-text（--brand 直接压 --brand-subtle 只有约 4.1:1）。 */
 .cf-tag--primary {
-  background: var(--ac-primary-tint);
-  color: var(--ac-primary);
+  background: var(--brand-subtle);
+  color: var(--brand-text);
+  border: 1px solid var(--brand-border);
 }
 
 .cf-tag--success {
-  background: var(--st-success-tint);
-  color: var(--st-success-text);
+  background: var(--success-subtle);
+  color: var(--success-text);
+  border: 1px solid var(--success-border);
 }
 
 .cf-tag--danger {
-  background: var(--st-danger-tint);
-  color: var(--ac-danger-active);
+  background: var(--danger-subtle);
+  color: var(--danger-text);
+  border: 1px solid var(--danger-border);
 }
 
 .cf-tag--warning {
-  background: var(--st-warning);
-  color: var(--st-warning-text);
+  background: var(--warning-subtle);
+  color: var(--warning-text);
+  border: 1px solid var(--warning-border);
 }
 
 /* 旧版 MUI 的 `info` 色（#319ffc）：合并请求"已合并"等状态徽标沿用该色。 */
 .cf-tag--info {
-  background: var(--st-info-tint);
-  color: var(--st-info-text);
+  background: var(--brand-subtle);
+  color: var(--brand-text);
+  border: 1px solid var(--brand-border);
 }
 
 /* ============================== Card ============================== */
-/* preset boxShadow.card / cardHover */
+/* DESIGN.md §6.4（L0）：--bg-subtle 底、--r-md、无边框无阴影；
+   可点击卡片 hover 切换为 --bg-muted（背景差，不是阴影）。 */
 .cf-card {
   padding: var(--card-pad);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
-  background: var(--bg-surface);
-  box-shadow: var(--shadow-1);
+  background: var(--bg-sheet);
+  box-shadow: none;
 }
 
 .cf-card--hoverable {
   cursor: pointer;
-  transition: box-shadow 0.16s ease;
+  transition: background-color var(--dur) var(--ease-standard);
 }
 
 .cf-card--hoverable:hover {
-  box-shadow: var(--shadow-2);
+  background: var(--bg-hover);
 }
 
-/* 扁平卡片：白底 + 1px 边框，**不带**默认 elevation（2026-10-27）。
-   用于首页门户区 —— 那里需要"分区"，不需要"浮起"；`.cf-card` 原语义（带阴影）保持不变，
-   两者别混用。 */
+/* 历史变体：v3 时代"扁平卡片"，v4 起与默认卡片同形（L0 本就无边框无阴影），
+   类名保留避免调用方改动。 */
 .cf-card--flat {
-  border: 1px solid var(--bd);
+  border: 0;
   box-shadow: none;
 }
 
@@ -989,7 +1070,7 @@ textarea.cf-field__input {
 
 /* ============================== Stat（指标） ============================== */
 /* 只有"数字 + 标签"两行，无外框无底色 —— 理由见 docs/HOME_PAGE_PLAN_2026-10-27.md §2.2。
-   数字字号取 --fs-20（20px/700），不新造字号。 */
+   数字字号取 --fs-h2（20px/700），不新造字号。 */
 .cf-stat {
   display: flex;
   flex-direction: column;
@@ -1002,15 +1083,15 @@ textarea.cf-field__input {
 }
 
 .cf-stat__value {
-  color: var(--fg);
-  font-size: var(--fs-20);
+  color: var(--text-primary);
+  font-size: var(--fs-h2);
   font-weight: var(--fw-bold);
   line-height: var(--lh-tight);
 }
 
 .cf-stat__label {
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
   white-space: nowrap;
 }
 
@@ -1019,7 +1100,7 @@ textarea.cf-field__input {
 }
 
 .cf-stat--link:hover .cf-stat__value {
-  color: var(--ac-primary);
+  color: var(--brand-text);
 }
 
 /* ============================== EmptyState / Loading ============================== */
@@ -1040,24 +1121,33 @@ textarea.cf-field__input {
   margin-bottom: var(--sp-2);
 }
 
+/* duotone 图标空态（DESIGN.md §6.10）：图标取品牌色，双色由 Phosphor duotone 字重自带。 */
+.cf-empty__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--sp-2);
+  color: var(--empty-icon-color);
+}
+
 .cf-empty__title {
-  color: var(--fg);
-  font-size: var(--fs-14);
+  color: var(--text-primary);
+  font-size: var(--fs-body);
   font-weight: var(--fw-bold);
 }
 
 .cf-empty__notice {
   max-width: var(--empty-text-max-w);
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
 }
 
 .cf-spinner {
   display: inline-block;
   width: 20px;
   height: 20px;
-  border: 2px solid var(--ac-primary-tint);
-  border-top-color: var(--ac-primary);
+  border: 2px solid var(--brand-subtle);
+  border-top-color: var(--brand-text);
   border-radius: 50%;
   animation: cf-spin 0.8s linear infinite;
 }
@@ -1073,8 +1163,8 @@ textarea.cf-field__input {
   align-items: center;
   justify-content: center;
   gap: var(--sp-2);
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
 }
 
 .cf-page-loading {
@@ -1082,27 +1172,28 @@ textarea.cf-field__input {
   align-items: center;
   justify-content: center;
   min-height: var(--page-loading-min-h);
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
 }
 
 /* ============================== CopyButton / Link ============================== */
 .cf-copy-btn {
   display: inline-flex;
   align-items: center;
-  padding: 2px;
+  padding: var(--sp-1);
   border: 0;
   background: transparent;
-  color: var(--fg-muted);
+  /* 常驻在浅底上，--text-secondary 只有 4.37:1，用 --fg。 */
+  color: var(--text-primary);
   cursor: pointer;
 }
 
 .cf-copy-btn:hover {
-  color: var(--ac-primary);
+  color: var(--brand-text);
 }
 
 .cf-link {
-  color: var(--ac-primary);
+  color: var(--brand-text);
   cursor: pointer;
 }
 
@@ -1117,9 +1208,9 @@ textarea.cf-field__input {
   flex-direction: column;
   gap: var(--sp-2);
   padding: var(--sp-4);
-  border: 1px solid var(--bd);
-  border-radius: var(--r-md);
-  background: var(--bg-canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-sheet);
 }
 
 .cf-code-block__bar {
@@ -1130,17 +1221,17 @@ textarea.cf-field__input {
 }
 
 .cf-code-block__lang {
-  color: var(--fg-muted);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: var(--fs-12);
+  font-size: var(--fs-caption);
 }
 
 .cf-code-block__pre {
   margin: 0;
   overflow-x: auto;
-  color: var(--fg);
+  color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: var(--fs-12);
+  font-size: var(--fs-caption);
   line-height: var(--lh-normal);
   white-space: pre;
 }
@@ -1168,13 +1259,13 @@ textarea.cf-field__input {
   position: absolute;
   top: calc(100% + var(--sp-2));
   left: 0;
-  z-index: var(--z-dialog);
+  z-index: var(--z-dropdown);
   min-width: var(--menu-min-w);
   max-height: var(--menu-max-h);
   overflow: auto;
   padding: var(--sp-2) 0;
   border-radius: var(--r-md);
-  background: var(--bg-surface);
+  background: var(--bg-sheet);
   box-shadow: var(--shadow-2);
 }
 
@@ -1187,8 +1278,8 @@ textarea.cf-field__input {
  * padding 8px 16px）。它把"这是哪一类列表"写在面板内部，长列表滚动时也不会丢上下文。 */
 .cf-menu__title {
   padding: var(--sp-4) calc(var(--sp-4) * 2);
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
   line-height: 1;
 }
 
@@ -1201,20 +1292,20 @@ textarea.cf-field__input {
   padding: 0 calc(var(--sp-4) * 2);
   border: 0;
   background: transparent;
-  color: var(--fg);
+  color: var(--text-primary);
   font-family: inherit;
-  font-size: var(--fs-14);
+  font-size: var(--fs-body);
   text-align: left;
   white-space: nowrap;
   cursor: pointer;
 }
 
 .cf-menu__item:hover:not(:disabled) {
-  background: var(--bg-canvas);
+  background: var(--bg-subtle);
 }
 
 .cf-menu__item:disabled {
-  color: var(--fg-muted);
+  color: var(--text-secondary);
   cursor: default;
 }
 
@@ -1223,7 +1314,7 @@ textarea.cf-field__input {
   align-items: center;
   justify-content: center;
   min-width: var(--list-icon-w);
-  color: var(--fg-muted);
+  color: var(--text-secondary);
 }
 
 .cf-menu__label {
@@ -1238,12 +1329,12 @@ textarea.cf-field__input {
   display: inline-flex;
   flex: 0 0 auto;
   align-items: center;
-  color: var(--ac-primary);
+  color: var(--brand-text);
 }
 
 .cf-menu__divider {
   margin: var(--sp-2) 0;
-  border-top: 1px solid var(--bd);
+  border-top: 1px solid var(--line);
 }
 
 /* 空列表占位（页头的"仓库 / 仓库组"菜单在没有数据时用）。
@@ -1254,8 +1345,8 @@ textarea.cf-field__input {
   align-items: center;
   height: var(--ctl-h);
   padding: 0 calc(var(--sp-4) * 2);
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
   white-space: nowrap;
 }
 
@@ -1264,21 +1355,21 @@ textarea.cf-field__input {
 .cf-marker {
   display: inline;
   padding: var(--sp-2);
-  border-radius: var(--r-md);
-  font-size: var(--fs-12);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-caption);
   font-weight: var(--fw-regular);
   line-height: 1.5;
   white-space: nowrap;
 }
 
 .cf-marker--info {
-  background: var(--st-info-tint);
-  color: var(--st-info);
+  background: var(--brand-subtle);
+  color: var(--brand-text);
 }
 
 .cf-marker--containedInfo {
-  background: var(--st-info);
-  color: var(--ac-primary-fg);
+  background: var(--brand);
+  color: var(--text-inverse);
 }
 
 /* ============================== 图标按钮（页头方形按钮 + 未读角标） ============================== */
@@ -1288,13 +1379,13 @@ textarea.cf-field__input {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-width: 34px;
-  height: var(--ctl-h); /* 32px（旧版 SquareIconButton 实测为 34×32） */
-  padding: 7px 8px;
+  min-width: var(--icon-btn-min-w);
+  height: var(--ctl-h);
+  padding: var(--icon-btn-pad);
   border: 0;
-  border-radius: var(--r-md);
+  border-radius: var(--r-sm);
   background: transparent;
-  color: var(--fg-strong); /* 旧版图标按钮实测 rgba(0,0,0,.87) */
+  color: var(--text-primary); /* 旧版图标按钮实测 rgba(0,0,0,.87) */
   cursor: pointer;
   transition:
     background-color 0.12s ease,
@@ -1302,25 +1393,354 @@ textarea.cf-field__input {
 }
 
 .cf-square-btn:hover:not(:disabled) {
-  color: var(--ac-primary);
-  background: var(--ac-primary-tint);
+  color: var(--brand-text);
+  background: var(--brand-subtle);
 }
 
 .cf-square-btn__badge {
   position: absolute;
   top: -5px;
   right: 0;
-  z-index: 1;
+  z-index: var(--z-raised);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   min-width: calc(var(--sp-4) * 2);
   height: calc(var(--sp-4) * 2);
-  padding: 0 2px;
-  border: var(--badge-border) solid var(--bg-surface);
+  padding: 0 var(--sp-1);
+  border: var(--badge-border) solid var(--bg-sheet);
   border-radius: var(--r-full);
-  background: var(--st-danger);
-  color: var(--ac-primary-fg);
-  font-size: var(--fs-12);
+  background: var(--danger);
+  color: var(--text-inverse);
+  font-size: var(--fs-caption);
   line-height: calc(var(--sp-4) * 2);
+}
+
+/* ============================== 密度（DESIGN.md §1.4） ============================== */
+/* data-density="compact" 时表格/列表行降为 40px；令牌只在容器内重绑，结构不动。 */
+[data-density='compact'] {
+  --row-h: var(--row-h-compact);
+}
+
+/* ============================== Skeleton（DESIGN.md §6.11） ============================== */
+/* --bg-muted 块 + 轻微 shimmer；仅 opacity 动画（尊重 prefers-reduced-motion，见 theme.css）。 */
+.cf-skeleton {
+  border-radius: var(--skeleton-radius);
+  background: var(--bg-muted);
+  animation: cf-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes cf-shimmer {
+  0% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+
+  100% {
+    opacity: 1;
+  }
+}
+
+.cf-skeleton--text {
+  height: var(--fs-body);
+}
+
+.cf-skeleton--title {
+  height: var(--fs-h3);
+  width: 40%;
+}
+
+.cf-skeleton--block {
+  height: 64px;
+}
+
+/* ============================== CloneBox（DESIGN.md §6.12） ============================== */
+/* Segmented SSH|HTTPS + 只读等宽输入 + 复制；无边框，--bg-subtle 底。 */
+.cf-clone-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-4);
+  border-radius: var(--r-md);
+  background: var(--bg-subtle);
+}
+
+.cf-clone-box__segment {
+  display: inline-flex;
+  gap: var(--sp-1);
+  align-self: flex-start;
+  padding: var(--sp-1);
+  border-radius: var(--r-sm);
+  background: var(--bg-muted);
+}
+
+.cf-clone-box__option {
+  height: var(--ctl-h-sm);
+  padding: 0 var(--sp-5);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
+  cursor: pointer;
+}
+
+.cf-clone-box__option--active {
+  background: var(--bg-sheet);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-1);
+}
+
+.cf-clone-box__row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.cf-clone-box__input {
+  flex: 1 1 auto;
+  min-width: 0;
+  height: var(--ctl-h);
+  padding: 0 var(--sp-4);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--bg-sheet);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.cf-clone-box__input:focus {
+  outline: var(--focus-w) solid var(--focus-ring);
+  outline-offset: var(--focus-offset);
+}
+
+/* ============================== Timeline（DESIGN.md §6.15） ============================== */
+/* 左 1px 竖线 + 8px 节点；最新节点 --brand，其余 --text-tertiary。 */
+.cf-timeline {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  margin: 0;
+  padding: 0 0 0 var(--sp-5);
+  list-style: none;
+}
+
+.cf-timeline::before {
+  content: '';
+  position: absolute;
+  top: var(--sp-2);
+  bottom: var(--sp-2);
+  left: 3px;
+  width: 1px;
+  background: var(--line);
+}
+
+.cf-timeline__item {
+  position: relative;
+}
+
+.cf-timeline__dot {
+  position: absolute;
+  top: var(--sp-2);
+  left: calc(-1 * var(--sp-5) + 0px);
+  width: 7px;
+  height: 7px;
+  border-radius: var(--r-full);
+  background: var(--text-tertiary);
+}
+
+.cf-timeline__dot--latest {
+  background: var(--brand);
+}
+
+.cf-timeline__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.cf-timeline__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.cf-timeline__date {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+}
+
+.cf-timeline__tag {
+  display: inline-flex;
+}
+
+.cf-timeline__title {
+  color: var(--text-primary);
+  font-size: var(--fs-h3);
+  font-weight: var(--fw-semibold);
+  line-height: var(--lh-snug);
+}
+
+.cf-timeline__content {
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+  line-height: var(--lh-normal);
+}
+
+/* ============================== CommandPalette（DESIGN.md §4，⌘K） ============================== */
+/* L2 浮层：固定居中偏上 15vh、--r-md、shadow-2；输入区与列表用 --line 分割。 */
+.cf-palette-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 15vh var(--sp-6) var(--sp-6);
+  background: var(--scrim);
+}
+
+.cf-palette {
+  display: flex;
+  flex-direction: column;
+  width: 560px;
+  max-width: 100%;
+  max-height: 60vh;
+  overflow: hidden;
+  border-radius: var(--r-md);
+  background: var(--bg-sheet);
+  box-shadow: var(--shadow-2);
+}
+
+.cf-palette__search {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: 0 var(--sp-5);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-secondary);
+}
+
+.cf-palette__search input {
+  flex: 1 1 auto;
+  height: var(--ctl-h-lg);
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-body);
+}
+
+.cf-palette__search input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.cf-palette__kbd {
+  padding: 0 var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
+  line-height: calc(var(--sp-4) * 2.5);
+}
+
+.cf-palette__list {
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: var(--sp-2) 0;
+}
+
+.cf-palette__group {
+  padding: var(--sp-2) var(--sp-5);
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+}
+
+.cf-palette__item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  width: 100%;
+  min-height: var(--ctl-h);
+  padding: 0 var(--sp-5);
+  border: 0;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: var(--fs-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+.cf-palette__item--active {
+  background: var(--bg-subtle);
+}
+
+.cf-palette__item > .cf-icon {
+  flex: 0 0 auto;
+  color: var(--text-secondary);
+}
+
+.cf-palette__label {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-palette__hint {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
+}
+
+.cf-palette__empty {
+  padding: var(--sp-8) var(--sp-5);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+  text-align: center;
+}
+
+.cf-palette__foot {
+  display: flex;
+  gap: var(--sp-6);
+  padding: var(--sp-2) var(--sp-5);
+  border-top: 1px solid var(--line);
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+}
+
+/* ============================== 令牌一次性展示（v5 §6 G12） ============================== */
+/* 警示行 + 深底 console 块：完整令牌只在创建后出现这一次。 */
+.token-reveal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.token-reveal__warn {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin: 0;
+  color: var(--warning-text);
+  font-size: var(--fs-small);
+}
+
+.token-reveal .cf-code-block {
+  border: 0;
+  background: var(--bg-inverse);
+  color: var(--text-inverse);
 }

@@ -1,0 +1,1 @@
+import{t as e}from"./vendor-Cwr4aY6H.js";import{t}from"./cn-hZG6twJP.js";var n=e();function r({icon:e,size:r=18,weight:i,className:a,title:o}){return(0,n.jsx)(e,{className:t(`cf-icon`,a),size:r,weight:i,role:o?`img`:void 0,"aria-label":o,"aria-hidden":!o||void 0})}export{r as t};

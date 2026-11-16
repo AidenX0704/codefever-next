@@ -3,7 +3,7 @@ import type { ButtonHTMLAttributes, ReactNode } from 'react'
 import { cn } from '@/helpers/cn'
 
 
-export type ButtonVariant = 'contained' | 'outlined' | 'text'
+export type ButtonVariant = 'contained' | 'outlined' | 'text' | 'link'
 export type ButtonTone = 'primary' | 'danger'
 
 export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
@@ -31,8 +31,9 @@ export interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 /**
  * 主按钮组件。
  *
- * 尺寸/圆角/内边距/hover-active 三态取值见 `theme.css` 与 `unit.css` 注释（来源为旧
- * `@pgyer/mui-theme-preset/component/MuiButton.js`），页面不得再写自有按钮样式。
+ * 变体对应 DESIGN.md §6.1：contained=Primary、outlined=Secondary（--bg-subtle 底）、
+ * text=Ghost、link=Link；危险操作用 tone="danger"（soft 变体 hover 变实心）。
+ * 一个区域只允许一个 Primary（contained）。
  */
 export function Button({
   variant = 'text',

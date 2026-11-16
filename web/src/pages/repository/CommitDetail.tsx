@@ -106,7 +106,7 @@ export default function CommitDetail() {
       {detail?.sha ? (
         <div className="section">
           <div className="stack">
-            <div className="cf-diff__name" style={{ fontSize: 'var(--fs-16)', fontWeight: 'var(--fw-bold)' }}>
+            <div className="cf-diff__name" style={{ fontSize: 'var(--fs-h3)', fontWeight: 'var(--fw-bold)' }}>
               {detail.commit}
             </div>
             <div className="row">

@@ -179,26 +179,29 @@ export default function CommitList() {
         <EmptyState imageName="commits-empty.png" title={t('message.noCommitRecord')} />
       ) : null}
 
-      {groups.map((group) => (
-        <div className="commit-group" key={group.date}>
-          <div className="commit-group__title">
-            {group.date} [{t('label._N_commit', { n: group.list.length })}]
+      {/* v5 §6 G6：全部日期组装进一张纸页（分组行 32 + 提交行 56，行间发丝线）。 */}
+      <div className="list-sheet">
+        {groups.map((group) => (
+          <div className="commit-group" key={group.date}>
+            <div className="commit-group__title">
+              {group.date} · {t('label._N_commit', { n: group.list.length })}
+            </div>
+            {group.list.map((commit) => (
+              <CommitRow
+                key={commit.sha}
+                commit={commit}
+                linkBase={`${base}/commit`}
+                author={resolveMember(config?.members, commit.email)}
+                makeHref={
+                  subPath
+                    ? (sha8) => `${base}/files/${subPath}?rev=${encodeURIComponent(sha8)}`
+                    : undefined
+                }
+              />
+            ))}
           </div>
-          {group.list.map((commit) => (
-            <CommitRow
-              key={commit.sha}
-              commit={commit}
-              linkBase={`${base}/commit`}
-              author={resolveMember(config?.members, commit.email)}
-              makeHref={
-                subPath
-                  ? (sha8) => `${base}/files/${subPath}?rev=${encodeURIComponent(sha8)}`
-                  : undefined
-              }
-            />
-          ))}
-        </div>
-      ))}
+        ))}
+      </div>
 
       {commits.length > 0 ? (
         <div className="list-more">

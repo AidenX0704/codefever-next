@@ -84,6 +84,13 @@ export interface Repository {
   mergeRequestCount: MergeRequestCount
   defaultBranch: string | null
   status: number
+  /** 标星（v4 新增）：count 为总数，starred 为当前用户是否已标星。 */
+  starCount?: number
+  starred?: boolean
+  /** 合并设置（v4 新增）：minReviewers=0 表示沿用「全部评审人通过」。 */
+  allowMergeCommit?: boolean
+  allowSquash?: boolean
+  minReviewers?: number
 }
 
 export interface RepositoryListItem extends Repository {
@@ -119,6 +126,8 @@ export interface CurrentUser {
   status: boolean
   host: string
   ssh: string
+  /** 个人简介（v4 新增，u_bio）。 */
+  bio?: string
 }
 
 /* ------------------------------ 仓库浏览 ------------------------------ */
@@ -201,6 +210,15 @@ export interface RepositoryConfig {
   tags: BranchRef[]
   /** `file` 是仓库体积（KB），`mergeRequest` 是该仓库的合并请求数。 */
   count: { commit: number; branch: number; tag: number; file: number; mergeRequest: number }
+  /**
+   * v4 新增字段在 **config 顶层**（不在 repository 内）：星标与合并设置。
+   * 与 `repository/list`（字段在列表项上）不同层级，注意别混用。
+   */
+  starCount?: number
+  starred?: boolean
+  allowMergeCommit?: boolean
+  allowSquash?: boolean
+  minReviewers?: number
 }
 
 /* ------------------------------ 提交与 diff ------------------------------ */

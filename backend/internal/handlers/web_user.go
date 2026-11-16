@@ -389,12 +389,13 @@ func (h *WebUserHandler) getResetPasswordCode(w http.ResponseWriter, r *http.Req
 	}
 
 	// 逐字对应 user.php:306-310：发送验证码邮件。
+	// 品牌前缀跟随站点名（config.yaml 的 siteName）；未配置时保持既有文案。
 	code := auth.GenerateEmailCode(email, time.Now(), h.Cfg.Env.TOTP.Salt)
 	if h.Mailer != nil {
 		_ = h.Mailer.Send(ctx, mailer.Message{
 			To:      email,
 			From:    h.Cfg.SiteConfig().Email.From,
-			Subject: "【CodeFever Next】重置密码",
+			Subject: "【" + siteMailPrefix(h.Cfg) + "】重置密码",
 			Body:    "您的验证码是：" + code,
 		})
 	}

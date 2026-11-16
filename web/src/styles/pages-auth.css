@@ -13,8 +13,7 @@
  * 认证页令牌（只服务本文件：登录 / 注册 / 二次验证 / 重置口令）
  *
  * 认证页的版式尺寸与主应用不同（1184×644 的左右分栏卡片），
- * 因此单独一组，不进 theme.css 全局层。主色已统一走 --ac-primary，
- * 不再保留旧版 #0035ec 的第二套主色。
+ * 因此单独一组，不进 theme.css 全局层。主色统一走 --brand。
  * ========================================================================== */
 :root {
   --auth-card-w: 1184px;
@@ -28,7 +27,8 @@
   --auth-link-gap-top: 20px;
   --auth-link-gap-bottom: 30px;
   --auth-form-w: 360px;
-  --auth-panel-bg: var(--bg-surface);
+  /* 品牌区（DESIGN.md §7.1 登录页左 40%）：--bg-subtle */
+  --auth-panel-bg: var(--bg-subtle);
   --auth-input-h: 44px;
 }
 
@@ -82,7 +82,7 @@
 .auth-head {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: var(--sp-7);
   margin-bottom: var(--auth-top-gap);
 }
 
@@ -98,15 +98,15 @@
 }
 
 .auth-head__title {
-  color: var(--fg-strong);
+  color: var(--text-primary);
   font-size: var(--auth-title-size);
   font-weight: var(--fw-regular);
   line-height: var(--lh-tight);
 }
 
 .auth-head__subtitle {
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
 }
 
 .auth-form {
@@ -124,8 +124,8 @@
 }
 
 .auth-link {
-  color: var(--ac-primary);
-  font-size: var(--fs-14);
+  color: var(--brand-text);
+  font-size: var(--fs-body);
   cursor: pointer;
 }
 
@@ -134,25 +134,25 @@
 }
 
 .auth-footnote {
-  color: var(--fg-subtle);
-  font-size: var(--fs-14);
+  color: var(--text-tertiary);
+  font-size: var(--fs-body);
 }
 
 .auth-submit {
-  margin-top: 20px;
-  margin-bottom: 20px;
+  margin-top: var(--sp-7);
+  margin-bottom: var(--sp-7);
 }
 
 .auth-message {
-  color: var(--ac-danger);
-  font-size: var(--fs-14);
+  color: var(--danger);
+  font-size: var(--fs-body);
   line-height: var(--lh-normal);
   text-align: center;
 }
 
 .auth-hint {
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
   line-height: var(--lh-normal);
 }
 

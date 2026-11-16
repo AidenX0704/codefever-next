@@ -1,5 +1,7 @@
 import { useNavigate } from 'react-router'
 
+import { activateOnKey } from '@/helpers/keyboard'
+
 import type { Group } from '@/api/types'
 import { avatarUrl } from '@/config/constants'
 import { plMember, plRepository, plSetting } from '@/config/icons'
@@ -27,7 +29,13 @@ export function GroupCard({ group, repositoryCount }: GroupCardProps) {
   const navigate = useNavigate()
 
   return (
-    <div className="group-card" onClick={() => navigate(`/groups/${group.name}`)} role="button" tabIndex={0}>
+    <div
+      className="group-card"
+      onClick={() => navigate(`/groups/${group.name}`)}
+      onKeyDown={activateOnKey(() => navigate(`/groups/${group.name}`))}
+      role="button"
+      tabIndex={0}
+    >
       <div className="group-card__head">
         <div className="group-card__identity">
           <span className="group-card__avatar">

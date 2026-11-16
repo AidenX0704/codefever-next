@@ -64,6 +64,13 @@ var notificationTemplates = map[string]map[string]notificationTemplate{
 			mailTitle: "【CodeFever Next】合并请求评审",
 			mailBody:  "{{$user@users:u_name}} 通过了合并请求 {{$data->rKey@repositories:r_name}}!{{$data->id}} 的评审",
 		},
+		// 新增事件（PHP 侧没有）：评论通知的受众是「MR 创建者 + 评审人 − 自己」。
+		// 正文直接引用事件里的 body 字段 —— 评论原文必须出现在通知里，
+		// 否则收信人还要点进页面才知道对方说了什么。
+		string(domain.EventTypeMERGE_REQUEST_COMMENT): {
+			mailTitle: "【CodeFever Next】{{$user@users:u_name}} 评论了合并请求",
+			mailBody:  "{{$user@users:u_name}} 评论了合并请求 {{$data->rKey@repositories:r_name}}!{{$data->id}}: {{$data->body}}",
+		},
 	},
 	domain.LanguageEN: {
 		string(domain.EventTypeMERGE_REQUEST_CREATE): {
@@ -85,6 +92,10 @@ var notificationTemplates = map[string]map[string]notificationTemplate{
 		string(domain.EventTypeMERGE_REQUEST_REVIEWER_REVIEW): {
 			mailTitle: "【CodeFever Next】Merge Request Review",
 			mailBody:  "{{$user@users:u_name}} Passed Review Of Merge Request {{$data->rKey@repositories:r_name}}!{{$data->id}}",
+		},
+		string(domain.EventTypeMERGE_REQUEST_COMMENT): {
+			mailTitle: "【CodeFever Next】{{$user@users:u_name}} Commented Merge Request",
+			mailBody:  "{{$user@users:u_name}} Commented Merge Request {{$data->rKey@repositories:r_name}}!{{$data->id}}: {{$data->body}}",
 		},
 	},
 }
@@ -147,26 +158,39 @@ var notificationFieldData = map[string][]notificationField{
 		{"number", "{{$data->id}}"},
 		{"title", "{{$data->mrKey@merge_requests:mr_title}}"},
 	},
+	// 评论事件：字段顺序与前端站内信的渲染键一致；body 是评论原文，
+	// 其余字段与评审类事件对齐，让前端能复用同一套 MR 卡片渲染。
+	string(domain.EventTypeMERGE_REQUEST_COMMENT): {
+		{"user", "{{$user@users:u_name}}"},
+		{"group", "{{$data->gKey@groups:g_name}}"},
+		{"repository", "{{$data->rKey@repositories:r_name}}"},
+		{"number", "{{$data->id}}"},
+		{"title", "{{$data->mrKey@merge_requests:mr_title}}"},
+		{"body", "{{$data->body}}"},
+	},
 }
 
 // notificationCueOptions 是每个事件的"提示对象"选项。
 //
 // 逐字对应 UserNotificationHandler.php:69-138 里各事件的 'cueOption'：
 //
-//	members → 仓库组成员 + 仓库组成员（组）
-//	reviewer → 事件里的评审人
+//	members        → 仓库组成员 + 仓库组成员（组）
+//	reviewer       → 事件里的评审人
+//	mrParticipants → MR 创建者 + 全体评审人（新增事件的受众，
+//	                 评论是"点对点"的讨论，广播给全体成员噪音太大）
 var notificationCueOptions = map[string][]string{
 	string(domain.EventTypeMERGE_REQUEST_CREATE):          {"members"},
 	string(domain.EventTypeMERGE_REQUEST_CLOSE):           {"members"},
 	string(domain.EventTypeMERGE_REQUEST_MERGE):           {"members"},
 	string(domain.EventTypeMERGE_REQUEST_REVIEWER_CREATE): {"reviewer"},
 	string(domain.EventTypeMERGE_REQUEST_REVIEWER_REVIEW): {"members"},
+	string(domain.EventTypeMERGE_REQUEST_COMMENT):         {"mrParticipants"},
 }
 
 // notificationEventTypes 是 UserNotificationHandler 关心的全部事件。
 //
 // 逐字对应 application/event_handlers/UserNotificationHandler.php:14-20 的
-// $ListenedEventList（共 5 个，全部是合并请求相关事件）。
+// $ListenedEventList（5 个合并请求相关事件）+ 新增的评论事件。
 func notificationEventTypes() []domain.EventType {
 	return []domain.EventType{
 		domain.EventTypeMERGE_REQUEST_CREATE,
@@ -174,6 +198,7 @@ func notificationEventTypes() []domain.EventType {
 		domain.EventTypeMERGE_REQUEST_MERGE,
 		domain.EventTypeMERGE_REQUEST_REVIEWER_CREATE,
 		domain.EventTypeMERGE_REQUEST_REVIEWER_REVIEW,
+		domain.EventTypeMERGE_REQUEST_COMMENT,
 	}
 }
 
@@ -217,10 +242,12 @@ func NewNotificationHandler(db *sql.DB, cfg *config.Config, logger *slog.Logger)
 		logger = slog.Default()
 	}
 	return &notificationHandler{
-		db:     db,
-		cfg:    cfg,
-		log:    logger,
-		mailer: mailer.FromEnv(cfg.SiteConfig().Email.From),
+		db:  db,
+		cfg: cfg,
+		log: logger,
+		// SMTP 读取顺序与 API 主进程一致：config.yaml 的 smtp 段优先，
+		// CODEFEVER_SMTP_* 环境变量兜底（管理界面改完配置两边同时生效）。
+		mailer: mailer.FromConfig(cfg),
 		refuse: repo.NewNotificationRepo(db),
 	}
 }
@@ -348,6 +375,15 @@ func (h *notificationHandler) fetchUserList(ctx context.Context, ev domain.Event
 			if reviewer != nil {
 				merged = append(merged, *reviewer)
 			}
+
+		case "mrParticipants":
+			// 新增受众（PHP 侧没有评论能力）：MR 创建者 + 全体评审人。
+			// 评论者自己由 dedupeNotifyUsers 按事件触发者统一剔除。
+			users, err := h.mrParticipants(ctx, ev)
+			if err != nil {
+				return nil, err
+			}
+			merged = append(merged, users...)
 		}
 	}
 
@@ -484,6 +520,60 @@ func (h *notificationHandler) reviewerUser(ctx context.Context, ev domain.EventP
 	return h.userByKey(ctx, reviewer)
 }
 
+// mrParticipants 取「MR 创建者 + 全体评审人」。
+//
+// 逐条查用户而不是一条 JOIN：人数极少（创建者 1 + 评审人几个），
+// 且 userByKey 已处理"用户被删"的情况（返回 nil，跳过）。
+// MR 已不存在时返回空名单 —— 评论表可能与 MR 行短暂不同步，
+// 静默跳过比让事件反复重试直到死信更合理。
+func (h *notificationHandler) mrParticipants(ctx context.Context, ev domain.EventPayload) ([]notifyUser, error) {
+	mrKey := eventDataString(ev.Data, "mrKey")
+	if mrKey == "" {
+		return nil, nil
+	}
+	var out []notifyUser
+
+	var creatorKey string
+	err := h.db.QueryRowContext(ctx,
+		"SELECT u_key FROM cc_merge_requests WHERE mr_key = ?", mrKey).Scan(&creatorKey)
+	switch {
+	case err == nil:
+		if u, uerr := h.userByKey(ctx, creatorKey); uerr != nil {
+			return nil, uerr
+		} else if u != nil {
+			out = append(out, *u)
+		}
+	case errors.Is(err, sql.ErrNoRows):
+		// MR 已不存在：没有受众。
+		return nil, nil
+	default:
+		return nil, fmt.Errorf("查询合并请求创建者失败: %w", err)
+	}
+
+	rows, err := h.db.QueryContext(ctx, `
+		SELECT u_key FROM cc_merge_request_reviewers
+		WHERE mr_key = ? AND mrr_status = ?`,
+		mrKey, domain.CommonStatusNormal)
+	if err != nil {
+		return nil, fmt.Errorf("查询合并请求评审人失败: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var reviewerKey string
+		if err := rows.Scan(&reviewerKey); err != nil {
+			return nil, err
+		}
+		u, uerr := h.userByKey(ctx, reviewerKey)
+		if uerr != nil {
+			return nil, uerr
+		}
+		if u != nil {
+			out = append(out, *u)
+		}
+	}
+	return out, rows.Err()
+}
+
 // userByKey 按主键查用户。
 func (h *notificationHandler) userByKey(ctx context.Context, uKey string) (*notifyUser, error) {
 	if uKey == "" {
@@ -567,7 +657,10 @@ func filterOtherRule(affected []notifyUser, ev domain.EventPayload) []notifyUser
 			}
 		}
 
-	case string(domain.EventTypeMERGE_REQUEST_REVIEWER_CREATE):
+	case string(domain.EventTypeMERGE_REQUEST_REVIEWER_CREATE),
+		string(domain.EventTypeMERGE_REQUEST_COMMENT):
+		// 指派评审人与评论都是"点对点"事件：受众已由取人逻辑收敛
+		// （评审人 / MR 创建者 + 评审人），不再按角色过滤。
 		result = affected
 	}
 
@@ -673,7 +766,8 @@ func isMergeRequestEvent(evType string) bool {
 		string(domain.EventTypeMERGE_REQUEST_CLOSE),
 		string(domain.EventTypeMERGE_REQUEST_MERGE),
 		string(domain.EventTypeMERGE_REQUEST_REVIEWER_CREATE),
-		string(domain.EventTypeMERGE_REQUEST_REVIEWER_REVIEW):
+		string(domain.EventTypeMERGE_REQUEST_REVIEWER_REVIEW),
+		string(domain.EventTypeMERGE_REQUEST_COMMENT):
 		return true
 	}
 	return false

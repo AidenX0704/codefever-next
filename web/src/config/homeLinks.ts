@@ -1,6 +1,6 @@
 import { psKey, psBell, psFile, psMeter, psNewFeature, psRepository } from '@/config/icons'
 
-import type { IconData } from '@/components/unit/Icon'
+import type { IconComponent } from '@/config/icons'
 
 /**
  * 首页「快捷入口」与「平台能力」的配置（唯一数据源）。
@@ -21,7 +21,7 @@ export interface HomeQuickLink {
   key: string
   /** 文案的 i18n 键（词表见 `i18n/supplement.ts`）。 */
   labelKey: string
-  icon: IconData
+  icon: IconComponent
   link: HomeLink
   /**
    * 该入口是否已经可用。
@@ -83,7 +83,7 @@ export interface PlatformCapability {
   key: string
   labelKey: string
   descKey: string
-  icon: IconData
+  icon: IconComponent
   link: HomeLink
 }
 

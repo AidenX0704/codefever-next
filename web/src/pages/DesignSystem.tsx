@@ -10,7 +10,9 @@ import { useConfirm } from '@/components/unit/Confirm'
 import { CopyButton } from '@/components/unit/CopyButton'
 import { Dialog } from '@/components/unit/Dialog'
 import { EmptyState } from '@/components/unit/EmptyState'
+import { FormattedTime } from '@/components/unit/FormattedTime'
 import { Form, FormActions, FormGrid, FormItem } from '@/components/unit/Form'
+import { applyTheme, getTheme, type Theme } from '@/helpers/theme'
 import { IconButton } from '@/components/unit/IconButton'
 import { Loading, PageLoading, Spinner } from '@/components/unit/Loading'
 import { SelectField } from '@/components/unit/SelectField'
@@ -20,7 +22,7 @@ import { Tag } from '@/components/unit/Tag'
 import { TextField, TextareaField } from '@/components/unit/TextField'
 import { useToast } from '@/components/unit/Toast'
 import { Tooltip } from '@/components/unit/Tooltip'
-import { color, radius, shadow, space } from '@/theme/tokens'
+import { color, font, radius, shadow, space } from '@/theme/tokens'
 
 
 interface DemoRow {
@@ -74,13 +76,32 @@ export default function DesignSystem() {
   const [page, setPage] = useState(2)
   const [email, setEmail] = useState('')
   const [checked, setChecked] = useState(true)
+  const [theme, setTheme] = useState<Theme>(() => getTheme())
+
+  const switchTheme = (next: Theme) => {
+    setTheme(applyTheme(next))
+  }
 
   return (
     <div className="page">
       <div>
         <div className="page__title">设计系统</div>
         <div className="page__subtitle">
-          自研 tokens + 组件库（B 方案）。所有取值来自旧主题 preset 的现值，见 theme/theme.css 注释。
+          设计令牌 v4 与组件库的验收载体。令牌基线见
+          <code>docs/design-v4/DESIGN.md</code>，本页覆盖浅色 / 深色两套主题
+          与组件的全部状态 —— 改样式后先在这里比对，再去页面里看。
+        </div>
+        <div className="row" style={{ marginTop: space(3) }}>
+          <span style={{ color: color.textLight, fontSize: font.caption }}>主题</span>
+          <Button size="sm" variant={theme === 'light' ? 'contained' : 'outlined'} onClick={() => switchTheme('light')}>
+            浅色
+          </Button>
+          <Button size="sm" variant={theme === 'dark' ? 'contained' : 'outlined'} onClick={() => switchTheme('dark')}>
+            深色
+          </Button>
+          <span style={{ color: color.textLight, fontSize: font.caption }}>
+            选择会持久化；清除后跟随系统偏好。
+          </span>
         </div>
       </div>
 
@@ -99,30 +120,70 @@ export default function DesignSystem() {
       <section className="section">
         <div className="section__title">字号 / 圆角 / 阴影</div>
         <div className="stack">
-          <h1>h1 20px bold —— 页面标题</h1>
-          <h4>h4 16px bold —— 区块标题</h4>
-          <div>body 14px 常规文本（text #2f354d）</div>
-          <div style={{ color: color.textLight }}>body-light 14px 次要文本（#7a859e）</div>
-          <div style={{ color: color.textLighter }}>caption 14px 最弱文本（#b1b6c3）</div>
+          <h1>页面标题 · --fs-h1 / 600（深色降到 500）</h1>
+          <h4>区块标题 · --fs-h3 / 600</h4>
+          <div>正文 · --fs-body / --text-primary</div>
+          <div style={{ color: color.textLight }}>次要说明 · --text-secondary</div>
+          <div style={{ color: color.textLighter }}>占位符 / 禁用态 · --text-tertiary（不得承载正文）</div>
           <div className="row">
-            <span className="cf-tag" style={{ borderRadius: radius.base }}>
-              radius 4
+            <span className="cf-tag" style={{ borderRadius: radius.base, height: 'auto', padding: '6px 10px' }}>
+              radius 6 · 控件
             </span>
-            <span className="cf-tag" style={{ borderRadius: radius.sm }}>
-              radius 2
+            <span className="cf-tag" style={{ borderRadius: radius.lg, height: 'auto', padding: '6px 10px' }}>
+              radius 10 · 卡片 / 浮层
             </span>
-            <span className="cf-tag" style={{ boxShadow: shadow.bar }}>
-              shadow.bar
+            <span className="cf-tag" style={{ borderRadius: radius.xl, height: 'auto', padding: '6px 10px' }}>
+              radius 16 · 宣传页大块
             </span>
-            <span className="cf-tag" style={{ boxShadow: shadow.card }}>
-              shadow.card
+            <span className="cf-tag" style={{ borderRadius: radius.pill, height: 'auto', padding: '6px 10px' }}>
+              radius full · 胶囊
             </span>
-            <span className="cf-tag" style={{ boxShadow: shadow.default }}>
-              shadow.default
+          </div>
+          <div className="row">
+            <span className="cf-tag" style={{ boxShadow: shadow.card, height: 'auto', padding: '6px 10px' }}>
+              shadow 1 · 控件
             </span>
-            <span className="cf-tag" style={{ marginLeft: space(2) }}>
-              spacing(2) = 16px
+            <span className="cf-tag" style={{ boxShadow: shadow.cardHover, height: 'auto', padding: '6px 10px' }}>
+              shadow 2 · 卡片悬停
             </span>
+            <span className="cf-tag" style={{ boxShadow: shadow.bar, height: 'auto', padding: '6px 10px' }}>
+              shadow 3 · 菜单 / 消息
+            </span>
+            <span className="cf-tag" style={{ boxShadow: shadow.dialog, height: 'auto', padding: '6px 10px' }}>
+              shadow 4 · 弹窗
+            </span>
+            <span className="cf-tag" style={{ marginLeft: space(2), height: 'auto', padding: '6px 10px' }}>
+              space(2) = 16px
+            </span>
+          </div>
+        </div>
+      </section>
+
+      <section className="section">
+        <div className="section__title">时间与数字（AGENTS §5.9）</div>
+        <div className="stack">
+          <div className="row" style={{ gap: space(3), flexWrap: 'wrap' }}>
+            <span style={{ color: color.textLight }}>绝对时间（默认）：</span>
+            <FormattedTime timestamp={Math.floor(Date.now() / 1000)} />
+            <span style={{ color: color.textLight }}>·</span>
+            <FormattedTime timestamp={Math.floor(Date.now() / 1000) - 86400 * 2} />
+            <span style={{ color: color.textLight }}>·</span>
+            <FormattedTime timestamp={Math.floor(Date.now() / 1000) - 86400 * 400} />
+          </div>
+          <div className="row" style={{ gap: space(3), flexWrap: 'wrap' }}>
+            <span style={{ color: color.textLight }}>相对时间（辅助，title 里是精确值）：</span>
+            <FormattedTime timestamp={Math.floor(Date.now() / 1000) - 180} relative />
+          </div>
+          <div className="row" style={{ gap: space(3), flexWrap: 'wrap' }}>
+            <span style={{ color: color.textLight }}>无效时间占位：</span>
+            <FormattedTime timestamp={0} />
+          </div>
+          <div className="row" style={{ gap: space(3), flexWrap: 'wrap' }}>
+            <span style={{ color: color.textLight }}>等宽数字：</span>
+            <span className="cf-num">1,128</span>
+            <span className="cf-num">98</span>
+            <span className="cf-num">12,904</span>
+            <span className="cf-num">00:01:42</span>
           </div>
         </div>
       </section>

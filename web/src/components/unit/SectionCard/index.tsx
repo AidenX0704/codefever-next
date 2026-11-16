@@ -26,11 +26,10 @@ export interface SectionCardProps {
  *
  * 为什么要有它：首页有 8 个区块，每块都是"标题 + 右侧操作 + 内容"。
  * 若各写一遍，就会出现 8 份 `<section><div class="section__head">…` 的结构性重复
- * （AGENTS §4：同一片段出现第二次就要抽）。标题左侧的主色竖条也集中在这里，
- * 避免每个页面自己画 border-left。
+ * （AGENTS §4：同一片段出现第二次就要抽）。
  *
- * 注意：`plain` 变体复用 `layout.css` 里既有的 `.section`（设置页也在用），
- * 但**竖条只在 `--barred` 修饰符上出现**，因此不影响既有页面的观感。
+ * DESIGN.md §3.2：区块标题不再使用左侧蓝色竖条，层级由字重 + 间距建立
+ *（v3 的 `--barred` 修饰符与 `--section-bar-*` 令牌已随 v4 移除）。
  */
 export function SectionCard({ title, variant = 'plain', actions, toolbar, children, className }: SectionCardProps) {
   return (
@@ -41,7 +40,7 @@ export function SectionCard({ title, variant = 'plain', actions, toolbar, childr
       )}
     >
       <div className="section__head">
-        <h2 className="section__title section__title--barred">{title}</h2>
+        <h2 className="section__title">{title}</h2>
         {actions ? <div className="section__actions">{actions}</div> : null}
       </div>
       {toolbar ? <div className="section__toolbar">{toolbar}</div> : null}

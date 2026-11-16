@@ -1,30 +1,33 @@
 /*
- * diff 视图样式。
- * 颜色取 theme.css 的 diff 专用令牌（--diff-add-* / --diff-del-* / --diff-hunk-*）：
- *   新增行 #e6ffed、删除行 #ffeef0、hunk 头 #f1f8ff。
- * 行号列宽 40px，等宽 12px 字号。
+ * diff 视图样式（v5 DESIGN.md §3.8 + §6 G10）。
+ *
+ *   - 列 = 旧行号 48 ｜ 新行号 48 ｜ 符号 20 ｜ 代码（弹性）；行高 20、等宽 13；
+ *   - 增 / 删行 = 整行实色底（--diff-add-bg / --diff-del-bg，行号栏同底），
+ *     **符号列的 + / − 是增删的第二通道**（不只靠颜色），符号色取状态文字档；
+ *   - 选中 / 锚点无左侧竖条（全站禁单侧色条）；
+ *   - hunk 头行高 32，--diff-hunk-bg 底 + --diff-hunk-fg 等宽 12；
+ *   - 文件头 44px 实色 --bg-sheet-2，路径等宽 13。
  */
 
 .cf-diff {
   display: flex;
   flex-direction: column;
-  gap: calc(var(--sp-4) * 2);
+  gap: var(--sp-6);
 }
 
 .cf-diff__file {
   overflow: hidden;
-  border: 1px solid var(--bd);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
+  background: var(--bg-sheet);
 }
 
+/* 文件头 44px：实色 --bg-sheet-2（粘性层不得半透明）。 */
 .cf-diff__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--sp-4);
-  padding: var(--sp-4) calc(var(--sp-4) * 2);
-  background: var(--bg-canvas);
-  font-size: var(--fs-14);
+  min-height: calc(var(--sp-4) * 5.5);
+  padding: 0 var(--sp-6);
+  background: var(--bg-sheet-2);
+  font-size: var(--fs-small);
 }
 
 .cf-diff__name {
@@ -33,86 +36,124 @@
   gap: var(--sp-2);
   min-width: 0;
   overflow: hidden;
-  color: var(--fg);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .cf-diff__old {
-  color: var(--fg-muted);
+  color: var(--text-tertiary);
   text-decoration: line-through;
 }
 
 .cf-diff__arrow {
-  color: var(--fg-subtle);
+  color: var(--text-tertiary);
+}
+
+.cf-diff__mode {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
 }
 
 .cf-diff__stats {
   display: inline-flex;
   gap: var(--sp-4);
   flex: 0 0 auto;
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
+  font-variant-numeric: tabular-nums;
 }
 
 .cf-diff__add {
-  color: var(--st-success-text);
+  color: var(--success-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .cf-diff__del {
-  color: var(--ac-danger-active);
+  color: var(--danger-text);
+  font-variant-numeric: tabular-nums;
 }
 
 .cf-diff__oversize {
   padding: calc(var(--sp-4) * 2);
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
 }
 
 .cf-diff__table {
   width: 100%;
   border-collapse: collapse;
   font-family: var(--font-mono);
-  font-size: var(--fs-12);
+  font-size: var(--fs-code);
 }
 
+/* 行号栏 48：右对齐等宽 12，fg 取 --code-gutter-fg。 */
 .cf-diff__no {
-  width: calc(var(--sp-4) * 5);
+  width: calc(var(--sp-4) * 6);
   padding: 0 var(--sp-4);
-  color: var(--fg-subtle);
-  line-height: calc(var(--sp-4) * 2);
+  color: var(--code-gutter-fg);
+  font-size: var(--fs-caption);
+  font-variant-numeric: tabular-nums;
+  line-height: calc(var(--sp-4) * 2.5);
   text-align: right;
   vertical-align: top;
   user-select: none;
 }
 
+/* 符号列 20：+ / − 第二通道（v5 §3.8），随行着色。 */
+.cf-diff__sign {
+  width: calc(var(--sp-4) * 2.5);
+  color: var(--text-tertiary);
+  line-height: calc(var(--sp-4) * 2.5);
+  text-align: center;
+  user-select: none;
+  vertical-align: top;
+}
+
 .cf-diff__code {
-  padding: 0 var(--sp-4);
-  line-height: calc(var(--sp-4) * 2);
+  padding: 0 var(--sp-4) 0 0;
+  color: var(--text-primary);
+  line-height: calc(var(--sp-4) * 2.5);
   overflow-wrap: break-word;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
+/* 增 / 删行：整行实色底（行号 / 符号 / 代码同底，无 gutter 分色）。 */
 .cf-diff__row--add {
   background: var(--diff-add-bg);
 }
 
-.cf-diff__row--add .cf-diff__no {
-  background: var(--diff-add-gutter);
+.cf-diff__row--add .cf-diff__sign {
+  color: var(--success-text);
 }
 
 .cf-diff__row--del {
   background: var(--diff-del-bg);
 }
 
-.cf-diff__row--del .cf-diff__no {
-  background: var(--diff-del-gutter);
+.cf-diff__row--del .cf-diff__sign {
+  color: var(--danger-text);
 }
 
-.cf-diff__row--hunk {
-  background: var(--diff-hunk-bg);
+/* hunk 头行：32 高 + --diff-hunk-fg 等宽 12。 */
+.cf-diff__row--hunk .cf-diff__hunk {
+  height: calc(var(--sp-4) * 4);
+  padding: 0 var(--sp-6);
+  color: var(--diff-hunk-fg);
+  font-size: var(--fs-caption);
+  line-height: calc(var(--sp-4) * 4);
+  user-select: none;
 }
 
-.cf-diff__row--hunk .cf-diff__code {
-  color: var(--fg-muted);
+.cf-diff__full {
+  border-top: 1px solid var(--line);
+}
+
+/* side-by-side：左右分界用 1px 发丝线（连接线，不着色）。 */
+.cf-diff__table--split .cf-diff__row--split td:nth-child(3) {
+  border-left: 1px solid var(--line);
 }

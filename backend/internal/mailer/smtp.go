@@ -11,6 +11,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"codefever-next/backend/internal/config"
 )
 
 // FromEnv 根据环境变量选择邮件发送器。
@@ -45,6 +47,81 @@ func FromEnv(defaultFrom string) Sender {
 		os.Getenv("CODEFEVER_SMTP_USER"),
 		os.Getenv("CODEFEVER_SMTP_PASSWORD"),
 		from, implicit)
+}
+
+// FromConfig 按「config.yaml 的 smtp 段 → CODEFEVER_SMTP_* 环境变量」的
+// 顺序选择邮件发送器。
+//
+// 背景：管理界面（POST /api/admin/config）允许在线维护 SMTP 配置，
+// 而环境变量是部署期写死的 —— 运行期改动应该生效在 config 优先级上，
+// env 只作兜底（保持已有部署不配 config 也能工作）。
+//
+// 逐字段规则：
+//
+//	host     config.smtp.host → env CODEFEVER_SMTP_HOST →（都空）系统 mail 命令
+//	port     config.smtp.port → env CODEFEVER_SMTP_PORT →（缺省）587 / ssl 时 465
+//	username config.smtp.username → env CODEFEVER_SMTP_USER
+//	password config.smtp.password → env CODEFEVER_SMTP_PASSWORD
+//	from     config.smtp.from → env CODEFEVER_SMTP_FROM → config.email.from（既有兜底）
+//	tls      config.smtp.ssl 为 true 时直接 TLS；否则沿用 env CODEFEVER_SMTP_TLS 的判定
+//
+// cfg 为 nil 时行为等价于 FromEnv("")（纯环境变量部署，测试场景）。
+func FromConfig(cfg *config.Config) Sender {
+	var (
+		cfgHost, cfgUsername, cfgPassword, cfgFrom string
+		cfgPort                                    int
+		cfgSSL                                     bool
+	)
+	if cfg != nil {
+		smtpCfg := cfg.SiteConfig().SMTP
+		cfgHost = strings.TrimSpace(smtpCfg.Host)
+		cfgPort = smtpCfg.Port
+		cfgUsername = smtpCfg.Username
+		cfgPassword = smtpCfg.Password
+		cfgFrom = strings.TrimSpace(smtpCfg.From)
+		cfgSSL = smtpCfg.SSL
+	}
+
+	host := cfgHost
+	if host == "" {
+		host = strings.TrimSpace(os.Getenv("CODEFEVER_SMTP_HOST"))
+	}
+	if host == "" {
+		// 两级都没配：回退系统 mail 命令（与 FromEnv 的既有行为一致）。
+		return NewLocalMailer()
+	}
+
+	port := cfgPort
+	envPort, _ := strconv.Atoi(strings.TrimSpace(os.Getenv("CODEFEVER_SMTP_PORT")))
+	if port == 0 {
+		port = envPort
+	}
+	tlsMode := strings.ToLower(strings.TrimSpace(os.Getenv("CODEFEVER_SMTP_TLS")))
+	implicit := cfgSSL || tlsMode == "implicit" || tlsMode == "implicit-tls" || port == 465
+	if port == 0 {
+		if implicit {
+			port = 465
+		} else {
+			port = 587
+		}
+	}
+
+	username := cfgUsername
+	if username == "" {
+		username = os.Getenv("CODEFEVER_SMTP_USER")
+	}
+	password := cfgPassword
+	if password == "" {
+		password = os.Getenv("CODEFEVER_SMTP_PASSWORD")
+	}
+	from := cfgFrom
+	if from == "" {
+		from = strings.TrimSpace(os.Getenv("CODEFEVER_SMTP_FROM"))
+	}
+	if from == "" && cfg != nil {
+		from = cfg.SiteConfig().Email.From
+	}
+	return NewSMTPMailer(host, port, username, password, from, implicit)
 }
 
 // SMTPMailer 通过外部 SMTP 服务器发送邮件。

@@ -6,6 +6,8 @@ import { Button } from '@/components/unit/Button'
 import { CodeBlock } from '@/components/unit/CodeBlock'
 import { useConfirm } from '@/components/unit/Confirm'
 import { Dialog } from '@/components/unit/Dialog'
+import { Icon } from '@/components/unit/Icon'
+import { warningCircleIcon } from '@/config/icons'
 import { Form, FormActions, FormItem } from '@/components/unit/Form'
 import { FormattedTime } from '@/components/unit/FormattedTime'
 import { DataTable } from '@/components/unit/Table'
@@ -170,7 +172,8 @@ export default function TokensSetting() {
         </p>
       </section>
 
-      {/* 明文只出现这一次：弹窗不提供"稍后再看"，关掉就等于丢失。 */}
+      {/* 明文只出现这一次：弹窗不提供"稍后再看"，关掉就等于丢失。
+          v5 §6 G12：警示行 + 深底 console 块展示完整令牌（token-reveal 见 components.css）。 */}
       <Dialog
         open={created !== null}
         title={t('tokens.createdTitle')}
@@ -181,8 +184,13 @@ export default function TokensSetting() {
           </Button>
         }
       >
-        <p>{t('tokens.createdNotice')}</p>
-        <CodeBlock code={created ?? ''} language="text" />
+        <div className="token-reveal">
+          <p className="token-reveal__warn">
+            <Icon icon={warningCircleIcon} size={16} />
+            {t('tokens.createdNotice')}
+          </p>
+          <CodeBlock code={created ?? ''} language="text" />
+        </div>
       </Dialog>
     </div>
   )

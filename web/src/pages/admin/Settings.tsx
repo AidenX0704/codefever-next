@@ -26,10 +26,15 @@ const SSH_PATTERN = /^[^@\s]+@.+$/
 const EMAIL_PATTERN = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
 interface SettingsForm {
+  siteName: string
   host: string
   ssh: string
   emailName: string
   emailFrom: string
+  smtpHost: string
+  smtpPort: string
+  smtpUsername: string
+  smtpFrom: string
   allowRegister: boolean
 }
 
@@ -54,10 +59,15 @@ export default function AdminSettings() {
   const confirm = useConfirm()
 
   const [form, setForm] = useState<SettingsForm>({
+    siteName: '',
     host: '',
     ssh: '',
     emailName: '',
     emailFrom: '',
+    smtpHost: '',
+    smtpPort: '',
+    smtpUsername: '',
+    smtpFrom: '',
     allowRegister: false,
   })
   const [loading, setLoading] = useState(true)
@@ -74,11 +84,18 @@ export default function AdminSettings() {
 
   const fill = useCallback((config: Record<string, unknown>) => {
     const email = (config.email ?? {}) as Record<string, unknown>
+    const smtp = (config.smtp ?? {}) as Record<string, unknown>
     setForm({
+      siteName: typeof config.siteName === 'string' ? config.siteName : '',
       host: typeof config.host === 'string' ? config.host : '',
       ssh: typeof config.ssh === 'string' ? config.ssh : '',
       emailName: typeof email.name === 'string' ? email.name : '',
       emailFrom: typeof email.from === 'string' ? email.from : '',
+      // SMTP 密码只写不回读（GET 恒为空串），因此不进表单状态。
+      smtpHost: typeof smtp.host === 'string' ? smtp.host : '',
+      smtpPort: typeof smtp.port === 'string' || typeof smtp.port === 'number' ? String(smtp.port) : '',
+      smtpUsername: typeof smtp.username === 'string' ? smtp.username : '',
+      smtpFrom: typeof smtp.from === 'string' ? smtp.from : '',
       allowRegister: config.allowRegister === true,
     })
     setErrors({})
@@ -152,10 +169,17 @@ export default function AdminSettings() {
     setSaving(true)
     try {
       await saveAdminConfig({
+        siteName: form.siteName.trim(),
         host: form.host.trim(),
         ssh: form.ssh.trim(),
         allowRegister: form.allowRegister,
         email: { name: form.emailName.trim(), from: form.emailFrom.trim() },
+        smtp: {
+          host: form.smtpHost.trim(),
+          port: form.smtpPort.trim(),
+          username: form.smtpUsername.trim(),
+          from: form.smtpFrom.trim(),
+        },
       })
       toast.success(t('message.updateSuccess'))
       load()
@@ -172,6 +196,19 @@ export default function AdminSettings() {
 
   return (
     <div className="page">
+      <section className="section">
+        <div className="section__title">{t('label.siteName')}</div>
+        <FormGrid>
+          <FormItem label={t('label.siteName')} help={t('message.siteNameNote')}>
+            <TextField
+              value={form.siteName}
+              placeholder="CodeFever"
+              onChange={(event) => setForm((prev) => ({ ...prev, siteName: event.target.value }))}
+            />
+          </FormItem>
+        </FormGrid>
+      </section>
+
       <section className="section">
         <div className="section__title">{t('label.host')}</div>
         <FormGrid>
@@ -207,6 +244,32 @@ export default function AdminSettings() {
               value={form.emailFrom}
               placeholder={t('label.email')}
               onChange={(event) => setForm((prev) => ({ ...prev, emailFrom: event.target.value }))}
+            />
+          </FormItem>
+          <FormItem label="SMTP Host">
+            <TextField
+              value={form.smtpHost}
+              placeholder="smtp.example.com"
+              onChange={(event) => setForm((prev) => ({ ...prev, smtpHost: event.target.value }))}
+            />
+          </FormItem>
+          <FormItem label="SMTP Port">
+            <TextField
+              value={form.smtpPort}
+              placeholder="465"
+              onChange={(event) => setForm((prev) => ({ ...prev, smtpPort: event.target.value }))}
+            />
+          </FormItem>
+          <FormItem label="SMTP Username">
+            <TextField
+              value={form.smtpUsername}
+              onChange={(event) => setForm((prev) => ({ ...prev, smtpUsername: event.target.value }))}
+            />
+          </FormItem>
+          <FormItem label="SMTP From" help={t('message.smtpEnvNote')}>
+            <TextField
+              value={form.smtpFrom}
+              onChange={(event) => setForm((prev) => ({ ...prev, smtpFrom: event.target.value }))}
             />
           </FormItem>
         </FormGrid>

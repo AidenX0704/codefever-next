@@ -1,4 +1,4 @@
-import type { InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from 'react'
+import { useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
 
 import { cn } from '@/helpers/cn'
 
@@ -23,7 +23,22 @@ interface FieldShellProps {
   containerClassName?: string
 }
 
-/** 输入框外壳：标签 + 边框盒 + 帮助/错误文案，Input / Textarea / Select 共用。 */
+/** 控件需要补到自身上的无障碍属性（由外壳算好回传）。 */
+export interface FieldAriaProps {
+  'aria-describedby'?: string
+  'aria-invalid'?: true
+}
+
+/**
+ * 输入框外壳：标签 + 边框盒 + 帮助/错误文案，Input / Textarea / Select 共用。
+ *
+ * 无障碍（V3 §10）：
+ *   - 外壳本身是 `<label>`，控件放在里面，标签天然关联；
+ *   - 帮助 / 错误文案生成 id，通过 `aria-describedby` 指给控件 —— 读屏聚焦时会
+ *     读出"请输入至少 6 位密码"，而不是只看到一个红框；
+ *   - 有错误时给控件 `aria-invalid`。
+ * `children` 因此是渲染函数：外壳算好属性再交给控件，避免每个调用方各写一遍。
+ */
 export function FieldShell({
   label,
   required,
@@ -35,8 +50,14 @@ export function FieldShell({
   endAdornment,
   containerClassName,
   children,
-}: FieldShellProps & { children: ReactNode }) {
+}: FieldShellProps & { children: (aria: FieldAriaProps) => ReactNode }) {
+  const helpId = useId()
   const hasError = Boolean(error)
+  const hasHelp = Boolean(error || helperText)
+  const aria: FieldAriaProps = {
+    'aria-describedby': hasHelp ? helpId : undefined,
+    'aria-invalid': hasError ? true : undefined,
+  }
   return (
     <label
       className={cn(
@@ -55,10 +76,14 @@ export function FieldShell({
       ) : null}
       <span className="cf-field__box">
         {startAdornment ? <span className="cf-field__adornment">{startAdornment}</span> : null}
-        {children}
+        {children(aria)}
         {endAdornment ? <span className="cf-field__adornment">{endAdornment}</span> : null}
       </span>
-      {error || helperText ? <span className="cf-field__help">{error ?? helperText}</span> : null}
+      {hasHelp ? (
+        <span className="cf-field__help" id={helpId}>
+          {error ?? helperText}
+        </span>
+      ) : null}
     </label>
   )
 }
@@ -92,7 +117,14 @@ export function TextField({
       endAdornment={endAdornment}
       containerClassName={containerClassName}
     >
-      <input className={cn('cf-field__input', className)} {...rest} />
+      {(aria) => (
+        <input
+          className={cn('cf-field__input', className)}
+          {...aria}
+          aria-label={label ? undefined : rest.placeholder}
+          {...rest}
+        />
+      )}
     </FieldShell>
   )
 }
@@ -122,7 +154,14 @@ export function TextareaField({
       variant={variant}
       containerClassName={containerClassName}
     >
-      <textarea className={cn('cf-field__input', className)} {...rest} />
+      {(aria) => (
+        <textarea
+          className={cn('cf-field__input', className)}
+          {...aria}
+          aria-label={label ? undefined : rest.placeholder}
+          {...rest}
+        />
+      )}
     </FieldShell>
   )
 }

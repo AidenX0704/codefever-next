@@ -1,37 +1,62 @@
 /*
- * 提交行样式（口径来自旧 components/unit/CommitItem.js）：
- *   主标题 14px 主色链接，次行 12px 次要色，头像 24px，右侧 8 位短哈希等宽胶囊。
+ * 提交行样式（v5 §6 G6：日期分组行 32px 实色 sheet-2 + 56px 提交行，纸页容器一次包全部组）。
+ *
+ * 提交行：头像 24（圆，首字母）+ 标题 13/500 主色链接 + 次行"作者 · 相对时间" 12 fg-3
+ * + 右侧短哈希芯片（well 底、无边框）与历史入口。行悬停整行 --bg-hover。
  */
 
 .commit-row {
   display: flex;
   align-items: center;
-  gap: var(--sp-4);
-  padding: var(--sp-4) 0;
-  border-bottom: 1px solid var(--bd);
+  gap: var(--sp-5);
+  min-height: calc(var(--sp-4) * 7);
+  padding: var(--sp-3) var(--sp-7);
+  border-bottom: 1px solid var(--line);
 }
 
 .commit-row:last-child {
   border-bottom: 0;
 }
 
+.commit-row:hover {
+  background: var(--bg-hover);
+}
+
+.commit-row__avatar {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--sp-4) * 3);
+  height: calc(var(--sp-4) * 3);
+  border-radius: var(--r-full);
+  background: var(--bg-well);
+  color: var(--text-primary);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-semibold);
+}
+
 .commit-row__main {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--sp-2);
+  gap: var(--sp-1);
   min-width: 0;
 }
 
-/* 提交标题：旧版是默认链接色（全局 a = primary），所以取主色而非正文色。 */
+/* 提交标题：13/500，主色文字（v5 §3.4 提交标题行口径）。 */
 .commit-row__message {
-  color: var(--ac-primary);
-  font-size: var(--fs-14);
+  overflow: hidden;
+  color: var(--brand-text);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  text-overflow: ellipsis;
   text-decoration: none;
+  white-space: nowrap;
 }
 
 .commit-row__message:hover {
-  color: var(--ac-primary-active);
+  color: var(--brand-text);
   text-decoration: underline;
 }
 
@@ -39,68 +64,60 @@
   display: flex;
   align-items: center;
   gap: var(--sp-2);
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
 }
 
 .commit-row__author {
-  color: var(--fg-muted);
+  color: var(--text-tertiary);
 }
 
 .commit-row__time {
-  color: var(--fg-muted);
+  color: var(--text-tertiary);
 }
 
-/* 短哈希 + 复制按钮（口径来自旧版 CommitHashChip：边框哈希块 + 无左边框的复制块拼成一体）。 */
+/* 短哈希芯片：--bg-well 底、等宽 12，悬停复制（无拼块边框）。 */
 .commit-row__hash-group {
   flex: 0 0 auto;
   display: inline-flex;
-  align-items: stretch;
+  align-items: center;
+  gap: var(--sp-1);
 }
 
 .commit-row__hash {
   display: inline-flex;
   align-items: center;
-  padding: 0 var(--sp-4);
-  border: 1px solid var(--bd);
-  border-radius: var(--r-md) 0 0 var(--r-md);
-  background: var(--bg-surface);
-  color: var(--fg);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: 4px;
+  background: var(--bg-well);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: var(--fs-12);
+  font-size: var(--fs-caption);
   text-decoration: none;
 }
 
 .commit-row__hash:hover {
-  color: var(--ac-primary);
+  color: var(--brand-text);
   text-decoration: none;
 }
 
 .commit-row__hash-group .cf-copy-btn {
-  padding: 0 var(--sp-2);
-  border: 1px solid var(--bd);
-  border-left: 0;
-  border-radius: 0 var(--r-md) var(--r-md) 0;
+  color: var(--text-tertiary);
 }
 
-/* 提交列表的日期分组盒（口径来自旧版 TitleList：1px 边框圆角盒 + bg-main 灰底标题条，
-   标题行高 40px、左右内边距 24px）。 */
-.commit-group {
-  border: 1px solid var(--bd);
-  border-radius: var(--r-md);
-  background: var(--bg-surface);
-}
-
+/* 日期分组行：32px、实色 --bg-sheet-2、等宽 12 fg-3（列表装在一张 .list-sheet 里）。 */
 .commit-group__title {
-  padding: 0 calc(var(--sp-4) * 3);
-  background: var(--bg-canvas);
-  color: var(--fg);
-  font-size: var(--fs-14);
+  display: flex;
+  align-items: center;
+  height: calc(var(--sp-4) * 4);
+  padding: 0 var(--sp-7);
+  background: var(--bg-sheet-2);
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
   font-weight: var(--fw-medium);
-  line-height: var(--row-h);
 }
 
-/* 组内提交行：左右内边距与标题条对齐（旧版 CommitItem showBorder 的 spacing(3)）。 */
 .commit-group .commit-row {
-  padding: var(--sp-4) calc(var(--sp-4) * 3);
+  padding: var(--sp-3) var(--sp-7);
 }

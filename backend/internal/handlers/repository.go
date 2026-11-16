@@ -30,6 +30,11 @@ type RepositoryHandler struct {
 	// Cfg 提供站点 host / ssh —— 成员归一化形态需要这两个字段
 	// （PHP 侧的 YAML_HOST / YAML_SSH）。
 	Cfg *config.Config
+	// Stars 负责仓库标星（repository/list 的 starCount / starred /
+	// mode=starred 筛选）。未注入时相关字段降级为零值，见 repository_star.go。
+	Stars *repo.StarRepo
+	// Comments 负责合并请求评论（mergeRequestComments 端点）。
+	Comments *repo.MRCommentRepo
 }
 
 // RepositoryOption 是 RepositoryHandler 的可选依赖。
@@ -38,6 +43,13 @@ type RepositoryOption func(*RepositoryHandler)
 // WithRepositorySiteConfig 注入站点配置。
 func WithRepositorySiteConfig(cfg *config.Config) RepositoryOption {
 	return func(h *RepositoryHandler) { h.Cfg = cfg }
+}
+
+// WithRepositoryComments 注入合并请求评论仓储。
+//
+// 未注入时 mergeRequestComments 动作不生效（见 repository_mr_comment.go）。
+func WithRepositoryComments(comments *repo.MRCommentRepo) RepositoryOption {
+	return func(h *RepositoryHandler) { h.Comments = comments }
 }
 
 // NewRepositoryHandler 创建仓库域处理器。
@@ -76,6 +88,8 @@ func (h *RepositoryHandler) Register(s *httpapi.Server) {
 		"fileChanges":             {"GET": h.fileChanges},
 		"fileContent":             {"GET": h.fileContent},
 	}
+	// 本仓库新增的读端点：依赖注入齐备才注册（见 repository_mr_comment.go）。
+	h.registerMergeRequestCommentRead(actions)
 
 	s.Register(&httpapi.Controller{
 		Name:    "repository",
@@ -142,15 +156,29 @@ func paging(req *httpapi.Request) (int, int) {
 // PHP 的 normalize() 对每个仓库额外查 2 次 SQL（组信息、fork 数），
 // list_get() 又对每个仓库查 2 次（角色、成员列表）；这里全部改为批量查询，
 // 输出顺序与字段保持一致。
+//
+// mode=starred 是本仓库新增的筛选参数（PHP 侧没有标星能力）：
+// 只返回当前用户标星且可见的仓库；缺省（不传 mode）保持原行为。
 func (h *RepositoryHandler) list(ctx context.Context, req *httpapi.Request) (any, error) {
 	uKey := req.UserKey()
 	if uKey == "" {
 		return nil, contract.NewError(contract.CodeMissingParameter)
 	}
 
+	mode := req.Parsed.QueryString("mode")
+	switch mode {
+	case "", "starred":
+		// 合法取值：缺省 = 全部可见仓库；starred = 只看我标过星的。
+	default:
+		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+
 	repos, err := h.Repos.ListJoined(ctx, uKey)
 	if err != nil {
 		return nil, err
+	}
+	if mode == "starred" {
+		repos = h.listStarredFilter(ctx, uKey, repos)
 	}
 	if len(repos) == 0 {
 		return []any{}, nil
@@ -183,6 +211,7 @@ func (h *RepositoryHandler) list(ctx context.Context, req *httpapi.Request) (any
 	if err != nil {
 		return nil, err
 	}
+	stars := h.newStarView(ctx, uKey, rKeys)
 
 	out := make([]any, 0, len(repos))
 	for i := range repos {
@@ -190,8 +219,10 @@ func (h *RepositoryHandler) list(ctx context.Context, req *httpapi.Request) (any
 		item := domain.RepositoryListItem{
 			NormalizedRepository: domain.NormalizeRepository(
 				&r, groups[r.GroupKey], forkCounts[r.Key], mrCounts[r.Key]),
-			Role:    roles[r.Key],
-			Members: members[r.Key],
+			Role:      roles[r.Key],
+			Members:   members[r.Key],
+			StarCount: stars.count[r.Key],
+			Starred:   stars.starred[r.Key],
 		}
 		out = append(out, item)
 	}
@@ -283,6 +314,18 @@ func (h *RepositoryHandler) config(ctx context.Context, req *httpapi.Request) (a
 		return nil, err
 	}
 
+	// 标星字段（本仓库新增）：单独查这一个仓库，不走批量视图。
+	starCount := 0
+	starred := false
+	if h.Stars != nil {
+		if counts, cerr := h.Stars.StarCounts(ctx, []string{rKey}); cerr == nil {
+			starCount = counts[rKey]
+		}
+		if s, serr := h.Stars.IsStarred(ctx, uKey, rKey); serr == nil {
+			starred = s
+		}
+	}
+
 	return domain.RepositoryConfig{
 		Repository: domain.NormalizeRepository(repoInfo, group, forkCounts[rKey], mrCounts[rKey]),
 		Group:      domain.NormalizeRepositoryGroup(group),
@@ -296,6 +339,11 @@ func (h *RepositoryHandler) config(ctx context.Context, req *httpapi.Request) (a
 			File:         (objects.Size + objects.SizePack + objects.SizeGarbage) * 1024,
 			MergeRequest: mrCounts[rKey],
 		},
+		StarCount:        starCount,
+		Starred:          starred,
+		AllowMergeCommit: repoInfo.AllowMergeCommit,
+		AllowSquash:      repoInfo.AllowSquash,
+		MinReviewers:     repoInfo.MinReviewers,
 	}, nil
 }
 

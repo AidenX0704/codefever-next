@@ -64,6 +64,9 @@ type AdminHandler struct {
 	Disk *storage.Disk
 	// Sessions 用于禁用账号/重置口令后吊销会话（可选）。
 	Sessions *session.Store
+	// Site 负责站点公开内容（更新日志 / 公告）的管理端点（可选）。
+	// 未注入时这四个动作不注册（见 site_admin.go 的 registerSiteActions）。
+	Site *repo.SiteRepo
 
 	// site 是当前生效的 config.yaml 文档。
 	//
@@ -129,6 +132,10 @@ func (h *AdminHandler) Register(s *httpapi.Server) {
 		"systemStatus":           {"GET": h.systemStatus},
 		"config":                 {"GET": h.configGet, "POST": h.configPost},
 	}
+
+	// 站点内容管理端点（changelog / announcement）：Site 注入齐备才注册
+	// （在 s.Register 之前挂进 actions，保证注册的就是完整动作表）。
+	h.registerSiteActions(actions)
 
 	s.Register(&httpapi.Controller{
 		Name:    "admin",
@@ -987,12 +994,29 @@ func (h *AdminHandler) systemStatus(ctx context.Context, req *httpapi.Request) (
 //
 // PHP 侧每次请求都重新读文件；新实现在启动时加载一次、写入成功后热更新，
 // 因此这里返回内存中的当前快照（对前端而言等价）。
+//
+// smtp.password 是**只写不回读**的键：返回前抹成空串 —— 能看后台配置
+// 的管理员不应该顺带看到 SMTP 口令（与"重置口令不回显"同一原则）。
+// 前端把配置原样回传保存时，空口令会被 configPost 视为"保持现值"。
 func (h *AdminHandler) configGet(ctx context.Context, req *httpapi.Request) (any, error) {
 	doc := h.siteDocument()
 	if doc == nil {
 		return nil, contract.NewError(contract.CodeOperateFail)
 	}
-	return *doc, nil
+	// 深拷贝后再抹掉口令，不能改动内存里的生效快照。
+	out := make(map[string]any, len(*doc))
+	for k, v := range *doc {
+		out[k] = v
+	}
+	if smtp, ok := out["smtp"].(map[string]any); ok {
+		smtpCopy := make(map[string]any, len(smtp))
+		for k, v := range smtp {
+			smtpCopy[k] = v
+		}
+		smtpCopy["password"] = ""
+		out["smtp"] = smtpCopy
+	}
+	return out, nil
 }
 
 // configPost 实现 POST /api/admin/config。
@@ -1008,10 +1032,14 @@ func (h *AdminHandler) configGet(ctx context.Context, req *httpapi.Request) (any
 //
 // 新实现：
 //  1. 校验载荷：必须是 JSON 对象（映射），否则 0x0201 且**不写文件**；
-//  2. 按 PHP 的 array_merge 语义做浅合并（载荷里的键覆盖现有键，缺的键沿用现值）；
-//  3. 校验合并结果仍满足模板要求的结构，不满足则 0x0201 且不写文件；
-//  4. 原子写入：备份 → 同目录临时文件 → fsync → rename 覆盖；
-//  5. 写入成功后热更新内存配置。
+//  2. 扩展白名单校验：siteName（≤64 字）、smtp{host, port, username,
+//     password, from, ssl(bool)}，不合法 → 0x0201 且不写文件；
+//  3. smtp.password 为空串（前端回传被抹掉的口令）时**保持现值**，
+//     只有非空值才覆盖；
+//  4. 按 PHP 的 array_merge 语义做浅合并（载荷里的键覆盖现有键，缺的键沿用现值）；
+//  5. 校验合并结果仍满足模板要求的结构，不满足则 0x0201 且不写文件；
+//  6. 原子写入：备份 → 同目录临时文件 → fsync → rename 覆盖；
+//  7. 写入成功后热更新内存配置。
 func (h *AdminHandler) configPost(ctx context.Context, req *httpapi.Request) (any, error) {
 	p := req.Parsed
 
@@ -1024,6 +1052,11 @@ func (h *AdminHandler) configPost(ctx context.Context, req *httpapi.Request) (an
 	if !ok {
 		return nil, contract.NewError(contract.CodeMissingParameter)
 	}
+
+	if err := validateSiteConfigPatch(patch); err != nil {
+		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+	patch = keepExistingSMTPPassword(patch, h.siteDocument())
 
 	current := h.siteDocument()
 	base := map[string]any{}
@@ -1043,8 +1076,72 @@ func (h *AdminHandler) configPost(ctx context.Context, req *httpapi.Request) (an
 	h.storeSiteDocument(merged)
 	h.Cfg.SetSite(siteConfigFromDocument(merged))
 
-	return merged, nil
+	return maskSiteDocumentPassword(merged), nil
 }
+
+// validateSiteConfigPatch 校验本次提交里 siteName / smtp 两段扩展白名单。
+//
+// 其余键沿用 ValidateSiteDocument 的结构校验（合并后进行）；
+// 这里只拦"新键的形状不对"：siteName 超长、smtp 不是映射、
+// smtp 的字段类型不对。任何一项违规都不允许写文件。
+func validateSiteConfigPatch(patch map[string]any) error {
+	if v, ok := patch["siteName"]; ok {
+		name, ok := v.(string)
+		if !ok {
+			return errors.New("siteName 必须是字符串")
+		}
+		if len([]rune(strings.TrimSpace(name))) > siteNameMaxLength {
+			return errors.New("siteName 超长")
+		}
+	}
+	if v, ok := patch["smtp"]; ok && v != nil {
+		smtp, ok := v.(map[string]any)
+		if !ok {
+			return errors.New("smtp 必须是键值映射")
+		}
+		for _, key := range []string{"host", "username", "password", "from"} {
+			if field, present := smtp[key]; present && field != nil {
+				if _, ok := field.(string); !ok {
+					return errors.New("smtp." + key + " 必须是字符串")
+				}
+			}
+		}
+		if field, present := smtp["port"]; present && field != nil {
+			if _, ok := field.(float64); !ok {
+				return errors.New("smtp.port 必须是数字")
+			}
+		}
+		if field, present := smtp["ssl"]; present && field != nil {
+			if _, ok := field.(bool); !ok {
+				return errors.New("smtp.ssl 必须是布尔值")
+			}
+		}
+	}
+	return nil
+}
+
+// maskSiteDocumentPassword 返回抹掉口令的文档副本（写回响应用）。
+func maskSiteDocumentPassword(doc map[string]any) map[string]any {
+	out := make(map[string]any, len(doc))
+	for k, v := range doc {
+		out[k] = v
+	}
+	if smtp, ok := out["smtp"].(map[string]any); ok {
+		smtpCopy := make(map[string]any, len(smtp))
+		for k, v := range smtp {
+			smtpCopy[k] = v
+		}
+		smtpCopy["password"] = ""
+		out["smtp"] = smtpCopy
+	}
+	return out
+}
+
+// siteNameMaxLength 是站点显示名的长度上限。
+//
+// 站点名出现在页面标题、邮件标题里，64 字已经远超展示需要；
+// 上限收在应用层而不是跟着将来可能的列宽走，与 tokenNameMaxLength 同理。
+const siteNameMaxLength = 64
 
 // sitePath 返回 config.yaml 的绝对路径。
 func (h *AdminHandler) sitePath() string {
@@ -1076,7 +1173,34 @@ func (h *AdminHandler) storeSiteDocument(doc map[string]any) {
 func (h *AdminHandler) host() string { return h.Cfg.SiteConfig().Host }
 func (h *AdminHandler) ssh() string  { return h.Cfg.SiteConfig().SSH }
 
+// keepExistingSMTPPassword 在提交的口令为空时回退到现有口令。
+//
+// configGet 把 smtp.password 抹成空串，前端把配置原样回传保存是常态；
+// 若不回退，"改个站点名"就会顺手清掉 SMTP 口令。空串=未修改，
+// 只有显式传非空口令才覆盖。
+func keepExistingSMTPPassword(patch map[string]any, current *map[string]any) map[string]any {
+	smtpPatch, ok := patch["smtp"].(map[string]any)
+	if !ok {
+		return patch
+	}
+	if pwd, present := smtpPatch["password"]; present {
+		if s, isStr := pwd.(string); isStr && s == "" {
+			if current != nil {
+				if curSMTP, ok := (*current)["smtp"].(map[string]any); ok {
+					if curPwd, ok := curSMTP["password"].(string); ok {
+						smtpPatch["password"] = curPwd
+					}
+				}
+			}
+		}
+	}
+	return patch
+}
+
 // siteConfigFromDocument 由配置文档构造 config.Site。
+//
+// siteName / smtp 是本仓库新增的键（管理界面可改）；未配置时保持零值，
+// 各消费方（AppName / mailer.FromConfig）按"配置优先、缺省回落"处理。
 func siteConfigFromDocument(doc map[string]any) config.Site {
 	site := config.Site{}
 	if v, ok := doc["host"].(string); ok {
@@ -1088,12 +1212,35 @@ func siteConfigFromDocument(doc map[string]any) config.Site {
 	if v, ok := doc["allowRegister"].(bool); ok {
 		site.AllowRegister = v
 	}
+	if v, ok := doc["siteName"].(string); ok {
+		site.SiteName = v
+	}
 	if email, ok := doc["email"].(map[string]any); ok {
 		if v, ok := email["name"].(string); ok {
 			site.Email.Name = v
 		}
 		if v, ok := email["from"].(string); ok {
 			site.Email.From = v
+		}
+	}
+	if smtp, ok := doc["smtp"].(map[string]any); ok {
+		if v, ok := smtp["host"].(string); ok {
+			site.SMTP.Host = v
+		}
+		if v, ok := smtp["port"].(float64); ok {
+			site.SMTP.Port = int(v)
+		}
+		if v, ok := smtp["username"].(string); ok {
+			site.SMTP.Username = v
+		}
+		if v, ok := smtp["password"].(string); ok {
+			site.SMTP.Password = v
+		}
+		if v, ok := smtp["from"].(string); ok {
+			site.SMTP.From = v
+		}
+		if v, ok := smtp["ssl"].(bool); ok {
+			site.SMTP.SSL = v
 		}
 	}
 	return site

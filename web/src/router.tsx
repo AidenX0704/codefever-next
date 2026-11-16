@@ -40,6 +40,7 @@ const SettingsEmail = lazy(() => import('@/pages/settings/Email'))
 const SettingsSSHKey = lazy(() => import('@/pages/settings/SSHKey'))
 const SettingsNotification = lazy(() => import('@/pages/settings/Notification'))
 const SettingsTokens = lazy(() => import('@/pages/settings/Tokens'))
+const SettingsAppearance = lazy(() => import('@/pages/settings/Appearance'))
 const RepoSettingsGeneral = lazy(() => import('@/pages/repository/SettingsGeneral'))
 const RepoSettingsMembers = lazy(() => import('@/pages/repository/SettingsMembers'))
 const RepoSettingsBranch = lazy(() => import('@/pages/repository/SettingsBranch'))
@@ -61,6 +62,7 @@ const AdminUsers = lazy(() => import('@/pages/admin/Users'))
 const AdminGroups = lazy(() => import('@/pages/admin/Groups'))
 const AdminRepositories = lazy(() => import('@/pages/admin/Repositories'))
 const AdminSettings = lazy(() => import('@/pages/admin/Settings'))
+const AdminAnnouncements = lazy(() => import('@/pages/admin/Announcements'))
 const Doc = lazy(() => import('@/pages/Doc'))
 const Help = lazy(() => import('@/pages/Help'))
 const Home = lazy(() => import('@/pages/Home'))
@@ -137,6 +139,7 @@ export const router = createBrowserRouter([
           { path: 'sshkey', element: suspense(<SettingsSSHKey />) },
           { path: 'notification', element: suspense(<SettingsNotification />) },
           { path: 'tokens', element: suspense(<SettingsTokens />) },
+          { path: 'appearance', element: suspense(<SettingsAppearance />) },
         ],
       },
       {
@@ -148,6 +151,7 @@ export const router = createBrowserRouter([
           { path: 'users', element: suspense(<AdminUsers />) },
           { path: 'groups', element: suspense(<AdminGroups />) },
           { path: 'repositories', element: suspense(<AdminRepositories />) },
+          { path: 'announcements', element: suspense(<AdminAnnouncements />) },
           { path: 'settings', element: suspense(<AdminSettings />) },
         ],
       },

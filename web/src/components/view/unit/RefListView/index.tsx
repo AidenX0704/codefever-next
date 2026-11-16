@@ -9,7 +9,7 @@ import { Icon } from '@/components/unit/Icon'
 import { Loading } from '@/components/unit/Loading'
 import { Tag } from '@/components/unit/Tag'
 import { Button } from '@/components/unit/Button'
-import { psBranch, psTag } from '@/config/icons'
+import { psBranch, lockIcon, psTag } from '@/config/icons'
 import { resolveMember } from '@/helpers/members'
 import { useT } from '@/i18n'
 
@@ -166,7 +166,8 @@ export function RefListView({
 
       {groups.map((group) =>
         group.items.length === 0 ? null : (
-          <div key={group.title}>
+          <div key={group.title} className="ref-group">
+            {/* v5 §6 G7：分组标题 32px 实色行；全部组装进一张纸页。 */}
             <div className="ref-group__title">{group.title}</div>
             <div className="list-body">
               {group.items.slice(0, visibleCount).map((item) => (
@@ -223,20 +224,24 @@ function RefRow({
         <Icon icon={kind === 'branch' ? psBranch : psTag} size={16} />
       </span>
       <span className="ref-row__name">
-        <Link className="cf-link" to={filesHref}>
-          {item.name}
-        </Link>
+        <Link to={filesHref}>{item.name}</Link>
       </span>
       <span className="ref-row__badges">
-        {item.protected ? <Tag tone="primary">{t('label.protected')}</Tag> : null}
-        {item.isDefault ? <Tag tone="success">{t('label.default')}</Tag> : null}
+        {/* v5 §7.3：默认 Tag(info) 在前，受保护 Tag(idle + 锁图标)，已合并 Tag(success)。 */}
+        {item.isDefault ? <Tag tone="info">{t('label.default')}</Tag> : null}
+        {item.protected ? (
+          <Tag tone="default">
+            <Icon icon={lockIcon} size={10} />
+            {t('label.protected')}
+          </Tag>
+        ) : null}
         {item.isMerge && !item.isDefault ? <Tag tone="success">{t('message.merged')}</Tag> : null}
       </span>
       {item.detail ? <span className="ref-row__detail">{item.detail}</span> : null}
       <span className="ref-row__commit text-overflow">
         {commit ? (
           commitHref ? (
-            <Link className="cf-link" to={commitHref}>
+            <Link className="ref-row__commit-link" to={commitHref}>
               {commit.commit}
             </Link>
           ) : (
@@ -244,9 +249,14 @@ function RefRow({
           )
         ) : null}
       </span>
-      <span className="ref-row__updater">{updater.name}</span>
+      <span className="ref-row__updater">
+        <span className="ref-row__updater-avatar" aria-hidden="true">
+          {updater.name.slice(0, 1).toUpperCase()}
+        </span>
+        {updater.name}
+      </span>
       <span className="ref-row__time">{commit ? <FormattedTime timestamp={Number(commit.time)} /> : null}</span>
-      <span className="ref-row__hash">{commit?.sha ? commit.sha.slice(0, 8) : ''}</span>
+      <span className="ref-row__hash">{commit?.sha ? commit.sha.slice(0, 7) : ''}</span>
       {onDelete && (canDelete ? canDelete(item) : true) ? (
         <span className="ref-row__actions">
           <Button size="sm" variant="text" tone="danger" onClick={() => onDelete(item.name)}>

@@ -9,7 +9,7 @@ import { CopyButton } from '@/components/unit/CopyButton'
 import { Icon } from '@/components/unit/Icon'
 import { IconButton } from '@/components/unit/IconButton'
 import { Loading } from '@/components/unit/Loading'
-import { psFile, plAngleDown, plAngleRight, plCopy, plExpand } from '@/config/icons'
+import { psFile, plAngleDown, plAngleRight, plExpand } from '@/config/icons'
 import { languageForPath } from '@/config/languages'
 import { useAppData } from '@/features/app-data/AppDataProvider'
 import { cn } from '@/helpers/cn'
@@ -371,9 +371,7 @@ function DiffFileBlock({
 
         <span className="cf-diff__actions">
           {path ? (
-            <CopyButton text={path} label={t('label.copyPath')} message={t('label.copied')}>
-              <Icon icon={plCopy} size={14} />
-            </CopyButton>
+            <CopyButton text={path} label={t('label.copyPath')} message={t('label.copied')} />
           ) : null}
           {viewHref ? (
             <AppLink to={viewHref} title={`${t('label.browserFile')}@${viewRev}`}>
@@ -409,7 +407,7 @@ function DiffFileBlock({
   )
 }
 
-/** 单列（inline）diff 表。 */
+/** 单列（inline）diff 表：v5 G10 列序 = 旧号｜新号｜符号｜代码。 */
 function InlineDiffTable({ lines }: { lines: RenderedLine[] }) {
   return (
     <table className="cf-diff__table">
@@ -418,6 +416,10 @@ function InlineDiffTable({ lines }: { lines: RenderedLine[] }) {
           <tr key={index} className={`cf-diff__row cf-diff__row--${line.kind}`}>
             <td className="cf-diff__no">{line.oldNo ?? ''}</td>
             <td className="cf-diff__no">{line.newNo ?? ''}</td>
+            {/* 符号列是增删的第二通道（不只靠底色）；真减号 U+2212。 */}
+            <td className="cf-diff__sign" aria-hidden="true">
+              {line.kind === 'add' ? '+' : line.kind === 'del' ? '−' : ''}
+            </td>
             <td className="cf-diff__code">
               <code dangerouslySetInnerHTML={{ __html: line.html || '&nbsp;' }} />
             </td>

@@ -1,7 +1,9 @@
-# CodeFever 设计令牌 v3（落地基线）
+# CodeFever 设计令牌 v3（已被 v4 取代）
 
 > 基线文档：《Git Platform Design System V3》
-> 状态：**已确认（2026-10-28），待落地**。按 §8 的 P1→P5 推进，本文即 P1 的唯一事实来源。
+> 状态：**已被取代（2026-11）**：v4 令牌命名与取值以 `docs/design-v4/DESIGN.md` +
+> `web/src/theme/theme.css` 为准（命名映射与偏离记录见 `docs/design-v4/DESIGN_NOTES.md`）。
+> 本文保留作为历史参考，不再更新。
 > 可视化：`docs/design-v3/tokens-v3-prototype.html`（双击打开，右上角可切主题 / 壳层 / 密度）
 > 上一版提案（已废弃 2026-10-28：被 V3 基线取代）：`docs/design-v2/DESIGN_TOKENS_V2.md`
 

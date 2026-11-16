@@ -145,6 +145,9 @@ func (h *UserHandler) removeSSHKey(ctx context.Context, req *httpapi.Request) (a
 // updateBasicInfo 实现 POST /api/user/updateBasicInfo。
 //
 // 逐字对应 application/controllers/api/user.php:108-131。
+//
+// bio 是本仓库新增的可选字段（PHP 侧没有）：白名单式更新 ——
+// 参数出现才更新；入库前 trim，超长（>255 字）返回 0x0202。
 func (h *UserHandler) updateBasicInfo(ctx context.Context, req *httpapi.Request) (any, error) {
 	u := req.User
 	if u == nil {
@@ -167,12 +170,24 @@ func (h *UserHandler) updateBasicInfo(ctx context.Context, req *httpapi.Request)
 	if role, ok := req.Parsed.Body["role"]; ok {
 		fields["u_role"] = nullableString(role)
 	}
+	if req.Parsed.HasParam("bio") {
+		bio := strings.TrimSpace(req.Parsed.ParamString("bio"))
+		if len([]rune(bio)) > bioMaxLength {
+			// 列宽是 255，超长写入必然失败；在参数校验阶段拦下来，
+			// 给前端一个明确的 0x0202 而不是一条 SQL 报错。
+			return nil, contract.NewError(contract.CodeAmountOutOfRange)
+		}
+		fields["u_bio"] = bio
+	}
 
 	if err := h.Users.UpdateFields(ctx, u.Key, fields); err != nil {
 		return nil, err
 	}
 	return []any{}, nil
 }
+
+// bioMaxLength 是个人简介的长度上限（与 cc_users.u_bio 列宽一致）。
+const bioMaxLength = 255
 
 // updateProfileField 实现 POST /api/user/update（单字段更新）。
 //

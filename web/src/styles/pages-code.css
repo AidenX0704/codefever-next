@@ -10,14 +10,14 @@
   table-layout: fixed;
   border-collapse: collapse;
   font-family: var(--font-mono);
-  font-size: var(--fs-12);
+  font-size: var(--fs-caption);
 }
 
 .cf-code__lineno {
   width: calc(var(--sp-4) * 4);
   padding: 0 var(--sp-4);
-  color: var(--fg-subtle);
-  background: var(--bg-canvas);
+  color: var(--code-gutter-fg);
+  background: var(--code-bg);
   line-height: calc(var(--sp-4) * 2);
   text-align: right;
   vertical-align: top;
@@ -40,5 +40,5 @@
 
 .cf-code__row--focus .cf-code__lineno,
 .cf-code__row--focus .cf-code__cell {
-  background: var(--ac-primary-tint);
+  background: var(--brand-subtle);
 }

@@ -32,7 +32,19 @@ type Repository struct {
 	Created       string
 	Updated       string
 	Status        int
+
+	// 合并设置（015_repo_merge_settings.sql）。默认值与迁移保持一致：
+	// 两种合并方式都允许、最少评审人数 0（沿用"全部评审人通过"的旧规则）。
+	AllowMergeCommit bool
+	AllowSquash      bool
+	MinReviewers     int
 }
+
+// MinReviewersMax 是 r_min_reviewers 的取值上限（repository/update 校验用）。
+//
+// 评审人数上限本来就是小数字（一个 MR 的评审人很少超过 5 个），
+// 10 已经远超实际需要；更大的值只会让"最少评审人数"失去意义。
+const MinReviewersMax = 10
 
 // RepositoryGroup 是 cc_groups 表的一行（仓库视角）。
 //
@@ -251,10 +263,16 @@ func NormalizeRepository(r *Repository, group *RepositoryGroup, forkCount int, m
 //
 // PHP 侧在 normalize() 之后追加 role 与 members 两个字段
 // （application/controllers/api/repository.php:155-158）。
+//
+// starCount / starred 是本仓库新增的字段（PHP 侧没有标星能力）：
+// 注意契约基线 backend/testdata/contract/repository.list.json 采集时
+// 还没有这两个键，重新采集基线前跑契约比对会在这两个端点报差异。
 type RepositoryListItem struct {
 	NormalizedRepository
-	Role    int                          `json:"role"`
-	Members []NormalizedRepositoryMember `json:"members"`
+	Role      int                          `json:"role"`
+	Members   []NormalizedRepositoryMember `json:"members"`
+	StarCount int                          `json:"starCount"`
+	Starred   bool                         `json:"starred"`
 }
 
 // NormalizedRepositoryMember 是仓库成员的归一化输出。
@@ -676,13 +694,21 @@ type RefList struct {
 }
 
 // RepositoryConfig 是 config 端点的输出。
+//
+// starCount / starred / allowMergeCommit / allowSquash / minReviewers 是
+// 本仓库新增的字段（PHP 侧没有），契约基线同理需要重新采集后才可比对。
 type RepositoryConfig struct {
-	Repository NormalizedRepository         `json:"repository"`
-	Group      NormalizedRepositoryGroup    `json:"group"`
-	Members    []NormalizedRepositoryMember `json:"members"`
-	Branches   []NormalizedBranchRef        `json:"branches"`
-	Tags       []NormalizedBranchRef        `json:"tags"`
-	Count      RepositoryConfigCount        `json:"count"`
+	Repository       NormalizedRepository         `json:"repository"`
+	Group            NormalizedRepositoryGroup    `json:"group"`
+	Members          []NormalizedRepositoryMember `json:"members"`
+	Branches         []NormalizedBranchRef        `json:"branches"`
+	Tags             []NormalizedBranchRef        `json:"tags"`
+	Count            RepositoryConfigCount        `json:"count"`
+	StarCount        int                          `json:"starCount"`
+	Starred          bool                         `json:"starred"`
+	AllowMergeCommit bool                         `json:"allowMergeCommit"`
+	AllowSquash      bool                         `json:"allowSquash"`
+	MinReviewers     int                          `json:"minReviewers"`
 }
 
 // RepositoryConfigCount 是 config.count 的内容。

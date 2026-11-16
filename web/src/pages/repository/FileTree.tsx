@@ -9,12 +9,11 @@ import { EmptyState } from '@/components/unit/EmptyState'
 import { FormattedTime } from '@/components/unit/FormattedTime'
 import { Icon } from '@/components/unit/Icon'
 import { Loading } from '@/components/unit/Loading'
-import { Table, TableWrap, TBody, TD, TH, THead, TR } from '@/components/unit/Table'
+import { Table, TableWrap, TBody, TD, TR } from '@/components/unit/Table'
 import { TextField } from '@/components/unit/TextField'
-import { CommitRow } from '@/components/view/unit/CommitRow'
 import { ObjectViewer } from '@/components/view/unit/ObjectViewer'
 import { RepositoryEmpty } from '@/components/view/unit/RepositoryEmpty'
-import { psBranch, psCaretDown, psFile, psFolder, psRepository, plSearch } from '@/config/icons'
+import { psBranch, psCaretDown, psCommit, psFile, psFolder, psRepository, plSearch } from '@/config/icons'
 import { useAppData } from '@/features/app-data/AppDataProvider'
 import { useRepository } from '@/features/repository/RepositoryProvider'
 import { resolveMember } from '@/helpers/members'
@@ -264,67 +263,83 @@ export default function FileTree() {
       {error ? <div className="auth-message">{error}</div> : null}
       {loading ? <Loading /> : null}
 
-      {!loading && object?.commit ? (
-        <div className="commit-card">
-          <CommitRow
-            commit={object.commit}
-            linkBase={`${base}/commit`}
-            author={resolveMember(config?.members, object.commit.email)}
-          />
-        </div>
-      ) : null}
+      {/* v5 §6 G4：文件列表是一张纸页 —— 最新提交条（48px）作页首，目录在前文件在后的 40px 行。 */}
+      {!loading && !file && (object?.commit || sortedEntries.length > 0) ? (
+        <div className="list-sheet">
+          {!loading && object?.commit ? (
+            (() => {
+              const commitAuthor = resolveMember(config?.members, object.commit.email)
+              return (
+                <div className="file-sheet-head">
+                  <span className="file-sheet-head__avatar" aria-hidden="true">
+                    {(commitAuthor?.name ?? object.commit.email).slice(0, 1).toUpperCase()}
+                  </span>
+                  <span className="file-sheet-head__author">{commitAuthor?.name ?? object.commit.email}</span>
+                  <Link className="file-sheet-head__message text-overflow" to={`${base}/commit/${object.commit.sha.slice(0, 8)}`}>
+                    {object.commit.commit}
+                  </Link>
+                  <Link className="file-sheet-head__hash" to={`${base}/commit/${object.commit.sha.slice(0, 8)}`}>
+                    {object.commit.sha.slice(0, 7)}
+                  </Link>
+                  <span className="file-sheet-head__time">
+                    <FormattedTime timestamp={object.commit.time} />
+                  </span>
+                  <span className="file-sheet-head__spacer" aria-hidden="true" />
+                  <Link className="file-sheet-head__history" to={`${base}/commits`} aria-label={t('label.commit')} title={t('label.commit')}>
+                    <Icon icon={psCommit} size={16} />
+                  </Link>
+                </div>
+              )
+            })()
+          ) : null}
 
-      {!loading && !file && sortedEntries.length > 0 ? (
-        <TableWrap>
-          <Table className="cf-table--file">
-            <THead>
-              <TR>
-                <TH style={{ width: '30%' }}>{t('label.name')}</TH>
-                <TH>{t('label.lastCommit')}</TH>
-                <TH style={{ width: 'calc(var(--sp-4) * 26)' }}>{t('label.lastUpdate')}</TH>
-              </TR>
-            </THead>
-            <TBody>
-              {visibleEntries.map((entry) => {
-                if (entry.type === 'commit') {
-                  // 子模块（.gitmodules）：不可进入，只展示指向的提交。
-                  return (
-                    <TR key={entry.object + entry.name}>
-                      <TD className="file-table__name-cell">
-                        <span className="file-table__name file-table__name--static" title={entry.url}>
-                          <Icon icon={psRepository} size={16} />
-                          <span className="file-table__name-label">{entry.name}</span>
-                          <span className="file-table__submodule">@{entry.object.slice(0, 8)}</span>
-                        </span>
-                      </TD>
-                      <TD />
-                      <TD />
-                    </TR>
-                  )
-                }
-                const href = `${base}/files/${path ? `${path}/` : ''}${encodeURIComponent(entry.name)}?rev=${encodeURIComponent(effectiveRev)}`
-                return (
-                  <TR key={entry.object + entry.name}>
-                    <TD className="file-table__name-cell">
-                      <Link className="file-table__name" to={href}>
-                        <Icon icon={entry.type === 'tree' ? psFolder : psFile} size={16} />
-                        <span className="file-table__name-label">{entry.name}</span>
-                      </Link>
-                    </TD>
-                    <TD className="file-table__commit-cell">
-                      {entry.commit ? (
-                        <Link className="file-table__commit" to={`${base}/commit/${entry.commit.sha.slice(0, 8)}`}>
-                          {entry.commit.commit}
-                        </Link>
-                      ) : null}
-                    </TD>
-                    <TD>{entry.commit ? <FormattedTime timestamp={entry.commit.time} /> : null}</TD>
-                  </TR>
-                )
-              })}
-            </TBody>
-          </Table>
-        </TableWrap>
+          {!loading && !file && sortedEntries.length > 0 ? (
+            <TableWrap>
+              <Table className="cf-table--file">
+                {/* v5 §6 G4：文件列表无表头行（目录在前文件在后，行内自明）。 */}
+                <TBody>
+                  {visibleEntries.map((entry) => {
+                    if (entry.type === 'commit') {
+                      // 子模块（.gitmodules）：不可进入，只展示指向的提交。
+                      return (
+                        <TR key={entry.object + entry.name}>
+                          <TD className="file-table__name-cell">
+                            <span className="file-table__name file-table__name--static" title={entry.url}>
+                              <Icon icon={psRepository} size={16} />
+                              <span className="file-table__name-label">{entry.name}</span>
+                              <span className="file-table__submodule">@{entry.object.slice(0, 8)}</span>
+                            </span>
+                          </TD>
+                          <TD />
+                          <TD />
+                        </TR>
+                      )
+                    }
+                    const href = `${base}/files/${path ? `${path}/` : ''}${encodeURIComponent(entry.name)}?rev=${encodeURIComponent(effectiveRev)}`
+                    return (
+                      <TR key={entry.object + entry.name}>
+                        <TD className="file-table__name-cell">
+                          <Link className="file-table__name" to={href}>
+                            <Icon icon={entry.type === 'tree' ? psFolder : psFile} size={16} />
+                            <span className="file-table__name-label">{entry.name}</span>
+                          </Link>
+                        </TD>
+                        <TD className="file-table__commit-cell">
+                          {entry.commit ? (
+                            <Link className="file-table__commit" to={`${base}/commit/${entry.commit.sha.slice(0, 8)}`}>
+                              {entry.commit.commit}
+                            </Link>
+                          ) : null}
+                        </TD>
+                        <TD className="file-table__time-cell">{entry.commit ? <FormattedTime timestamp={entry.commit.time} /> : null}</TD>
+                      </TR>
+                    )
+                  })}
+                </TBody>
+              </Table>
+            </TableWrap>
+          ) : null}
+        </div>
       ) : null}
 
       {!loading && !file && sortedEntries.length === 0 && !isEmptyRepo ? (

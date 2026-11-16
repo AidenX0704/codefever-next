@@ -838,8 +838,10 @@ func TestHandlerEventTypes(t *testing.T) {
 	if got := len(activityEventTypes()); got != 39 {
 		t.Errorf("活动流订阅事件数 = %d，期望 39", got)
 	}
-	if got := len(notificationEventTypes()); got != 5 {
-		t.Errorf("通知订阅事件数 = %d，期望 5", got)
+	// 通知订阅 = PHP 侧的 5 个合并请求事件 + 1 个新增的评论事件
+	// （mergeRequest:comment，PHP 侧没有评论能力，不占契约基线）。
+	if got := len(notificationEventTypes()); got != 6 {
+		t.Errorf("通知订阅事件数 = %d，期望 6", got)
 	}
 	if got := len(webhookEventTypes()); got != 26 {
 		t.Errorf("webhook 订阅事件数 = %d，期望 26", got)

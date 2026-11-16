@@ -25,6 +25,10 @@ type User struct {
 	Status             int
 	Created            time.Time
 	Updated            time.Time
+	// Bio 是个人简介（u_bio，016_user_bio.sql）。
+	//
+	// 列定义是 NOT NULL DEFAULT ''，"没填"就是空串，不用 *string。
+	Bio string
 }
 
 // HasTwoFA 判断用户是否启用了双因素认证。
@@ -90,6 +94,9 @@ type NormalizedUser struct {
 	Status             bool    `json:"status"`
 	Host               string  `json:"host"`
 	SSH                string  `json:"ssh"`
+	// Bio 是个人简介。本仓库新增的字段（PHP 侧没有），跟随 /api/user/info
+	// 与成员视图一起输出；契约基线采集时还没有该键。
+	Bio string `json:"bio"`
 }
 
 // NormalizeUser 把用户行转换为对外形态。
@@ -114,6 +121,7 @@ func NormalizeUser(u *User, emails []CommitEmail, extra bool, unRead int, host, 
 		Status:             u.Status == CommonStatusNormal,
 		Host:               host,
 		SSH:                ssh,
+		Bio:                u.Bio,
 	}
 	if extra {
 		view.UnReadNotification = unRead

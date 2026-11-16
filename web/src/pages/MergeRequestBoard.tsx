@@ -200,6 +200,13 @@ export function GlobalMergeRequestBoard() {
 
   return (
     <div className="page">
+      {/* v5 §6 G8 页头：标题 + 计数（新建主按钮在工具条右侧，保持一个区域一个主按钮）。 */}
+      <div className="page-head">
+        <div className="page-head__text">
+          <h1 className="page__title">{t('label.mergeRequest')}</h1>
+          {counts ? <span className="page-head__count">{t('label._N_mergeRequest', { n: counts.all })}</span> : null}
+        </div>
+      </div>
       <MergeRequestToolbar
         tab={tab}
         onTabChange={changeTab}

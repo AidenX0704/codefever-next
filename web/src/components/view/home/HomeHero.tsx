@@ -1,7 +1,4 @@
-import { useNavigate } from 'react-router'
-
 import type { CurrentUser, RepositoryListItem } from '@/api/types'
-import { Button } from '@/components/unit/Button'
 import { CopyButton } from '@/components/unit/CopyButton'
 import { cloneUrls } from '@/helpers/cloneUrl'
 import { useT } from '@/i18n'
@@ -28,17 +25,14 @@ function greetingKey(hour: number): string {
 }
 
 /**
- * 首页顶部 HERO。
+ * 首页顶部（v5 DESIGN.md §6 G1 页头）。
  *
- * 形态约束（docs/HOME_PAGE_PLAN_2026-10-27.md §2.5）：通栏 `--ac-primary-tint`
- * 色块，**无图、无渐变、无动效** —— 全页唯一的有色块，克制。
- *
- * 内容只做三件事：打招呼、说清"这是哪儿"、给三个最高频动作；
- * 右侧把"主推仓库的 clone 命令"直给（等宽字体），新人第一件事就是 clone。
+ * v5 口径：页头是**纯文字**（问候 24/600 + 副标题 fg-3），无色块、无按钮 ——
+ * 新建动作在顶栏「＋新建」里。偏离注记（AGENTS §7）：右侧保留"主推仓库
+ * clone 命令"等宽小块（HOME_PAGE_PLAN §2.5 的高频功能），材质用 --bg-well。
  */
 export function HomeHero({ user, repository }: HomeHeroProps) {
   const t = useT()
-  const navigate = useNavigate()
 
   const name = user?.name ?? ''
   const urls = repository ? cloneUrls(user, repository.group.name, repository.name) : null
@@ -52,34 +46,19 @@ export function HomeHero({ user, repository }: HomeHeroProps) {
           {t(greetingKey(new Date().getHours()), { s: name })}
         </h1>
         <p className="home-hero__tagline">{t('home.tagline')}</p>
-        <div className="home-hero__actions">
-          <Button variant="contained" onClick={() => navigate('/repositories/new')}>
-            {t('label.newRepository')}
-          </Button>
-          <Button variant="outlined" onClick={() => navigate('/groups/new')}>
-            {t('label.newGroup')}
-          </Button>
-          <Button variant="outlined" onClick={() => navigate('/mergerequests/new')}>
-            {t('label.createMergeRequest')}
-          </Button>
-        </div>
       </div>
 
-      <div className="home-hero__clone">
-        {repository && cloneText ? (
-          <>
-            <div className="home-hero__clone-label">
-              {t('home.cloneLabel')} · <span className="home-hero__clone-repo">{repositoryLabel}</span>
-            </div>
-            <div className="home-hero__clone-row">
-              <code className="home-hero__clone-code">git clone {cloneText}</code>
-              <CopyButton text={`git clone ${cloneText}`} label={t('label.copy')} />
-            </div>
-          </>
-        ) : (
-          <div className="home-hero__clone-label">{t('home.cloneEmpty')}</div>
-        )}
-      </div>
+      {repository && cloneText ? (
+        <div className="home-hero__clone">
+          <div className="home-hero__clone-label">
+            {t('home.cloneLabel')} · <span className="home-hero__clone-repo">{repositoryLabel}</span>
+          </div>
+          <div className="home-hero__clone-row">
+            <code className="home-hero__clone-code">git clone {cloneText}</code>
+            <CopyButton text={`git clone ${cloneText}`} label={t('label.copy')} />
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

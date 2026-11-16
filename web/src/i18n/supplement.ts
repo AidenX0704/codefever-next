@@ -237,6 +237,54 @@ export const supplement = {
 
     // ---------- 访问令牌设置 /settings/tokens（2026-10-27） ----------
     'tokens.title': '访问令牌',
+    // ---------- 外观设置 /settings/appearance（DESIGN.md） ----------
+    'appearance.title': '外观与语言',
+    'appearance.light': '浅色',
+    'appearance.dark': '深色',
+    'appearance.system': '跟随系统',
+    'appearance.theme': '主题',
+    'appearance.themeNote': '选择会持久化；清除后跟随系统偏好。',
+    // ---------- 公告与更新日志（DESIGN.md §7.2） ----------
+    'announcement.type.security': '安全',
+    'announcement.type.privacy': '合规',
+    'announcement.type.support': '支持',
+    'changelog.empty': '暂无更新日志',
+    'home.section.changelog': '更新日志',
+    // ---------- 仓库星标（DESIGN.md §7.5） ----------
+    'star.star': '标星',
+    'star.unstar': '取消标星',
+    'star.failed': '星标操作失败，请重试',
+    'star.filter': '已标星',
+    'label.moreActions': '更多操作',
+    // ---------- MR 讨论（DESIGN.md §7.5） ----------
+    'label.discussion': '讨论',
+    'label.deleteSourceBranch': '合并后删除源分支',
+    'discussion.empty': '还没有讨论，发表第一条意见。',
+    'discussion.placeholder': '写下你的意见（Ctrl+Enter 发送）',
+    'discussion.submit': '评论',
+    'discussion.ctrlEnter': 'Ctrl+Enter 快速发送；评论会通知创建者与评审人。',
+    // ---------- 管理后台：公告与更新日志 ----------
+    'menu.announcements': '公告与更新日志',
+    'changelog.title': '更新日志',
+    'changelog.create': '新建日志',
+    'changelog.edit': '编辑日志',
+    'changelog.delete': '删除更新日志',
+    'changelog.version': '版本号',
+    'changelog.releasedAt': '发布日期',
+    'changelog.formTitle': '标题',
+    'changelog.formBody': '内容',
+    'announcement.title': '平台公告',
+    'announcement.create': '新建公告',
+    'announcement.edit': '编辑公告',
+    'announcement.delete': '删除公告',
+    'announcement.formType': '类型',
+    'announcement.formBody': '内容',
+    'announcement.enabled': '启用',
+    'announcement.empty': '暂无公告；员工首页将显示内置使用须知。',
+    // ---------- 系统设置扩展（站点名 / SMTP） ----------
+    'label.siteName': '站点名称',
+    'message.siteNameNote': '显示在浏览器标题与页脚；留空使用默认「CodeFever」。',
+    'message.smtpEnvNote': '留空的字段回落到 CODEFEVER_SMTP_* 环境变量；SMTP 密码只能覆盖写入、不回显。',
     'tokens.listTitle': '我的访问令牌',
     'tokens.listNotice': '令牌用于让 CI / 脚本以你的身份调用公开 API（/api/v1）。令牌等同于你的账号权限，请勿写入仓库。',
     'tokens.lastUsed': '最后使用',
@@ -267,6 +315,35 @@ export const supplement = {
     'search.truncated': '仅显示前 10 条，请细化关键词。',
     'search.scopeNote': '当前只搜仓库、仓库组与合并请求标题，不搜代码内容。',
     'search.browseAll': '浏览全部仓库',
+
+    // ---------- 命令面板（DESIGN.md §4，⌘K） ----------
+    'palette.title': '命令面板',
+    'palette.placeholder': '搜索仓库、仓库组，或输入 > 执行命令…',
+    'palette.group.recent': '最近访问',
+    'palette.group.commands': '命令',
+    'palette.navigate': '选择',
+    'palette.open': '打开',
+    'palette.commandHint': '命令',
+    'palette.searchOnSite': '在搜索页查找「{s}」',
+    'palette.openNotifications': '打开通知中心',
+    'palette.toggleTheme': '切换深色 / 浅色主题',
+
+    // ---------- 平台侧栏（v5 §4.2） ----------
+    'nav.workspace': '工作台',
+    'nav.code': '代码',
+    'nav.collab': '协作',
+    'nav.admin': '管理',
+    'nav.codeSearch': '代码搜索',
+    'nav.adminConsole': '管理后台',
+    'nav.collapseRail': '收起侧栏',
+    'nav.expandRail': '展开侧栏',
+
+    // ---------- 页头计数（v5 §6 页头） ----------
+    'label._N_user': '{n} 名用户',
+
+    // ---------- MR 合并框（v5 §6 G9） ----------
+    'message.mergeBlocked': '还有 {n} 位评审人未通过，暂不能合并',
+    'message.mergeReady': '评审已通过，可以合并',
   },
   'en-us': {
     'label.search': 'Search',
@@ -491,6 +568,54 @@ export const supplement = {
 
     // ---------- Access tokens /settings/tokens (2026-10-27) ----------
     'tokens.title': 'Access tokens',
+    // ---------- Appearance /settings/appearance (DESIGN.md) ----------
+    'appearance.title': 'Appearance & language',
+    'appearance.light': 'Light',
+    'appearance.dark': 'Dark',
+    'appearance.system': 'System',
+    'appearance.theme': 'Theme',
+    'appearance.themeNote': 'Your choice is persisted; clear it to follow the system preference.',
+    // ---------- Announcements & changelog (DESIGN.md §7.2) ----------
+    'announcement.type.security': 'Security',
+    'announcement.type.privacy': 'Privacy',
+    'announcement.type.support': 'Support',
+    'changelog.empty': 'No changelog yet',
+    'home.section.changelog': "What's new",
+    // ---------- Repository stars (DESIGN.md §7.5) ----------
+    'star.star': 'Star',
+    'star.unstar': 'Unstar',
+    'star.failed': 'Failed to update star, please retry',
+    'star.filter': 'Starred',
+    'label.moreActions': 'More actions',
+    // ---------- MR discussion (DESIGN.md §7.5) ----------
+    'label.discussion': 'Discussion',
+    'label.deleteSourceBranch': 'Delete source branch after merge',
+    'discussion.empty': 'No discussion yet. Start the conversation.',
+    'discussion.placeholder': 'Write your comment (Ctrl+Enter to send)',
+    'discussion.submit': 'Comment',
+    'discussion.ctrlEnter': 'Ctrl+Enter to send; the author and reviewers will be notified.',
+    // ---------- Admin: announcements & changelog ----------
+    'menu.announcements': 'Announcements & changelog',
+    'changelog.title': 'Changelog',
+    'changelog.create': 'New entry',
+    'changelog.edit': 'Edit entry',
+    'changelog.delete': 'Delete changelog entry',
+    'changelog.version': 'Version',
+    'changelog.releasedAt': 'Released at',
+    'changelog.formTitle': 'Title',
+    'changelog.formBody': 'Body',
+    'announcement.title': 'Announcements',
+    'announcement.create': 'New announcement',
+    'announcement.edit': 'Edit announcement',
+    'announcement.delete': 'Delete announcement',
+    'announcement.formType': 'Type',
+    'announcement.formBody': 'Body',
+    'announcement.enabled': 'Enabled',
+    'announcement.empty': 'No announcements; the home page shows built-in notices.',
+    // ---------- Admin settings: site name / SMTP ----------
+    'label.siteName': 'Site name',
+    'message.siteNameNote': 'Shown in the browser title and footer; empty falls back to "CodeFever".',
+    'message.smtpEnvNote': 'Empty fields fall back to CODEFEVER_SMTP_* environment variables; the SMTP password is write-only.',
     'tokens.listTitle': 'My access tokens',
     'tokens.listNotice': 'Tokens let CI jobs and scripts call the public API (/api/v1) as you. A token carries your permissions — never commit it.',
     'tokens.lastUsed': 'Last used',
@@ -521,5 +646,31 @@ export const supplement = {
     'search.truncated': 'Showing the first 10 only — refine your keyword.',
     'search.scopeNote': 'Search covers repository, group and merge request titles only, not file contents.',
     'search.browseAll': 'Browse all repositories',
+
+    // ---------- Command palette (DESIGN.md §4, ⌘K) ----------
+    'palette.title': 'Command palette',
+    'palette.placeholder': 'Search repositories, groups, or type > for commands…',
+    'palette.group.recent': 'Recent',
+    'palette.group.commands': 'Commands',
+    'palette.navigate': 'Navigate',
+    'palette.open': 'Open',
+    'palette.commandHint': 'Commands',
+    'palette.searchOnSite': 'Search「{s}」on the search page',
+    'palette.openNotifications': 'Open notification center',
+    'palette.toggleTheme': 'Toggle dark / light theme',
+
+    'nav.workspace': 'Workbench',
+    'nav.code': 'Code',
+    'nav.collab': 'Collaborate',
+    'nav.admin': 'Administration',
+    'nav.codeSearch': 'Code search',
+    'nav.adminConsole': 'Admin console',
+    'nav.collapseRail': 'Collapse sidebar',
+    'nav.expandRail': 'Expand sidebar',
+
+    'label._N_user': '{n} users',
+
+    'message.mergeBlocked': '{n} reviewer(s) have not approved yet — merge is blocked',
+    'message.mergeReady': 'All reviews passed — ready to merge',
   },
 } as const

@@ -1,108 +1,118 @@
 /*
- * CodeFever Next —— 设计令牌（Design Tokens）v3
+ * CodeFever Next —— 设计令牌（Design Tokens）v5
  *
- * 基线：Git Platform Design System V3（docs/design-v3/DESIGN_TOKENS_V3.md）
- * 原型：docs/design-v3/tokens-v3-prototype.html
+ * 基线：docs/design-v5/DESIGN.md（格·代码 Cell Code v1.0，2026-11 起取代 v4）
+ * 上一版：docs/design-v4/DESIGN_NOTES.md（落地注记保留作历史参考）
+ *
+ * 迁移策略（AGENTS §5.2 过渡状态）：
+ *   - 语义键名沿用 v4 的实现 API（--bg-* / --text-* / --line / --brand- / …），
+ *     取值全量重绑到 v5 色板 —— 既有引用零波及，视觉整体切换；
+ *   - v5 新增概念以新键补充（--bg-sheet / --bg-sheet-2 / --bg-well / --bg-hover /
+ *     --bg-selected / 外壳毛玻璃材质键），浅深两套同步定义；
+ *   - 主题蓝固定 #1677ff（Light / Dark 同值，不换肤）。
  *
  * ============================ 分层约定（AGENTS §5） ============================
  *
- *   原始层 primitive   --p-*                     ← 全仓库唯一允许出现色值的地方
+ *   原始层 primitive   --p-*                     ← 全仓库唯一允许出现 UI 色阶的地方
  *        ↓ 只能向下引用
- *   语义层 semantic    --bg- --fg- --bd- --ac- --st- --code- --diff- --tok-
- *                      --chart- --shadow- --scrim --chrome-
+ *   语义层 semantic    --bg- --text- --line --brand- --danger- --success- --warning-
+ *                      --purple- --code- --diff- --tok- --chart- --shadow- --scrim
+ *                      --rail- --topbar-（v5 外壳材质）
  *        ↓ 只能向下引用
  *   尺寸层 dimension   --sp- --r- --fs- --fw- --lh- --ctl- --row- --cell-
- *                      --layout- --icon- --dur- --ease- --z- --focus-
+ *                      --layout- --rail- --frost- --icon- --dur- --ease- --z- --focus-
  *
  * 规则：
- *   1. 色值只出现在本文件：浅色语义层一律引用 --p-* 原始色阶；
- *      深色语义层给具体值（深色色阶不在浅色 palette 上，避免造一堆单次使用的原始令牌）。
- *      组件与页面**不得**出现任何色值字面值，也**不得**引用 --p-*。
- *   2. 浅色 / 深色语义键必须一一对应（96 个键），少一个就会"静默丢色"。
- *   3. 组件内部量（某个组件自己的 padding / 宽度）不进本文件，
- *      放在对应组件的 CSS 里（见 styles/components.css 顶部的组件令牌块）。
- *   4. 结构与尺寸不随主题变化；主题只重绑语义层。
+ *   1. 色值只出现在本文件。组件与页面**不得**出现任何色值字面值，
+ *      也**不得**引用 --p-*（check:ui 强制）。
+ *   2. 浅色 / 深色语义键必须一一对应，少一个就会"静默丢色"（check:ui 强制）。
+ *   3. 组件内部量不进本文件，放对应组件 CSS 的组件令牌块。
+ *   4. 结构与尺寸不随主题变化；主题只重绑语义层（材质键除外）。
  *
- * 主题切换：<html data-theme="light|dark">，由 features/theme 写入，首屏前应用。
+ * 与 v4 的取值映射（要点）：
+ *   品牌蓝 #2f6bff → #1677ff；墨系文字锚点 #14181f → #0e1a2b（四档前景）；
+ *   分割线三档 → --hair 三档（#e3e7ee / #eef1f5 / #cbd2de）；
+ *   状态色 → v5 ok / warn / bad（实心圆点 + 深一档文字 + 半透明底）；
+ *   代码高亮 → v5 语法色板（GitHub 色板退役）；
+ *   危险实心 #d6362b 压白字 4.76:1，较 v4 再加深半档的历史注记作废。
  *
- * 取值出处：Git Platform Design System V3 §4；其中 4 处按实测对比度修订，
- * 修订明细见 DESIGN_TOKENS_V3.md §3（深色 --fg-subtle、危险 text 变体、
- * 实心状态色不承载文字、边线对比度记录为已知偏离）。
+ * 已知偏离（AGENTS §7）：
+ *   - 字体沿用系统栈（离线部署零外部请求，v4 注记沿用）；
+ *   - 「方格节点 / 语言色 / 提交图泳道」等 v5 图形资产待页面落地时引入，
+ *     本文件先不动（无引用不加键）；
+ *   - 侧栏折叠按钮按 v5 移到侧栏底部，收起宽 72px；
+ *   - 毛玻璃只用于外壳两件（顶栏 / 平台侧栏），页内导航为实色纸页。
+ *
+ * 主题切换：<html data-theme="light|dark">，由 helpers/theme 写入，首屏前应用。
  */
 
 /* ============================ 1. 原始层 Primitives ============================ */
 :root {
-  /* Neutral（slate） */
+  /* Neutral（ink 系，锚定 v5 前景四档 #0e1a2b 起） */
   --p-n-0:   #ffffff;
-  --p-n-25:  #fcfcfd;
-  --p-n-50:  #f8fafc;
-  --p-n-100: #f1f5f9;
-  --p-n-150: #e9eef5;
-  --p-n-200: #e2e8f0;
-  --p-n-300: #cbd5e1;
-  --p-n-400: #94a3b8;
-  --p-n-500: #64748b;
-  --p-n-600: #475569;
-  --p-n-700: #334155;
-  --p-n-800: #1e293b;
-  --p-n-900: #0f172a;
-  --p-n-950: #080e18;
+  --p-n-50:  #f8f9fb;
+  --p-n-100: #eef1f5;
+  --p-n-150: #e3e7ee;
+  --p-n-200: #cbd2de;
+  --p-n-300: #aeb9c9;
+  --p-n-400: #647087;
+  --p-n-500: #56637b;
+  --p-n-600: #3f4b5f;
+  --p-n-700: #2a3446;
+  --p-n-800: #16202f;
+  --p-n-900: #0e1a2b;
+  --p-n-950: #0a1420;
 
-  /* Brand blue */
-  --p-blue-50:  #eff6ff;
-  --p-blue-100: #dbeafe;
-  --p-blue-200: #bfdbfe;
-  --p-blue-300: #93c5fd;
-  --p-blue-400: #60a5fa;
-  --p-blue-500: #3b82f6;
-  --p-blue-600: #2563eb;
-  --p-blue-700: #1d4ed8;
-  --p-blue-800: #1e40af;
-  --p-blue-900: #1e3a8a;
+  /* Brand blue：锚定 #1677ff（v5 主题蓝，不换肤） */
+  --p-blue-50:  #e6f4ff;
+  --p-blue-100: #bae0ff;
+  --p-blue-200: #91caff;
+  --p-blue-300: #69b1ff;
+  --p-blue-400: #4096ff;
+  --p-blue-500: #4096ff;
+  --p-blue-600: #1677ff;
+  --p-blue-700: #0958d9;
+  --p-blue-800: #084ec0;
+  --p-blue-900: #063a94;
 
-  /* Green：成功 / CI 通过 / 已合并 */
-  --p-green-50:  #f0fdf4;
-  --p-green-100: #dcfce7;
-  --p-green-200: #bbf7d0;
-  --p-green-300: #86efac;
-  --p-green-500: #22c55e;
-  --p-green-600: #16a34a;
-  --p-green-700: #15803d;
-  --p-green-800: #166534;
+  /* Green：成功 / 通过（v5 ok 族） */
+  --p-green-50:  #e9f6f2;
+  --p-green-100: #d3efdd;
+  --p-green-200: #bfe3ce;
+  --p-green-300: #8fd2ab;
+  --p-green-400: #3fbf8f;
+  --p-green-500: #16a370;
+  --p-green-600: #0b7f58;
+  --p-green-700: #096545;
 
-  /* Amber：警告 / 待处理 */
-  --p-amber-50:  #fffbeb;
-  --p-amber-100: #fef3c7;
-  --p-amber-200: #fde68a;
-  --p-amber-300: #fcd34d;
-  --p-amber-500: #f59e0b;
-  --p-amber-600: #d97706;
-  --p-amber-700: #b45309;
-  --p-amber-800: #92400e;
+  /* Amber：警告 / 待处理（v5 warn 族） */
+  --p-amber-50:  #fdf3e1;
+  --p-amber-100: #f7e3bd;
+  --p-amber-200: #f0d9a8;
+  --p-amber-300: #f2c063;
+  --p-amber-500: #f29a0d;
+  --p-amber-600: #9a5b00;
+  --p-amber-700: #7a4700;
 
-  /* Red：危险 / 删除 / 失败 */
-  --p-red-50:  #fef2f2;
-  --p-red-100: #fee2e2;
-  --p-red-200: #fecaca;
-  --p-red-300: #fca5a5;
-  --p-red-500: #ef4444;
-  --p-red-600: #dc2626;
-  --p-red-700: #b91c1c;
-  --p-red-800: #991b1b;
+  /* Red：危险 / 删除 / 失败（v5 bad 族，实心 #d6362b 压白字 4.76:1） */
+  --p-red-50:  #fcefee;
+  --p-red-100: #f8d7d5;
+  --p-red-200: #f2c4c4;
+  --p-red-300: #ee9d9d;
+  --p-red-400: #e56a6a;
+  --p-red-500: #d6362b;
+  --p-red-600: #b42318;
+  --p-red-700: #9a1c12;
 
-  /* Violet：合并请求 / 评审元信息 */
-  --p-violet-50:  #f5f3ff;
-  --p-violet-100: #ede9fe;
-  --p-violet-200: #ddd6fe;
-  --p-violet-300: #c4b5fd;
-  --p-violet-500: #8b5cf6;
-  --p-violet-600: #7c3aed;
-  --p-violet-700: #6d28d9;
-
-  /* Teal / Cyan：代码类型色与数据可视化，不承载业务状态语义 */
-  --p-teal-700: #0f766e;
-  --p-cyan-500: #06b6d4;
-  --p-cyan-600: #0891b2;
+  /* Violet：已合并（MR）/ 分类色（v5 s3 / cat3） */
+  --p-violet-50:  #efe6fd;
+  --p-violet-100: #e5dbfd;
+  --p-violet-200: #d7c6f5;
+  --p-violet-300: #c4aef6;
+  --p-violet-400: #a371f7;
+  --p-violet-500: #a06cf2;
+  --p-violet-600: #6b3fc4;
+  --p-violet-700: #56309e;
 }
 
 /* ============================ 2. 语义层 · 浅色 ============================ */
@@ -110,124 +120,105 @@
 :root[data-theme="light"] {
   color-scheme: light;
 
-  /* 表面 */
-  --bg-canvas: var(--p-n-50);
-  --bg-surface: var(--p-n-0);
-  --bg-sunken: var(--p-n-100);
-  --bg-raised: var(--p-n-0);
-  --bg-overlay: var(--p-n-0);
-  --bg-hover: var(--p-n-100);
-  --bg-active: var(--p-n-150);
-  --bg-selected: var(--p-blue-50);
-  --bg-selected-hover: var(--p-blue-100);
-  --bg-inverse: var(--p-n-900);
+  /* 表面：v5 雾白画布 + 纸页（内容浮在雾白上，长文本永远在实色纸页） */
+  --bg-canvas: #f4f6f9;
+  --bg-sheet: var(--p-n-0);
+  --bg-sheet-2: var(--p-n-50);
+  --bg-well: #eceff4;
+  --bg-hover: #f0f3f8;
+  --bg-selected: rgb(22 119 255 / 8%);
+  --bg-subtle: var(--p-n-50);
+  --bg-muted: var(--p-n-150);
+  --bg-inverse: #12203a;
 
-  /* 文字 */
-  --fg-strong: var(--p-n-900);
-  --fg: var(--p-n-700);
-  --fg-muted: var(--p-n-500);
-  --fg-subtle: var(--p-n-400); /* 仅占位符 / 禁用态，不得承载正文 */
-  --fg-disabled: var(--p-n-400);
-  --fg-inverse: var(--p-n-0);
-  --fg-link: var(--p-blue-700);
+  /* 文字：四档层级，禁 opacity */
+  --text-primary: var(--p-n-900);
+  --text-secondary: var(--p-n-600);
+  --text-tertiary: var(--p-n-400);
+  --text-disabled: #9aa4b5;
+  --text-inverse: var(--p-n-0);
 
-  /* 描边 */
-  --bd-subtle: var(--p-n-150);
-  --bd: var(--p-n-200);
-  --bd-strong: var(--p-n-300);
-  --bd-focus: var(--p-blue-600);
+  /* 发丝线三档（v5 --hair） */
+  --line: var(--p-n-150);
+  --line-strong: var(--p-n-200);
 
-  /* 主操作 */
-  --ac-primary: var(--p-blue-600);
-  --ac-primary-hover: var(--p-blue-700);
-  --ac-primary-active: var(--p-blue-800);
-  --ac-primary-fg: var(--p-n-0);
-  --ac-primary-tint: var(--p-blue-50);
-  --ac-primary-border: var(--p-blue-200);
+  /* 品牌动作：#1677ff 固定，文字用深一档的 --p-blue-700（白字压实心 4.1:1 仅限按钮） */
+  --brand: var(--p-blue-600);
+  --brand-hover: var(--p-blue-400);
+  --brand-active: var(--p-blue-700);
+  --brand-subtle: rgb(22 119 255 / 8%);
+  --brand-border: rgb(22 119 255 / 28%);
+  --brand-text: var(--p-blue-700);
 
-  /* 危险操作 */
-  --ac-danger: var(--p-red-600);
-  --ac-danger-hover: var(--p-red-700);
-  --ac-danger-active: var(--p-red-800);
-  --ac-danger-fg: var(--p-n-0);
-  --ac-danger-tint: var(--p-red-50);
-  --ac-danger-border: var(--p-red-200);
+  /* 危险操作：实心 #d6362b（白字 4.76:1），文字深一档 #c42a20 */
+  --danger: var(--p-red-500);
+  --danger-hover: var(--p-red-600);
+  --danger-active: var(--p-red-700);
+  --danger-subtle: rgb(214 54 43 / 10%);
+  --danger-border: rgb(214 54 43 / 30%);
+  --danger-text: #c42a20;
 
-  /* 状态：solid 只做圆点/图标/进度条，文字一律用 -text 压 -tint */
-  --st-success: var(--p-green-600);
-  --st-success-text: var(--p-green-800);
-  --st-success-tint: var(--p-green-50);
-  --st-success-border: var(--p-green-200);
+  /* 状态：solid 只做圆点/图标，文字一律用 -text 压半透明底 */
+  --success: var(--p-green-500);
+  --success-text: var(--p-green-600);
+  --success-subtle: rgb(15 157 110 / 11%);
+  --success-border: rgb(15 157 110 / 28%);
 
-  --st-warning: var(--p-amber-700);
-  --st-warning-text: var(--p-amber-800);
-  --st-warning-tint: var(--p-amber-50);
-  --st-warning-border: var(--p-amber-200);
+  --warning: var(--p-amber-500);
+  --warning-text: var(--p-amber-600);
+  --warning-subtle: rgb(242 154 13 / 15%);
+  --warning-border: rgb(242 154 13 / 38%);
 
-  --st-danger: var(--p-red-600);
-  --st-danger-text: var(--p-red-700);
-  --st-danger-tint: var(--p-red-50);
-  --st-danger-border: var(--p-red-200);
+  --purple: var(--p-violet-500);
+  --purple-text: var(--p-violet-600);
+  --purple-subtle: rgb(160 108 242 / 12%);
+  --purple-border: rgb(160 108 242 / 30%);
 
-  --st-info: var(--p-blue-700);
-  --st-info-text: var(--p-blue-800);
-  --st-info-tint: var(--p-blue-50);
-  --st-info-border: var(--p-blue-200);
-
-  --st-merged: var(--p-violet-600);
-  --st-merged-text: var(--p-violet-700);
-  --st-merged-tint: var(--p-violet-50);
-  --st-merged-border: var(--p-violet-200);
-
-  /* 代码 / diff */
-  --code-bg: var(--p-n-50);
-  --code-gutter-bg: var(--p-n-100);
-  --code-gutter-fg: var(--p-n-500);
-  --code-border: var(--p-n-200);
+  /* 代码 / diff（v5 §3.8：代码底 = 次级纸页；增删行整行实色，行号栏同底） */
+  --code-bg: var(--bg-sheet-2);
+  --code-gutter-bg: var(--bg-sheet-2);
+  --code-gutter-fg: var(--text-tertiary);
+  --code-border: var(--line);
   --diff-add-bg: var(--p-green-50);
-  --diff-add-gutter: var(--p-green-100);
-  --diff-add-word: var(--p-green-200);
+  --diff-add-gutter: var(--p-green-50);
+  --diff-add-word: rgb(15 157 110 / 26%);
   --diff-del-bg: var(--p-red-50);
-  --diff-del-gutter: var(--p-red-100);
-  --diff-del-word: var(--p-red-200);
-  --diff-hunk-bg: var(--p-blue-50);
-  --diff-hunk-fg: var(--p-blue-800);
+  --diff-del-gutter: var(--p-red-50);
+  --diff-del-word: rgb(214 54 43 / 24%);
+  --diff-hunk-bg: var(--bg-sheet-2);
+  --diff-hunk-fg: var(--brand-text);
 
-  /* 语法高亮：只用于代码查看器，不作业务状态色 */
-  --tok-kw: var(--p-violet-600);
-  --tok-str: var(--p-green-700);
-  --tok-num: var(--p-amber-700);
-  --tok-fn: var(--p-blue-700);
-  --tok-com: var(--p-n-500);
-  --tok-type: var(--p-teal-700);
-  --tok-var: var(--p-n-700);
-  --tok-punct: var(--p-n-600);
+  /* 语法高亮：v5 语法色板（--syn-* 对应键；块底 #f8f9fb 上最低 4.8:1） */
+  --tok-kw: #7a3fd0;
+  --tok-str: #0a7550;
+  --tok-num: #9a5b00;
+  --tok-fn: #0958d9;
+  --tok-com: #5a667c;
+  --tok-type: #0f7363;
+  --tok-var: #b02d63;
+  --tok-punct: #3f4b5f;
 
-  /* 图表：不得只用颜色传达信息 */
+  /* 图表：系列色语义固定（v5 s1–s6） */
   --chart-1: var(--p-blue-600);
-  --chart-2: var(--p-cyan-600);
-  --chart-3: var(--p-amber-600);
-  --chart-4: var(--p-red-600);
-  --chart-5: var(--p-violet-600);
-  --chart-6: var(--p-green-600);
+  --chart-2: #19b8a0;
+  --chart-3: var(--p-green-500);
+  --chart-4: var(--p-amber-500);
+  --chart-5: var(--p-violet-500);
+  --chart-6: var(--p-red-500);
   --chart-7: var(--p-blue-400);
-  --chart-8: var(--p-n-500);
+  --chart-8: var(--p-n-400);
 
-  /* 遮罩 / 阴影：只给真正浮起的层 */
-  --scrim: rgb(15 23 42 / 42%);
-  --shadow-1: 0 1px 2px rgb(15 23 42 / 5%);
-  --shadow-2: 0 4px 12px rgb(15 23 42 / 9%);
-  --shadow-3: 0 12px 28px rgb(15 23 42 / 12%);
-  --shadow-4: 0 20px 48px rgb(15 23 42 / 16%);
+  /* 遮罩 / 阴影：v5 --veil 与发丝环系阴影 */
+  --scrim: rgb(14 26 43 / 34%);
+  --shadow-1: 0 1px 2px rgb(14 26 43 / 4%);
+  --shadow-2: 0 8px 22px -10px rgb(14 26 43 / 18%);
+  --shadow-3: 0 4px 10px rgb(14 26 43 / 6%), 0 20px 44px -16px rgb(14 26 43 / 26%);
+  --shadow-4: 0 6px 16px rgb(14 26 43 / 8%), 0 40px 90px -24px rgb(14 26 43 / 38%);
+  --shadow-rail: 0 0 0 1px var(--line), 0 16px 40px -16px rgb(14 26 43 / 18%);
 
-  /* 应用壳层（本期只做白壳；深色下自动跟随） */
-  --chrome-bg: var(--p-n-0);
-  --chrome-fg: var(--p-n-900);
-  --chrome-fg-muted: var(--p-n-500);
-  --chrome-bd: var(--p-n-200);
-  --chrome-hover: var(--p-n-100);
-  --chrome-active: var(--p-blue-50);
-  --chrome-active-fg: var(--p-blue-700);
+  /* 外壳材质：悬浮玻璃侧栏 + 通栏雾面顶栏（v5 §3.7，真模糊只给这两件） */
+  --rail-frost-bg: rgb(255 255 255 / 62%);
+  --topbar-frost-bg: rgb(228 232 239 / 55%);
 
   /* 标题字重：中文 700 在小字号发糊，浅色 600 / 深色 500 */
   --theme-heading-weight: 600;
@@ -238,124 +229,105 @@
 :root[data-theme="dark"] {
   color-scheme: dark;
 
-  /* 表面：多层石墨，不用纯黑 */
-  --bg-canvas: #0b1120;
-  --bg-surface: #111827;
-  --bg-sunken: #0f172a;
-  --bg-raised: #172033;
-  --bg-overlay: #182235;
-  --bg-hover: #1b2638;
-  --bg-active: #243249;
-  --bg-selected: #172b49;
-  --bg-selected-hover: #1d365a;
-  --bg-inverse: #f8fafc;
+  /* 表面：v5 暗色 = 中性黑（无蓝相） */
+  --bg-canvas: #0a0a0b;
+  --bg-sheet: #151517;
+  --bg-sheet-2: #1a1a1d;
+  --bg-well: #0f0f11;
+  --bg-hover: #212124;
+  --bg-selected: rgb(22 119 255 / 18%);
+  --bg-subtle: #1a1a1d;
+  --bg-muted: #212124;
+  --bg-inverse: #f1f2f4;
 
-  /* 文字：柔和浅灰，不用纯白铺正文 */
-  --fg-strong: #e5eaf2;
-  --fg: #c0cad8;
-  --fg-muted: #91a0b5;
-  --fg-subtle: #7b8a9f; /* 修订：V3 原值 #718096 只有 4.42:1 */
-  --fg-disabled: #7b8a9f;
-  --fg-inverse: #0b1120;
-  --fg-link: #8ab4ff;
+  /* 文字 */
+  --text-primary: #f1f2f4;
+  --text-secondary: #c2c4ca;
+  --text-tertiary: #8d9099;
+  --text-disabled: #5d6067;
+  --text-inverse: #111114;
 
-  /* 描边 */
-  --bd-subtle: #202b3d;
-  --bd: #2a374b;
-  --bd-strong: #3b4b63;
-  --bd-focus: #8ab4ff;
+  /* 发丝线 */
+  --line: #29292e;
+  --line-strong: #3f3f46;
 
-  /* 主操作 */
-  --ac-primary: #6d9eff;
-  --ac-primary-hover: #8ab4ff;
-  --ac-primary-active: #a6c6ff;
-  --ac-primary-fg: #0b1120;
-  --ac-primary-tint: rgb(109 158 255 / 13%);
-  --ac-primary-border: rgb(109 158 255 / 34%);
+  /* 品牌动作：主题蓝同值，文字提亮为 --p-blue-300 */
+  --brand: #1677ff;
+  --brand-hover: #4096ff;
+  --brand-active: #0958d9;
+  --brand-subtle: rgb(22 119 255 / 18%);
+  --brand-border: rgb(64 150 255 / 45%);
+  --brand-text: #69b1ff;
 
   /* 危险操作 */
-  --ac-danger: #f87171;
-  --ac-danger-hover: #fca5a5;
-  --ac-danger-active: #fecaca;
-  --ac-danger-fg: #2b0b0b;
-  --ac-danger-tint: rgb(248 113 113 / 13%);
-  --ac-danger-border: rgb(248 113 113 / 34%);
+  --danger: #e5483b;
+  --danger-hover: #f05a4d;
+  --danger-active: #f66a5e;
+  --danger-subtle: rgb(240 68 56 / 15%);
+  --danger-border: rgb(249 112 102 / 32%);
+  --danger-text: #f97066;
 
-  /* 状态 */
-  --st-success: #4ade80;
-  --st-success-text: #86efac;
-  --st-success-tint: rgb(74 222 128 / 12%);
-  --st-success-border: rgb(74 222 128 / 30%);
+  /* 状态：半透明底叠加 */
+  --success: #47cd89;
+  --success-text: #47cd89;
+  --success-subtle: rgb(23 178 106 / 15%);
+  --success-border: rgb(71 205 137 / 30%);
 
-  --st-warning: #fbbf24;
-  --st-warning-text: #fcd34d;
-  --st-warning-tint: rgb(251 191 36 / 12%);
-  --st-warning-border: rgb(251 191 36 / 30%);
+  --warning: #fdb022;
+  --warning-text: #fdb022;
+  --warning-subtle: rgb(247 144 9 / 15%);
+  --warning-border: rgb(253 176 34 / 32%);
 
-  --st-danger: #f87171;
-  --st-danger-text: #fca5a5;
-  --st-danger-tint: rgb(248 113 113 / 12%);
-  --st-danger-border: rgb(248 113 113 / 30%);
+  --purple: #b58cff;
+  --purple-text: #c5a8ff;
+  --purple-subtle: rgb(181 140 255 / 14%);
+  --purple-border: rgb(181 140 255 / 30%);
 
-  --st-info: #8ab4ff;
-  --st-info-text: #a6c6ff;
-  --st-info-tint: rgb(138 180 255 / 12%);
-  --st-info-border: rgb(138 180 255 / 30%);
+  /* 代码 / diff：单独定义，不套浅色 */
+  --code-bg: #1a1a1d;
+  --code-gutter-bg: #1a1a1d;
+  --code-gutter-fg: #8d9099;
+  --code-border: #29292e;
+  --diff-add-bg: #152b23;
+  --diff-add-gutter: #152b23;
+  --diff-add-word: rgb(23 178 106 / 34%);
+  --diff-del-bg: #341c1c;
+  --diff-del-gutter: #341c1c;
+  --diff-del-word: rgb(240 68 56 / 36%);
+  --diff-hunk-bg: #1a1a1d;
+  --diff-hunk-fg: #69b1ff;
 
-  --st-merged: #b69cff;
-  --st-merged-text: #c8b5ff;
-  --st-merged-tint: rgb(182 156 255 / 12%);
-  --st-merged-border: rgb(182 156 255 / 30%);
-
-  /* 代码 / diff：必须单独定义，不能套浅色 */
-  --code-bg: #0f172a;
-  --code-gutter-bg: #111c2e;
-  --code-gutter-fg: #91a0b5;
-  --code-border: #2a374b;
-  --diff-add-bg: rgb(34 197 94 / 10%);
-  --diff-add-gutter: rgb(34 197 94 / 17%);
-  --diff-add-word: rgb(34 197 94 / 24%);
-  --diff-del-bg: rgb(248 113 113 / 10%);
-  --diff-del-gutter: rgb(248 113 113 / 17%);
-  --diff-del-word: rgb(248 113 113 / 24%);
-  --diff-hunk-bg: rgb(109 158 255 / 12%);
-  --diff-hunk-fg: #a6c6ff;
-
-  /* 语法高亮 */
-  --tok-kw: #c4a7ff;
-  --tok-str: #86efac;
-  --tok-num: #fcd34d;
-  --tok-fn: #8ab4ff;
-  --tok-com: #91a0b5;
-  --tok-type: #5eead4;
-  --tok-var: #c0cad8;
-  --tok-punct: #a9b6c8;
+  /* 语法高亮：v5 暗色语法色板（块底 #1a1a1d 上最低 5.4:1） */
+  --tok-kw: #c5a8ff;
+  --tok-str: #47cd89;
+  --tok-num: #fdb022;
+  --tok-fn: #69b1ff;
+  --tok-com: #999ba2;
+  --tok-type: #7fe0cf;
+  --tok-var: #f5a3c2;
+  --tok-punct: #c2c4ca;
 
   /* 图表 */
-  --chart-1: #8ab4ff;
-  --chart-2: #5eead4;
-  --chart-3: #fbbf24;
-  --chart-4: #f87171;
-  --chart-5: #b69cff;
-  --chart-6: #4ade80;
-  --chart-7: #60a5fa;
-  --chart-8: #91a0b5;
+  --chart-1: #1677ff;
+  --chart-2: #2fd4bc;
+  --chart-3: #47cd89;
+  --chart-4: #fdb022;
+  --chart-5: #b58cff;
+  --chart-6: #f97066;
+  --chart-7: #4096ff;
+  --chart-8: #6f7278;
 
-  /* 遮罩 / 阴影：深色下弱化阴影，靠表面提亮 + 描边表达层级 */
+  /* 遮罩 / 阴影：深色弱化阴影，靠表面提亮 + 描边表达层级 */
   --scrim: rgb(0 0 0 / 62%);
-  --shadow-1: 0 1px 2px rgb(0 0 0 / 18%);
-  --shadow-2: 0 4px 12px rgb(0 0 0 / 24%);
-  --shadow-3: 0 12px 28px rgb(0 0 0 / 30%);
-  --shadow-4: 0 20px 48px rgb(0 0 0 / 38%);
+  --shadow-1: 0 1px 2px rgb(0 0 0 / 30%);
+  --shadow-2: 0 10px 26px -10px rgb(0 0 0 / 60%);
+  --shadow-3: 0 4px 10px rgb(0 0 0 / 40%), 0 22px 48px -16px rgb(0 0 0 / 70%);
+  --shadow-4: 0 6px 16px rgb(0 0 0 / 45%), 0 44px 96px -24px rgb(0 0 0 / 80%);
+  --shadow-rail: 0 0 0 1px var(--line), 0 16px 40px -16px rgb(0 0 0 / 55%);
 
-  /* 应用壳层 */
-  --chrome-bg: #111827;
-  --chrome-fg: #e5eaf2;
-  --chrome-fg-muted: #91a0b5;
-  --chrome-bd: #2a374b;
-  --chrome-hover: #1b2638;
-  --chrome-active: #172b49;
-  --chrome-active-fg: #a6c6ff;
+  /* 外壳材质（暗色） */
+  --rail-frost-bg: rgb(24 24 27 / 58%);
+  --topbar-frost-bg: rgb(12 12 14 / 50%);
 
   /* 深色标题降一档，避免中文发糊 */
   --theme-heading-weight: 500;
@@ -364,7 +336,10 @@
 
 /* ============================ 4. 尺寸层 ============================ */
 :root {
-  /* 间距：4px 基准的 12 级阶梯 */
+  /*
+   * 间距阶梯：沿用 12 级（2–64px，含 2/6/20/40 微步），覆盖 v5 §3.3
+   * 全部锚点值（4 8 12 16 20 24 32 40 48）；96px 大节距由页面令牌承担。
+   */
   --sp-1: 2px;
   --sp-2: 4px;
   --sp-3: 6px;
@@ -378,27 +353,24 @@
   --sp-11: 48px;
   --sp-12: 64px;
   --sp-gutter: 24px;
-  --sp-section: 32px;
+  --sp-section: 24px;
 
-  /* 圆角：控件 6 / 容器 8 / 浮层 12 */
-  --r-xs: 2px;
-  --r-sm: 4px;
-  --r-md: 6px;
-  --r-lg: 8px;
-  --r-xl: 12px;
-  --r-2xl: 16px;
+  /* 圆角：v5 §3.2 —— 控件 8 / 纸页·浮层 12 / 主角 16 / 胶囊 full（档位 2/4/6 归组件令牌） */
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
   --r-full: 9999px;
 
-  /* 字号阶梯 */
-  --fs-11: 11px;
-  --fs-12: 12px;
-  --fs-13: 13px;
-  --fs-14: 14px;
-  --fs-16: 16px;
-  --fs-18: 18px;
-  --fs-20: 20px;
-  --fs-24: 24px;
-  --fs-30: 30px;
+  /* 字号阶梯（v5 §3.4：页面标题 24 / 区块 16 / 正文 14 / 辅助 12 / 代码 13） */
+  --fs-display: 52px;
+  --fs-h1: 24px;
+  --fs-h2: 20px;
+  --fs-h3: 16px;
+  --fs-lg: 18px;
+  --fs-body: 14px;
+  --fs-small: 13px;
+  --fs-caption: 12px;
+  --fs-code: 13px;
 
   --fw-regular: 400;
   --fw-medium: 500;
@@ -410,17 +382,17 @@
   --lh-normal: 1.5;
   --lh-prose: 1.7;
 
-  /* 系统字体栈：不联网下载字体（离线部署零额外请求） */
+  /* 系统字体栈：不联网下载字体（离线部署零额外请求；v5 §14.2 回退口径） */
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display",
-    "PingFang SC", "苹方", "Noto Sans SC", "Microsoft YaHei", "微软雅黑",
+    "PingFang SC", "苹方", "HarmonyOS Sans SC", "Noto Sans SC", "Microsoft YaHei", "微软雅黑",
     "Segoe UI", Roboto, sans-serif;
   --font-mono: ui-monospace, "SFMono-Regular", "SF Mono", "Cascadia Code",
     "JetBrains Mono", Consolas, "Liberation Mono", Menlo, monospace;
 
-  /* 控件 */
-  --ctl-h-sm: 28px;
-  --ctl-h: 34px;
-  --ctl-h-lg: 40px;
+  /* 控件：v5 §3.3 —— sm 30 / md 36 / lg 42 */
+  --ctl-h-sm: 30px;
+  --ctl-h: 36px;
+  --ctl-h-lg: 42px;
   --ctl-px: 12px;
   --ctl-px-lg: 16px;
   --ctl-min-w: 104px;
@@ -428,59 +400,85 @@
   --ctl-icon-size: 16px;
   --ctl-border-width: 1px;
 
-  /* 表格 */
-  --row-h: 42px;
+  /* 列表行：v5 §3.3 —— 默认 48（提交 / 文件 / 分支行），紧凑 40；仓库行 64 走组件令牌 */
+  --row-h: 48px;
+  --row-h-compact: 40px;
   --cell-px: 12px;
 
-  /* 标签页 */
-  --tab-h: 40px;
+  /* 标签页（v5 下划线 Tabs 高 44） */
+  --tab-h: 44px;
   --tab-px: 24px;
 
   /* 图标 */
   --icon-xs: 12px;
   --icon-sm: 14px;
   --icon: 16px;
-  --icon-lg: 20px;
+  --icon-lg: 18px;
   --icon-xl: 24px;
-  --icon-btn-hit: 32px;
+  --icon-btn-hit: 36px;
 
-  /* 焦点：输入框只变边框（--bd-focus），其余交互元素用 2px 描边环 */
+  /* 焦点：输入框只变边框（--brand），其余交互元素用 2px 描边环（AGENTS §5.8） */
   --focus-w: 2px;
   --focus-offset: 2px;
-  --focus-ring: var(--bd-focus);
+  --focus-ring: var(--brand);
 
-  /* 布局骨架 */
-  --layout-side: 232px;
-  --layout-side-collapsed: 64px;
+  /* 布局骨架：v5 —— 悬浮玻璃侧栏 224（收起 72）+ 通栏顶栏 56；内容最大 1680 */
+  --layout-side: 224px;
+  --layout-side-collapsed: 72px;
   --layout-header: 56px;
   --layout-toolbar: 48px;
-  --layout-content-max: 1600px;
-  --layout-prose-max: 760px;
-  --layout-page-px: 32px;
+  --layout-content-max: 1680px;
+  --layout-code-max: 1680px;
+  --layout-prose-max: 880px;
+  --layout-page-px: 28px;
   --layout-page-py: 28px;
 
-  /* 浮层尺寸 */
-  --dialog-max-w: 600px;
+  /* 平台侧栏（v5 §4.1）：悬浮 12px 内距 + 侧栏与内容 12px 间距 */
+  --rail-edge: 12px;
+  --rail-gap: 12px;
+  --rail-current: calc(var(--layout-side) + var(--rail-edge) + var(--rail-gap));
+  --rail-current-collapsed: calc(var(--layout-side-collapsed) + var(--rail-edge) + var(--rail-gap));
 
-  /* 动效：硬上限 220ms（V3 §8），禁止 transition: all */
+  /* 毛玻璃模糊半径（只给顶栏 / 平台侧栏两件） */
+  --frost-blur-rail: 28px;
+  --frost-blur-topbar: 32px;
+
+  /* 浮层尺寸：Dialog 宽度档 sm 400 / md 560 / lg 720 见组件令牌块 */
+  --dialog-max-w: 720px;
+
+  /* 动效：仅 opacity/transform，120–200ms，ease-out */
   --dur-instant: 0ms;
-  --dur-fast: 100ms;
+  --dur-fast: 120ms;
   --dur: 160ms;
-  --dur-slow: 220ms;
-  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --dur-slow: 200ms;
+  --ease-standard: ease-out;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-linear: linear;
 
-  /* 层级 */
+  /* 层级：v5 侧栏压过顶栏（rail 110 > topbar 100） */
   --z-base: 0;
-  --z-sticky: 10;
+  --z-raised: 1; /* 组件内部局部堆叠（角标压头像等），不参与全局层级 */
   --z-header: 100;
-  --z-dropdown: 500;
-  --z-drawer: 800;
-  --z-overlay: 1000;
-  --z-dialog: 1100;
-  --z-toast: 1200;
-  --z-tooltip: 1300;
+  --z-rail: 110;
+  --z-sticky: 200;
+  --z-dropdown: 300;
+  --z-overlay: 390;   /* Dialog / Drawer 的遮罩层 */
+  --z-dialog: 400;
+  --z-drawer: 420;
+  --z-tooltip: 460;
+  --z-toast: 500;
+}
+
+/* 用户折叠平台侧栏（PlatformSidebar 写入 <html data-rail>） */
+:root[data-rail="collapsed"] {
+  --rail-current: var(--rail-current-collapsed);
+}
+
+/* <1200 侧栏强制收起（v5 §13.5） */
+@media (max-width: 1199px) {
+  :root {
+    --rail-current: var(--rail-current-collapsed);
+  }
 }
 
 /* ============================ 5. 减少动效 ============================ */

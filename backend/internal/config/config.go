@@ -123,6 +123,26 @@ type Site struct {
 	SSH           string `yaml:"ssh"`
 	AllowRegister bool   `yaml:"allowRegister"`
 	Email         Email  `yaml:"email"`
+	// SiteName 是站点显示名（管理界面可改）；为空时各处回退 "CodeFever"。
+	SiteName string `yaml:"siteName"`
+	// SMTP 是发信服务器配置（管理界面可改）；host/port/username/from
+	// 为空时回落到 CODEFEVER_SMTP_* 环境变量（见 mailer.FromConfig）。
+	SMTP SMTP `yaml:"smtp"`
+}
+
+// SMTP 是 SMTP 发信配置（config.yaml 的 smtp 段）。
+//
+// Password 只写不回读：/api/admin/config 的 GET 会把该键抹成空串，
+// 避免"能看后台配置就能看到 SMTP 口令"。
+type SMTP struct {
+	Host     string `yaml:"host"`
+	Port     int    `yaml:"port"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+	From     string `yaml:"from"`
+	// SSL 为 true 时直接以 TLS 连接（465 端口的常见形态）；
+	// 否则按端口自动协商 STARTTLS。
+	SSL bool `yaml:"ssl"`
 }
 
 // Email 是发件人配置。

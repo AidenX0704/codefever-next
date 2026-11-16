@@ -2,16 +2,15 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router'
 
 import type { CurrentUser, RepositoryConfig, RepositoryListItem } from '@/api/types'
+import { starRepository, unstarRepository } from '@/api/repository'
 import { AppLink } from '@/components/unit/AppLink'
 import { Avatar } from '@/components/unit/Avatar'
 import { Button } from '@/components/unit/Button'
-import { CopyButton } from '@/components/unit/CopyButton'
+import { CloneBox } from '@/components/unit/CloneBox'
 import { Icon } from '@/components/unit/Icon'
-import { Tabs } from '@/components/unit/Tabs'
 import { Tag } from '@/components/unit/Tag'
-import { TextField } from '@/components/unit/TextField'
-import { plFork, plMerge, psBranch, psCommit, psFile, psMembers, psTag } from '@/config/icons'
-import { cloneUrls } from '@/helpers/cloneUrl'
+import { useToast } from '@/components/unit/Toast'
+import { forkIcon, plMerge, psBranch, psCommit, psFile, psMembers, psTag, starIcon } from '@/config/icons'
 import { formatBytes } from '@/helpers/format'
 import { useT } from '@/i18n'
 
@@ -25,28 +24,39 @@ export interface RepositoryHeaderProps {
   forkSource?: RepositoryListItem | null
 }
 
-type CloneTab = 'https' | 'ssh'
-
 /**
- * 仓库页头部（对应旧版 `components/unit/RepositoryDashboard.js`）。
+ * 仓库页头部（DESIGN.md §7.5 二级头部）。
  *
  * 三块内容：
  *   1. 身份区：头像 + 组名/显示名 + 描述 + **fork 来源链接**；
- *   2. 操作区：**Fork 按钮 + fork 数**、**克隆地址（HTTPS / SSH + 复制）**；
- *   3. 计数条：提交 / 分支 / 标签 / **仓库体积** / **未合并 MR** / 成员数。
+ *   2. 操作区：**Star 计数按钮**（fill 表已标星）、**Fork 按钮 + fork 数**、
+ *      **克隆按钮**（展开 CloneBox，SSH|HTTPS 分段）；
+ *   3. 计数条：提交 / 分支 / 标签 / 仓库体积 / 未合并 MR / 成员数。
  *
- * 数据全部来自 `repository/config`（fork 数与未合并 MR 数在后端已随 config 下发，
- * 见 `backend/internal/handlers/repository.go` 的 config 处理）。
+ * 数据全部来自 `repository/config`（v4 起 config 含 starCount / starred）。
  */
 export function RepositoryHeader({ config, user, forkSource }: RepositoryHeaderProps) {
   const t = useT()
   const navigate = useNavigate()
+  const toast = useToast()
   const [cloneOpen, setCloneOpen] = useState(false)
-  const [cloneTab, setCloneTab] = useState<CloneTab>('https')
+  // 星标字段在 config **顶层**（与 list 的列表项不同层级，见 types.ts 注记）。
+  const [starred, setStarred] = useState(Boolean(config.starred))
+  const [starCount, setStarCount] = useState(config.starCount ?? 0)
 
-  // 克隆地址的拼装口径已上收到 `helpers/cloneUrl`（首页也要用同一份），这里只选协议。
-  const urls = cloneUrls(user, config.group.name, config.repository.name)
-  const cloneUrl = cloneTab === 'https' ? urls.https : urls.ssh
+  const toggleStar = async () => {
+    const next = !starred
+    setStarred(next)
+    setStarCount((count) => count + (next ? 1 : -1))
+    try {
+      await (next ? starRepository(config.repository.id) : unstarRepository(config.repository.id))
+    } catch {
+      setStarred(!next)
+      setStarCount((count) => count + (next ? -1 : 1))
+      toast.error(t('star.failed'))
+    }
+  }
+
   return (
     <div className="repo-head">
       <div className="repo-head__top">
@@ -72,9 +82,18 @@ export function RepositoryHeader({ config, user, forkSource }: RepositoryHeaderP
         </div>
 
         <div className="repo-head__actions">
+          <button
+            type="button"
+            className={`repo-head__star${starred ? ' repo-head__star--on' : ''}`}
+            aria-pressed={starred}
+            onClick={toggleStar}
+          >
+            <Icon icon={starIcon} size={16} weight={starred ? 'fill' : 'regular'} />
+            <span className="repo-head__star-count">{starCount}</span>
+          </button>
           <Button
             variant="outlined"
-            startIcon={<Icon icon={plFork} size={16} />}
+            startIcon={<Icon icon={forkIcon} size={16} />}
             onClick={() => navigate(`/repositories/fork/${config.repository.id}`)}
           >
             {t('label.fork')}
@@ -88,25 +107,7 @@ export function RepositoryHeader({ config, user, forkSource }: RepositoryHeaderP
         </div>
       </div>
 
-      {cloneOpen ? (
-        <div className="repo-clone">
-          <Tabs
-            items={[
-              { key: 'https', label: t('label.https') },
-              { key: 'ssh', label: t('label.ssh') },
-            ]}
-            value={cloneTab}
-            onChange={setCloneTab}
-          />
-          <p className="repo-clone__hint">
-            {cloneTab === 'https' ? t('message.differenceBetweenHTTPSAndSSH') : t('message.generateAndSetSSHKey')}
-          </p>
-          <div className="repo-clone__row">
-            <TextField containerClassName="repo-clone__field" readOnly value={cloneUrl} />
-            <CopyButton text={cloneUrl} label={t('label.copy')} />
-          </div>
-        </div>
-      ) : null}
+      {cloneOpen ? <CloneBox user={user} groupName={config.group.name} repositoryName={config.repository.name} /> : null}
 
       <div className="repo-head__stats">
         <Stat icon={psCommit} label={t('label.commit')} value={config.count.commit} />

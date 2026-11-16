@@ -1,19 +1,22 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router'
+import { useNavigate, useParams } from 'react-router'
 
 import { ApiError } from '@/api/client'
 import {
+  addMergeRequestComment,
   assignReviewer,
   checkMergeType,
   closeMergeRequest,
   deleteReviewer,
   fetchMergeRequestChanges,
+  fetchMergeRequestComments,
   fetchMergeRequestCommits,
   fetchMergeRequestDetail,
   fetchMergeRequestVersionList,
   fetchRepositoryActivities,
   mergeMergeRequest,
   reviewMergeRequest,
+  type MRComment,
 } from '@/api/repository'
 import type {
   ActivityItem,
@@ -25,25 +28,28 @@ import type {
   MergeRequestVersionList,
   RepositoryMember,
 } from '@/api/types'
+import { AppLink } from '@/components/unit/AppLink'
 import { Avatar } from '@/components/unit/Avatar'
 import { Button } from '@/components/unit/Button'
 import { Checkbox } from '@/components/unit/Choices'
 import { useConfirm } from '@/components/unit/Confirm'
 import { DiffViewer } from '@/components/unit/DiffViewer'
 import { FormattedTime } from '@/components/unit/FormattedTime'
+import { Icon } from '@/components/unit/Icon'
 import { Loading } from '@/components/unit/Loading'
 import { SelectField } from '@/components/unit/SelectField'
 import { Tabs } from '@/components/unit/Tabs'
-import { Tag } from '@/components/unit/Tag'
-import { TextField } from '@/components/unit/TextField'
+import { Tag, type TagTone } from '@/components/unit/Tag'
+import { TextField, TextareaField } from '@/components/unit/TextField'
 import { useToast } from '@/components/unit/Toast'
+import { arrowRightIcon, caretDownIcon, checkCircleIcon, closeIcon, lockIcon, warningCircleIcon } from '@/config/icons'
 import { Role } from '@/config/uac'
 import { useAppData } from '@/features/app-data/AppDataProvider'
 import { useRepository } from '@/features/repository/RepositoryProvider'
 import { useT } from '@/i18n'
 
 
-type DetailTab = 'diff' | 'commits' | 'activities'
+type DetailTab = 'diff' | 'commits' | 'discussion' | 'activities'
 
 /**
  * 合并请求详情（`/{组}/{仓库}/mergerequests/{编号}`）。
@@ -83,6 +89,11 @@ export default function MergeRequestDetail() {
   const [showCommitInput, setShowCommitInput] = useState(false)
   const [conflict, setConflict] = useState(false)
   const [reviewerToAdd, setReviewerToAdd] = useState('')
+  const [comments, setComments] = useState<MRComment[]>([])
+  const [commentDraft, setCommentDraft] = useState('')
+  const [commentBusy, setCommentBusy] = useState(false)
+  /** 合并后同时删除源分支（v4：deleteSourceBranch 参数）。 */
+  const [deleteSourceBranch, setDeleteSourceBranch] = useState(false)
 
   const base = `/${groupName}/${repositoryName}`
   const number = Number(mid)
@@ -143,7 +154,7 @@ export default function MergeRequestDetail() {
         setMergeMessage(info.title)
         await loadDiff(info)
 
-        const [versionList, commitList, activityList] = await Promise.all([
+        const [versionList, commitList, activityList, commentList] = await Promise.all([
           fetchMergeRequestVersionList(info.id).catch(() => null),
           fetchMergeRequestCommits({
             mergeRequestKey: info.id,
@@ -156,6 +167,7 @@ export default function MergeRequestDetail() {
             repositoryKey: info.targetRepository,
             mergeRequestKey: info.id,
           }).catch(() => [] as ActivityItem[]),
+          fetchMergeRequestComments(info.id).catch(() => [] as MRComment[]),
         ])
         if (cancelled) {
           return
@@ -165,6 +177,7 @@ export default function MergeRequestDetail() {
         setEndHash(versionList?.baseVersion ?? '')
         setCommits(commitList)
         setActivities(activityList)
+        setComments(commentList)
       })
       .catch((error: unknown) => toast.error(error instanceof Error ? error.message : t('base_error_message')))
       .finally(() => {
@@ -184,6 +197,21 @@ export default function MergeRequestDetail() {
     }
     return detail.status === 2 ? t('label.mrStatusMerged') : detail.status === 3 ? t('label.mrStatusClosed') : t('label.mrStatusPending')
   }, [detail, t])
+
+  /** v5 §11.2 词表：开放=info、已合并=success、已关闭=default。 */
+  const statusTone = (status: number): TagTone => {
+    if (status === 2) return 'success'
+    if (status === 3) return 'default'
+    return 'info'
+  }
+
+  /** 分支的提交列表链接：`/{组}/{仓库}/commits?rev={分支}`（同 MergeRequestRow）。 */
+  const commitsHref = (repo: { group: { name: string }; name: string } | null | undefined, branch: string) =>
+    repo ? `/${repo.group.name}/${repo.name}/commits?rev=${encodeURIComponent(branch)}` : ''
+  const sourceHref = detail ? commitsHref(detail.sourceRepoInfo, detail.sourceBranch) : ''
+  const targetHref = detail ? commitsHref(targetRepository, detail.targetBranch) : ''
+  const reviewersApproved = detail ? detail.reviewers.filter((reviewer) => reviewer.isReview).length : 0
+  const minReviewersRequired = targetRepository?.minReviewers ?? 0
 
   const reload = () => {
     if (!summary || !Number.isFinite(number)) {
@@ -278,7 +306,7 @@ export default function MergeRequestDetail() {
     if (!detail) {
       return false
     }
-    const result = await mergeMergeRequest(detail.id, message, squash)
+    const result = await mergeMergeRequest(detail.id, message, squash, deleteSourceBranch)
     if (result.conflict) {
       // 后端冲突时返回 {"conflict":true} 且 code=0，不是错误码，必须自己判断。
       setConflict(true)
@@ -286,6 +314,25 @@ export default function MergeRequestDetail() {
       return false
     }
     return true
+  }
+
+  /** 发表讨论（成功后本地追加，避免整页刷新）。 */
+  const submitComment = async () => {
+    const body = commentDraft.trim()
+    if (!detail || !body) {
+      return
+    }
+    setCommentBusy(true)
+    try {
+      await addMergeRequestComment(detail.id, body)
+      const list = await fetchMergeRequestComments(detail.id)
+      setComments(list)
+      setCommentDraft('')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : t('base_error_message'))
+    } finally {
+      setCommentBusy(false)
+    }
   }
 
   const merge = async () => {
@@ -368,62 +415,58 @@ export default function MergeRequestDetail() {
       {loading ? <Loading /> : null}
 
       {detail ? (
-        <div className="cf-mr-layout">
-          <div className="cf-mr-layout__main">
-            <section className="section">
-              <div className="stack">
-                <div className="row">
-                  <span className="repo-head__title">
-                    #{detail.number} {detail.title}
-                  </span>
-                  <Tag tone={detail.status === 2 ? 'success' : detail.status === 3 ? 'danger' : 'primary'}>{statusLabel}</Tag>
-                </div>
-                <div className="row">
-                  <Avatar size="sm" src={submitter?.icon ? `/file/fetch/avatar/${submitter.icon}` : undefined} name={submitter?.name} />
-                  <span className="muted">{submitter?.name}</span>
-                  <span className="muted">
-                    {t('label.createdAt')}: <FormattedTime timestamp={Number(detail.create)} absolute />
-                  </span>
-                </div>
-                <div className="row">
-                  <Tag tone="primary">{detail.sourceBranch}</Tag>
-                  <span className="muted">→</span>
-                  <Tag>{detail.targetBranch}</Tag>
-                  <Link className="cf-link" to={`${base}/files`}>
-                    {t('label.openFileTree')}
-                  </Link>
-                </div>
-                {detail.description ? <div className="markdown-body">{detail.description}</div> : null}
-                {detail.status === 1 ? (
-                  <div className="row">
-                    <Button variant="outlined" loading={busy} onClick={review}>
-                      {t('label.review')}
-                    </Button>
-                    <Button variant="contained" onClick={merge} loading={busy}>
-                      {t('label.merge')}
-                    </Button>
-                    <Button variant="outlined" tone="danger" onClick={close}>
-                      {t('label.closeMergeRequest')}
-                    </Button>
+        <div className="cf-mr-detail">
+          {/* v5 §6 G9 头部纸页：标题 20/600 + #编号 + 状态胶囊 + 编辑/关闭；说明行 = 作者头像 + 分支芯片 + 仓库标签。 */}
+          <header className="cf-mr-detail__head">
+            <div className="cf-mr-detail__titlerow">
+              <h1 className="cf-mr-detail__title">{detail.title}</h1>
+              <span className="cf-mr-detail__number">#{detail.number}</span>
+              <Tag tone={statusTone(detail.status)} className="cf-mr-detail__status">{statusLabel}</Tag>
+              <span className="cf-mr-detail__spacer" />
+              {detail.status === 1 ? (
+                <>
+                  <Button variant="text" onClick={review} loading={busy}>{t('label.review')}</Button>
+                  <Button variant="text" tone="danger" onClick={close} loading={busy}>{t('label.closeMergeRequest')}</Button>
+                </>
+              ) : null}
+            </div>
+            <div className="cf-mr-detail__metarow">
+              <Avatar size="sm" src={submitter?.icon ? `/file/fetch/avatar/${submitter.icon}` : undefined} name={submitter?.name} />
+              <span className="cf-mr-detail__meta-text">{submitter?.name}</span>
+              <span className="cf-mr-detail__meta-text">{t('label.createdAt')}: <FormattedTime timestamp={Number(detail.create)} absolute /></span>
+              <span className="cf-mr-row__chip">
+                {sourceHref ? <AppLink to={sourceHref} title={detail.sourceBranch}>{detail.sourceBranch}</AppLink> : detail.sourceBranch}
+              </span>
+              <Icon icon={arrowRightIcon} size={12} className="cf-mr-row__arrow" />
+              <span className="cf-mr-row__chip">
+                {targetHref ? <AppLink to={targetHref} title={detail.targetBranch}>{detail.targetBranch}</AppLink> : detail.targetBranch}
+              </span>
+            </div>
+            {detail.description ? (
+              <div className="cf-mr-detail__desc markdown-body">{detail.description}</div>
+            ) : null}
+            <Tabs<DetailTab>
+              value={tab}
+              onChange={setTab}
+              items={[
+                { key: 'diff', label: `${t('label.codeDiff')}(${files.length})` },
+                { key: 'commits', label: `${t('label.commitActivity')}(${commits.length})` },
+                { key: 'discussion', label: `${t('label.discussion')}(${comments.length})`, count: comments.length },
+                { key: 'activities', label: `${t('label.mergeRequestActivity')}(${activities.length})` },
+              ]}
+            />
+          </header>
+
+          {/* v5 §6 G9：MergeBox 在时间线之前（可合并态给分体按钮，阻塞态给原因清单）。 */}
+          {detail.status === 1 ? (
+            <section className="cf-mergebox">
+              {conflict ? (
+                <>
+                  <div className="cf-mergebox__headline cf-mergebox__headline--bad">
+                    <Icon icon={closeIcon} size={16} />
+                    {t('message.mergeConflictTitle')}
                   </div>
-                ) : null}
-                {showCommitInput && detail.status === 1 ? (
-                  <div className="row">
-                    <TextField
-                      value={mergeMessage}
-                      onChange={(event) => setMergeMessage(event.target.value)}
-                      placeholder={t('message.inputMergeCommit')}
-                    />
-                    <Checkbox
-                      label={t('label.usingSquash')}
-                      checked={usingSquash}
-                      onChange={(event) => setUsingSquash(event.target.checked)}
-                    />
-                  </div>
-                ) : null}
-                {conflict ? (
-                  <div className="stack">
-                    <div className="section__title">{t('message.mergeConflictTitle')}</div>
+                  <div className="cf-mergebox__hint">
                     <div className="muted">{t('message.mergeConflictTip1')}</div>
                     <pre className="webhook-log">git fetch origin{`\n`}git checkout -b {detail.sourceBranch} origin/{detail.sourceBranch}</pre>
                     <div className="muted">{t('message.mergeConflictTip2')}</div>
@@ -432,20 +475,56 @@ export default function MergeRequestDetail() {
                       {`git fetch origin\ngit checkout origin/${detail.targetBranch}\ngit merge origin/${detail.sourceBranch}`}
                     </pre>
                   </div>
-                ) : null}
+                </>
+              ) : minReviewersRequired > 0 && reviewersApproved < minReviewersRequired ? (
+                <div className="cf-mergebox__headline cf-mergebox__headline--warn">
+                  <Icon icon={warningCircleIcon} size={16} />
+                  {t('message.mergeBlocked', { n: minReviewersRequired - reviewersApproved })}
+                </div>
+              ) : (
+                <div className="cf-mergebox__headline cf-mergebox__headline--ok">
+                  <Icon icon={checkCircleIcon} size={16} />
+                  {t('message.mergeReady')}
+                </div>
+              )}
+              <div className="cf-mergebox__options">
+                <Checkbox
+                  label={t('label.usingSquash')}
+                  checked={usingSquash}
+                  onChange={(event) => setUsingSquash(event.target.checked)}
+                />
+                <Checkbox
+                  label={t('label.deleteSourceBranch')}
+                  checked={deleteSourceBranch}
+                  onChange={(event) => setDeleteSourceBranch(event.target.checked)}
+                />
+                <span className="cf-mergebox__spacer" />
+                {conflict || (minReviewersRequired > 0 && reviewersApproved < minReviewersRequired) ? (
+                  <Button variant="outlined" disabled>
+                    <Icon icon={lockIcon} size={14} />
+                    {t('label.merge')}
+                    <Icon icon={caretDownIcon} size={14} />
+                  </Button>
+                ) : showCommitInput ? (
+                  <>
+                    <TextField
+                      value={mergeMessage}
+                      onChange={(event) => setMergeMessage(event.target.value)}
+                      placeholder={t('message.inputMergeCommit')}
+                    />
+                    <Button variant="contained" onClick={merge} loading={busy}>{t('label.merge')}</Button>
+                  </>
+                ) : (
+                  <Button variant="contained" onClick={merge} loading={busy}>
+                    {t('label.merge')}
+                  </Button>
+                )}
               </div>
             </section>
+          ) : null}
 
-            <Tabs<DetailTab>
-              value={tab}
-              onChange={setTab}
-              items={[
-                { key: 'diff', label: `${t('label.codeDiff')}(${files.length})` },
-                { key: 'commits', label: `${t('label.commitActivity')}(${commits.length})` },
-                { key: 'activities', label: `${t('label.mergeRequestActivity')}(${activities.length})` },
-              ]}
-            />
-
+          <div className="cf-mr-detail__body">
+            <div className="cf-mr-detail__main">
             {tab === 'diff' ? (
               <section className="section">
                 {startOptions.length > 0 && endOptions.length > 0 ? (
@@ -492,6 +571,51 @@ export default function MergeRequestDetail() {
               </section>
             ) : null}
 
+            {tab === 'discussion' ? (
+              <section className="section">
+                <div className="stack">
+                  {comments.length === 0 ? <div className="muted">{t('discussion.empty')}</div> : null}
+                  {comments.map((comment) => {
+                    const author = memberOf(comment.author.id)
+                    return (
+                      <div className="mr-comment" key={comment.id}>
+                        <Avatar
+                          size="sm"
+                          src={(author?.icon ?? comment.author.icon) ? `/file/fetch/avatar/${author?.icon ?? comment.author.icon}` : undefined}
+                          name={author?.name ?? comment.author.name}
+                        />
+                        <div className="mr-comment__main">
+                          <div className="mr-comment__meta">
+                            <span className="mr-comment__name">{author?.name ?? comment.author.name}</span>
+                            <FormattedTime timestamp={comment.createdAt} />
+                          </div>
+                          <div className="mr-comment__body">{comment.body}</div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                  <div className="row">
+                    <TextareaField
+                      containerClassName="mr-comment__input"
+                      value={commentDraft}
+                      onChange={(event) => setCommentDraft(event.target.value)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
+                          event.preventDefault()
+                          void submitComment()
+                        }
+                      }}
+                      placeholder={t('discussion.placeholder')}
+                    />
+                    <Button variant="contained" loading={commentBusy} disabled={!commentDraft.trim()} onClick={submitComment}>
+                      {t('discussion.submit')}
+                    </Button>
+                  </div>
+                  <div className="muted">{t('discussion.ctrlEnter')}</div>
+                </div>
+              </section>
+            ) : null}
+
             {tab === 'activities' ? (
               <section className="section">
                 <div className="list-body">
@@ -508,7 +632,7 @@ export default function MergeRequestDetail() {
             ) : null}
           </div>
 
-          <aside className="cf-mr-layout__side">
+          <aside className="cf-mr-detail__side">
             <section className="section">
               <div className="section__title">{t('label.reviewer')}</div>
               <div className="stack">
@@ -516,9 +640,9 @@ export default function MergeRequestDetail() {
                 {detail.reviewers.map((reviewer) => {
                   const member = memberOf(reviewer.user)
                   return (
-                    <div className="ref-row" key={reviewer.id}>
+                    <div className="cf-mr-detail__reviewer" key={reviewer.id}>
                       <Avatar size="sm" src={member?.icon ? `/file/fetch/avatar/${member.icon}` : undefined} name={member?.name} />
-                      <span className="ref-row__name">{member?.name ?? reviewer.user}</span>
+                      <span className="cf-mr-detail__reviewer-name">{member?.name ?? reviewer.user}</span>
                       <Tag tone={reviewer.isReview ? 'success' : 'danger'}>
                         {reviewer.isReview ? t('message.approved') : t('message.notApprove')}
                       </Tag>
@@ -584,6 +708,7 @@ export default function MergeRequestDetail() {
               </div>
             </section>
           </aside>
+          </div>
         </div>
       ) : null}
     </div>

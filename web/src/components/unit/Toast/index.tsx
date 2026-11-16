@@ -21,6 +21,9 @@ export interface ToastApi {
 const ToastContext = createContext<ToastApi | null>(null)
 
 /** 自动消失时长：与旧版 toastr 的默认体感一致。 */
+/** 同时可见的条数上限（超出丢最旧的）。 */
+const MAX_VISIBLE = 4
+
 const TOAST_DURATION = 3000
 
 /**
@@ -41,7 +44,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     (kind: ToastKind, message: ReactNode) => {
       seq.current += 1
       const id = seq.current
-      setItems((prev) => [...prev, { id, kind, message }])
+      // 最多同时显示 MAX_VISIBLE 条：批量失败时逐条弹会把屏幕铺满，
+      // 且旧的那些早已被顶出视野、点不到关闭。丢最旧的。
+      setItems((prev) => [...prev, { id, kind, message }].slice(-MAX_VISIBLE))
       window.setTimeout(() => remove(id), TOAST_DURATION)
     },
     [remove],
@@ -64,7 +69,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {createPortal(
         <div className="cf-toast-stack">
           {items.map((item) => (
-            <div key={item.id} className={`cf-toast cf-toast--${item.kind}`} role="status">
+            <div
+              key={item.id}
+              className={`cf-toast cf-toast--${item.kind}`}
+              role={item.kind === 'danger' ? 'alert' : 'status'}
+            >
               <span>{item.message}</span>
               <button type="button" className="cf-toast__close" aria-label="关闭" onClick={() => remove(item.id)}>
                 ×

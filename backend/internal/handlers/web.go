@@ -21,10 +21,38 @@ import (
 	"codefever-next/backend/internal/session"
 )
 
-// AppName 对应 PHP 常量 APP_NAME。
+// defaultAppName 是站点名的缺省值，对应 PHP 常量 APP_NAME
+// （application/config/constants.php:58）。
 //
-// 逐字对应 application/config/constants.php:58。
-const AppName = "CodeFever"
+// 站点名改为**可配置**（config.yaml 的 siteName，管理界面可改）后，
+// 它降级为"未配置时的回落值"：改名只影响展示文案，不再需要重新发版。
+const defaultAppName = "CodeFever"
+
+// AppName 返回当前生效的站点名。
+//
+// 优先读 config.yaml 的 siteName（管理界面 POST /api/admin/config 维护），
+// 未配置或全空白时回落 "CodeFever"。
+func AppName(cfg *config.Config) string {
+	if cfg == nil {
+		return defaultAppName
+	}
+	if name := strings.TrimSpace(cfg.SiteConfig().SiteName); name != "" {
+		return name
+	}
+	return defaultAppName
+}
+
+// siteMailPrefix 返回用户可见邮件标题的品牌前缀。
+//
+// 配置了 siteName 用站点名；未配置时保持既有文案 "CodeFever Next"
+// —— 改名能力上线前的历史邮件标题不变，配置了站点名的实例
+// （自建品牌）从此可全程换皮。
+func siteMailPrefix(cfg *config.Config) string {
+	if cfg != nil && strings.TrimSpace(cfg.SiteConfig().SiteName) != "" {
+		return AppName(cfg)
+	}
+	return "CodeFever Next"
+}
 
 // webEmailPattern 是 web 控制器侧的邮箱格式判定。
 //

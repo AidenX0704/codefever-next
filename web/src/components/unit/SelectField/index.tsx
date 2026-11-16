@@ -43,14 +43,21 @@ export function SelectField({
       containerClassName={containerClassName}
       endAdornment={<span className="cf-field__caret" />}
     >
-      <select className={cn('cf-field__select', className)} {...rest}>
-        {placeholder ? <option value="">{placeholder}</option> : null}
-        {options.map((option) => (
-          <option key={option.value} value={option.value} disabled={option.disabled}>
-            {option.label}
-          </option>
-        ))}
-      </select>
+      {(aria) => (
+        <select
+          className={cn('cf-field__select', className)}
+          {...aria}
+          aria-label={label ? undefined : placeholder}
+          {...rest}
+        >
+          {placeholder ? <option value="">{placeholder}</option> : null}
+          {options.map((option) => (
+            <option key={option.value} value={option.value} disabled={option.disabled}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      )}
     </FieldShell>
   )
 }

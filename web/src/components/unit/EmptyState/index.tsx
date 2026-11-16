@@ -2,13 +2,18 @@ import type { ReactNode } from 'react'
 
 import { emptyImages, type EmptyImageName } from '@/assets/images'
 import { cn } from '@/helpers/cn'
+import { Icon } from '@/components/unit/Icon'
+import type { IconComponent } from '@/config/icons'
 
 
 export interface EmptyStateProps {
-  /** 插图名，与旧版 `EmptyListNotice` 的 `imageName` 完全一致。 */
+  /** duotone 图标（DESIGN.md §6.10：64px，优先于旧插图）。 */
+  icon?: IconComponent
+  /** 旧版插图名（v3 兼容；与新 `icon` 同时给时以 `icon` 为准）。 */
   imageName?: EmptyImageName
   title?: ReactNode
   notice?: ReactNode
+  /** 空态只放一个按钮（DESIGN.md §6.10）——调用方负责只传一个动作。 */
   action?: ReactNode
   className?: string
 }
@@ -16,13 +21,19 @@ export interface EmptyStateProps {
 /**
  * 空态组件。
  *
- * 旧版在 7 个页面里各写一遍"插图 + 标题 + 说明"，且图名以字符串 URL 拼接
- * （`/static/images/${imageName}`）；这里统一为组件 + 编译期可校验的图名枚举。
+ * DESIGN.md §6.10：居中，64px duotone 图标 + H3 标题 + Small 描述 + 一个按钮；
+ * 不展示无意义的跳转链接。旧版"全部 →"描边按钮类空态在页面改造时移除。
  */
-export function EmptyState({ imageName, title, notice, action, className }: EmptyStateProps) {
+export function EmptyState({ icon, imageName, title, notice, action, className }: EmptyStateProps) {
   return (
     <div className={cn('cf-empty', className)}>
-      {imageName ? <img className="cf-empty__img" src={emptyImages[imageName]} alt="" loading="lazy" /> : null}
+      {icon ? (
+        <span className="cf-empty__icon">
+          <Icon icon={icon} size={64} weight="duotone" />
+        </span>
+      ) : imageName ? (
+        <img className="cf-empty__img" src={emptyImages[imageName]} alt="" loading="lazy" />
+      ) : null}
       {title ? <div className="cf-empty__title">{title}</div> : null}
       {notice ? <div className="cf-empty__notice">{notice}</div> : null}
       {action}

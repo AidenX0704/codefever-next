@@ -359,11 +359,13 @@ export async function mergeMergeRequest(
   mergeRequestKey: string,
   message: string,
   usingSquash: boolean,
+  deleteSourceBranch = false,
 ): Promise<{ conflict: boolean }> {
   const { data } = await post<{ conflict?: boolean }>('/api/repository/mergeBranch', {
     mergeRequest: mergeRequestKey,
     message,
     usingSquash: usingSquash ? 'true' : 'false',
+    deleteSourceBranch: deleteSourceBranch ? 'true' : 'false',
   })
   return { conflict: Boolean(data?.conflict) }
 }
@@ -561,4 +563,67 @@ export function createTag(repositoryKey: string, name: string, origin: string, d
 /** 删除标签。 */
 export function deleteTag(repositoryKey: string, tag: string) {
   return post('/api/repository/deleteTag', { repository: repositoryKey, tag })
+}
+
+/* ------------------------------ 星标（v4 新增） ------------------------------ */
+
+/** 标星仓库（幂等；重复调用返回成功）。 */
+export function starRepository(repositoryKey: string) {
+  return post('/api/repository/star', { repository: repositoryKey })
+}
+
+/** 取消标星（幂等）。 */
+export function unstarRepository(repositoryKey: string) {
+  return post('/api/repository/unstar', { repository: repositoryKey })
+}
+
+/* ------------------------------ MR 讨论（v4 新增） ------------------------------ */
+
+/** MR 评论作者（最小视图）。 */
+export interface MRCommentAuthor {
+  id: string
+  name: string
+  avatar: string | null
+  icon: string | null
+}
+
+export interface MRComment {
+  id: number
+  body: string
+  /** 秒级时间戳。 */
+  createdAt: number
+  author: MRCommentAuthor
+}
+
+/** MR 讨论列表（按时间正序）。 */
+export async function fetchMergeRequestComments(mergeRequestKey: string): Promise<MRComment[]> {
+  const { data } = await get<MRComment[]>('/api/repository/mergeRequestComments', {
+    mergeRequestId: mergeRequestKey,
+  })
+  return data ?? []
+}
+
+/** 发表 MR 讨论（1–10000 字）。成功后向创建者与评审人投递站内通知。 */
+export function addMergeRequestComment(mergeRequestKey: string, body: string) {
+  return post('/api/repository/addMergeRequestComment', { mergeRequestId: mergeRequestKey, body })
+}
+
+/* ------------------------------ Webhook 重发（v4 新增） ------------------------------ */
+
+/** 重发一次 webhook 投递日志（复用投递器入队路径）。 */
+export function redeliverWebhookLog(logID: string) {
+  return post('/api/repository/redeliverWebhookLog', { logId: logID })
+}
+
+/* ------------------------------ 归档下载（v4 新增） ------------------------------ */
+
+/**
+ * 归档下载地址（zip / tar.gz）。
+ *
+ * `archive` 是**二进制流**端点（Content-Disposition 附件下载），不能走 JSON 信封
+ * 的 post 封装 —— 直接给 `<a download>` / `window.open` 用 URL。
+ */
+export function archiveUrl(repositoryKey: string, ref: string, format: 'zip' | 'tar.gz'): string {
+  const query = new URLSearchParams({ repositoryId: repositoryKey, ref, format })
+  return `/api/repository/archive?${query.toString()}`
 }

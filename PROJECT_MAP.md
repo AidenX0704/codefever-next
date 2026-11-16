@@ -196,11 +196,15 @@ handler（业务写）
 | 路径 | 职责 |
 |---|---|
 | `vite.config.ts` | 构建配置：产物 `web/build`、`assetsDir=static/js`（对齐 nginx 一年 immutable）、现代目标 es2022、`/api` 等路径 dev 代理到 Go 9001 |
-| `src/theme/theme.css` | **全仓库唯一的视觉字面值来源**（颜色/间距/圆角/阴影/字号），逐项抄自旧 `@pgyer/mui-theme-preset` 与 `theme1.js`；另有 `--cf-field-surface`（**输入区表面色的唯一来源**，2026-10-25 新增，用于中和 Chrome 自动填充的 UA 蓝底并按变体给出正确盖色） |
-| `src/theme/tokens.ts` | 令牌的类型化引用 + `space(n)`（等价旧 `theme.spacing`） |
+| `src/theme/theme.css` | **全仓库唯一的视觉字面值来源**。2026-10-28 重写为 v3 三层令牌：原始层 `--p-*`（唯一色值处）→ 语义层（`--bg-*` / `--fg-*` / `--bd-*` / `--ac-*` / `--st-*` / `--code-*` / `--diff-*` / `--tok-*` / `--chart-*` / `--shadow-*` / `--scrim` / `--chrome-*`，浅深两套共 95 键一一对应）→ 尺寸层（`--sp-*` / `--r-*` / `--fs-*` / `--ctl-*` / `--row-*` / `--layout-*` / `--dur-*` / `--z-*` / `--focus-*`）。基线见 `docs/design-v3/DESIGN_TOKENS_V3.md`。（已废弃 2026-10-28：旧版是逐项抄自 `@pgyer/mui-theme-preset` 与 `theme1.js` 的单层 `--cf-*` 令牌，历史见 `docs/design-v2/`） |
+| `src/theme/tokens.ts` | 令牌的类型化引用 + `space(n)`（等价旧 `theme.spacing`，仍是 n × 8px）。2026-10-28 扩充为 `color` / `surface` / `fg` / `border` / `status` / `font` / `radius` / `shadow` / `size` / `motion` / `z` / `space()` / `density` 十三组 |
+| `src/helpers/theme.ts` | **主题（浅色 / 深色）唯一入口**（2026-10-28 新增）：`initTheme()` 在 `createRoot` 之前把 `data-theme` 落到 `<html>`（首屏不闪白），优先级「用户选择（localStorage `cf-theme`）> 系统 `prefers-color-scheme`」；`applyTheme()` / `getTheme()` / `getStoredTheme()` 供切换入口使用 |
+| `src/styles/markdown-body.dark.css` | `markdown-body.css`（GitHub README 样式 vendored 副本）的**深色覆盖层**（2026-10-28 新增）：30 余条映射到 `--fg-*` / `--tok-*` / `--diff-*`，不动 vendored 文件本身；其中 3 条工具类因 vendored 文件自带 `!important` 必须同用 `!important`（偏离理由见文件头） |
+| `scripts/check-ui.mjs` | **设计体系静态检查**（2026-10-28 新增，`npm run check:ui`，已并入 `npm run verify`）：硬编码色值 / 原始层外泄 / 浅深主题键一致 / 同规则内文字与背景对比度 ≥ 4.5:1 |
+| `scripts/check-ui-live.mjs` | **设计体系真机审计**（2026-10-28 新增，`npm run check:ui:live`，可选、需跑着的实例）：自起 headless Chrome，登录后逐页对**每个可见文本节点**向上找真实背景算对比度，并查横向溢出；覆盖静态扫描看不见的跨规则配色组合 |
 | `src/theme/global.css` | 全局基础样式与工具类（对应旧 `App.styl`） |
 | `src/components/unit/` | 自研组件库（磁盘上 **30** 个目录，2026-10-27 新增 `Stat` / `SectionCard`）：Button / IconButton / SquareIconButton / Icon / TextField / SelectField / Choices / Form / Table(+DataTable/Pagination) / Dialog / Confirm / Dropdown / Tabs / Tooltip / Toast / Avatar / Tag / Marker / Card / Loading / EmptyState / CopyButton / AppLink / FormattedTime / CodeViewer / **CodeBlock（2026-10-26 新增：文档片段代码块，等宽 + 语言标签 + 一键复制，无行号）** / DiffViewer（文件级 diff：汇总条 + inline·side-by-side 布局切换 + 逐文件折叠 + 复制路径 / 查看 @hash / 展开完整文件）/ FilterBar（页签+搜索+排序的工具条，分支·标签·活动三处共用）。**2026-10-26 接口变化**：`Button` 新增 `endIcon`（尾部图标，展开态旋转由 `.cf-dropdown__trigger[aria-expanded='true'] .cf-btn__end-icon` 负责）；`Dropdown` 新增 `title`（面板分类标题）、`emptyLabel`（空列表占位，避免空面板与"没打开"无法区分）、`openOnHover` + `onTriggerClick`（悬停展开 / 点击跳转，供页头「仓库 / 仓库组」按官方原版交互使用），`MenuItemSpec` 新增 `trailing`（行尾勾选等）。同批新增**手写图标** `assets/icons/plCaretDownLine.ts`（线框三角，不由 `extract-icons.mjs` 生成，原因见文件头）。⚠️ `TextareaField` / `Checkbox` / `Switch` **尚未实现**（此前清单误列，2026-10-25 校正），Release / Issue 表单落地前须先补齐 |
-| `src/components/layout/` | 外壳布局：NotificationDrawer（通知抽屉，四个分类 + 已读/清空）、AppShell（固定页头 + 白底内容区）、Header（仓库/组/新建/语言/帮助/管理后台/用户菜单；**帮助菜单 2026-10-26 改为站内落点**：帮助中心 `/help`、文档中心、公开 API 文档，站外只保留技术支持 / 反馈 / 贡献；**仓库 / 仓库组 2026-10-26 对齐官方原版 `GroupRepositoryMenu`**：点击触发器跳 `/repositories` / `/groups` 完整列表页，悬停展开快速跳转菜单（线框三角箭头、分类标题、方形头像条目、当前项勾选、全量不截断、空列表占位文案））、RepositoryLayout（仓库上下文外壳）、SettingsLayout（个人设置外壳）、AdminLayout（管理后台外壳）、Sidebar（左侧上下文导航，可折叠） |
+| `src/components/layout/` | 外壳布局：NotificationDrawer（通知抽屉，四个分类 + 已读/清空）、AppShell（v5 外壳：雾面顶栏 + **平台侧栏 + 雾白内容区**）、**PlatformSidebar（2026-11-08 新增，v5 §4.1：悬浮玻璃平台侧栏，工作台/代码/协作/管理分组，管理按 `user.admin` 门控；折叠持久化 localStorage `codefever.rail.collapsed`，经 `<html data-rail>` 联动 `--rail-current` 令牌）**、Header（v5 改造 2026-11-08：**改为雾面顶栏，左侧面包屑（当前平台分区）、中部 ⌘K、右侧新建/通知/帮助/头像菜单；Logo 与主导航（首页/仓库/仓库组/合并请求）已沉入 PlatformSidebar，仓库/组快速菜单随迁至 ⌘K 命令面板与侧栏链接**；**帮助菜单 2026-10-26 改为站内落点**：帮助中心 `/help`、文档中心、公开 API 文档，站外只保留技术支持 / 反馈 / 贡献）、RepositoryLayout（仓库上下文外壳）、SettingsLayout（个人设置外壳）、AdminLayout（管理后台外壳）、Sidebar（页内上下文导航，可折叠；**2026-11-08 v5 纸页化**：`--bg-sheet` 面板 + 发丝边 + 圆角，激活态 `--bg-selected`+`--brand-text`；宽度取 `--layout-side`(224) / `--layout-side-collapsed`(72)，2026-11-08 随 v5 对齐；历史：232/64 ← 320/88） |
 | `src/components/view/` | 页面级组件（按业务域，逐批落地）：`auth/` = AuthLayout + 认证页样式（批 1）；`unit/` = RepositoryRow / GroupCard / list.css（批 2） |
 | `src/components/view/unit/` | 业务域共用件：`RepositoryRow`、`GroupCard`、`CommitRow`、`MembersManager`（仓库成员与组成员共用）、`AdvancedSettings`（仓库/组高级页共用）、`ActivityFeed`（41 个活动码的表驱动渲染）、`MergeRequestRow`（MR 行：标题/状态徽标/目标仓库名/分支链接/最后提交人/编辑于/评审人组/更新时间）、`MergeRequestToolbar`（MR 页签+搜索+排序+主操作）、`MergeRequestListBody`（MR 行列表+空态+查看更多）、`MergeRequestReviewers`（评审人头像组+已/未评审角标）、`AdminMembersDialog`（后台组/仓库成员弹窗）、`SettingsNotificationMatrix`（通知矩阵：组+仓库+角色徽标）、`RepositoryHeader`（仓库头：Fork/克隆地址/6 项计数）、`RefListView`（分支·标签列表共用）、`ObjectViewer`（文件内容富视图）、`MarkdownView`、`RepositoryEmpty`（空仓库引导）、`CommitRefs`（父提交+包含该提交的分支/标签）；样式集中在 `list.css` / `commit-row.css` / `merge-request.css` / `repository.css` |
 | `src/api/client.ts` | 统一请求层：multipart 编码（`key[sub]` / `key[]`、剥 `_SAFE`/`_BINARY`）、`requestTime`、信封与错误码表、`0x0101` 跳登录；另有 `postForm()`（表单页的 urlencoded 信封 `{code,message,extra}`） |
@@ -211,7 +215,7 @@ handler（业务写）
 | `src/features/app-data/` | `AppDataProvider`：页头与列表共享的用户/仓库/组三份数据（对应旧 Redux `DataStore`） |
 | `src/features/repository/` | `RepositoryProvider`：按「组名 + 仓库名」解析仓库主键 → 加载 `repository/config`，找不到即 404 |
 | `src/features/group/` | `GroupProvider`：按组名解析组主键 → 加载 `group/config`，找不到即 404 |
-| `src/config/` | `uac.ts`（角色与权限矩阵）、`icons.ts`（按需图标出口）、`constants.ts`（头像 URL 前缀）、`languages.ts`（扩展名→Prism 语言）、`drawer.ts`（仓库上下文 / 个人设置导航项与 active 判定）、`webhookEvents.ts`（25 个 Webhook 事件与文案键）、**`helpLinks.ts`（帮助中心与页头帮助菜单共用的站外地址，2026-10-26 新增）**、**`publicApi.ts`（公开 API 端点清单 + 文档页地址拼装，2026-10-26 新增）** |
+| `src/config/` | `uac.ts`（角色与权限矩阵）、`icons.ts`（按需图标出口）、`constants.ts`（头像 URL 前缀）、`languages.ts`（扩展名→Prism 语言）、`drawer.ts`（仓库上下文 / 个人设置导航项与 active 判定）、**`platformNav.ts`（2026-11-08 新增：平台侧栏分组与 active 判定，v5 §4.2）**、`webhookEvents.ts`（25 个 Webhook 事件与文案键）、**`helpLinks.ts`（帮助中心与页头帮助菜单共用的站外地址，2026-10-26 新增）**、**`publicApi.ts`（公开 API 端点清单 + 文档页地址拼装，2026-10-26 新增）** |
 | `src/helpers/prism.ts` | Prism 语言注册（顺序敏感）+ 按「语言+全文」的 8 条 LRU 高亮缓存 |
 | `src/helpers/members.ts` | 提交邮箱 → 仓库成员解析（未命中标记临时用户，对应旧 `getUserInfo`） |
 | `src/helpers/slug.ts` | 标识名规范化 `makeSlug`（逐字对齐旧 `NetworkHelper.makeSlug`：非 `\w` 一律换下划线） |
@@ -241,16 +245,16 @@ handler（业务写）
 | `src/pages/NewGroup.tsx` | 新建仓库组（`/groups/new`） |
 | `src/pages/NewMergeRequest.tsx` | 全局新建 MR（`/mergerequests/new`、`/groups/{组}/mergerequests/new`）：复用 `MergeRequestCreate` 的 `global` 态 |
 | `src/pages/group/` | 仓库组：`ActivityList`（组动态）、`SettingsGeneral`（组名 5–30 字校验/描述 200 字/头像）、`SettingsMembers`（成员管理）、`SettingsAdvanced`（改 slug/删除） |
-| `src/pages/settings/` | 个人设置：`Profile`（基本信息含可编辑 role/头像/口令/MFA 二维码+更换设备）、`Email`（主邮箱更换 + 提交邮箱管理 + 120 秒重发倒计时）、`SSHKey`（列表/新增/删除 + 指纹列 + 整行公钥容忍）、`Notification`（位掩码开关 + 组/仓库级通知矩阵 + 拒收列表恢复）、**`Tokens`（访问令牌，2026-10-27 新增：列表 / 创建后明文一次性弹窗 / 吊销 + curl 用法示例）** |
+| `src/pages/settings/` | 个人设置：`Profile`（基本信息含可编辑 role/头像/口令/MFA 二维码+更换设备）、`Email`（主邮箱更换 + 提交邮箱管理 + 120 秒重发倒计时）、`SSHKey`（列表/新增/删除 + 指纹列 + 整行公钥容忍）、`Notification`（位掩码开关 + 组/仓库级通知矩阵 + 拒收列表恢复）、`Tokens`（访问令牌，2026-10-27 新增：列表 / 创建后明文一次性弹窗 / 吊销 + curl 用法示例）、**`Appearance`（2026-11 v4 新增：主题浅/深/跟随系统 + 语言，即时生效无保存按钮）** |
 | `src/i18n/supplement.ts` | 旧词表缺失的补充键（运行时覆盖自动生成的表，避免手改生成文件） |
-| `src/assets/icons/` | 154 个图标数据（由 `scripts/extract-icons.mjs` 从 `@pgyer/icons@0.0.16` 本地化） |
+| `src/assets/icons/` | （已删除 2026-11：v4 切换 Phosphor 图标库，原 154 个 `@pgyer/icons` 本地化数据随 `extract-icons.mjs` 一并移除；旧导出名别名保留在 `config/icons.ts`） |
 | `src/i18n/` | `zh-cn.ts` / `en-us.ts` 由 `scripts/extract-lang.mjs` 自动生成（961 键 × 2：Go SSR 词表 + 旧 SPA 词表）；`I18nProvider` + `useT()`（支持 `{s}`/`{n}`） |
 | `src/pages/auth/` | 认证四页：Login / Register / Verify / ResetPassword（独立全屏，不套 AppShell） |
 | `src/pages/` | 路由页面：`DesignSystem`（`/__design` 预览页）、`NotFound` |
 | `src/router.tsx` | 路由表；全部页面 `lazy`；react-router 8 不支持路径正则，业务校验下沉到页面 |
 | `src/assets/images/` | 复用素材（16 张，来自 `www/static/images`，图名保持原样） |
 | `scripts/extract-lang.mjs` | 从 Go 语言表 + 旧 SPA 词表抽取 i18n（批 7 随旧前端退役） |
-| `scripts/extract-icons.mjs` | 把 `@pgyer/icons` 的图标数据本地化到 `src/assets/icons/` |
+| `scripts/extract-icons.mjs` | （已删除 2026-11：随 `src/assets/icons/` 退役） |
 | `scripts/serve-preview.mjs` | 视觉验证用静态服务器 + 最小 mock API（`vite preview` 会把 `/api`、`/user` 代理到后端导致 502） |
 
 前端门禁（AGENTS §8.3 待批 7 同步）：`npm run typecheck && npm run lint && npm run build`，产物 `web/build` 入库。
@@ -309,6 +313,22 @@ Dockerfile（两阶段）
 ## 8. 人工备注
 
 > 本节由人维护。代理只可追加，不得重写或删改既有内容。
+
+- 2026-11（代理追加）：设计体系 v4（DESIGN.md）全面重构 —— **令牌**：语义层改名
+  `--text-*` / `--brand` / `--line` / `--success|--warning|--purple`（v3 `--fg-*` /
+  `--ac-*` / `--st-*` 全量迁移，585 处引用；映射表 `docs/design-v4/DESIGN_NOTES.md`），
+  浅深语义键 70 个；**图标**：`@pgyer/icons`（154 个本地数据）→ `@phosphor-icons/react`，
+  白名单 `config/icons.ts`（canonical 语义名 + 旧名别名）；**组件**：新增 CloneBox /
+  Timeline / CommandPalette（⌘K） / Skeleton / `Button--link` / Tabs 计数徽标 /
+  EmptyState duotone 图标；**页面**：新增 `/settings/appearance`、`/admin/announcements`，
+  MR 详情新增「讨论」Tab，页头中部搜索框换成 ⌘K 按钮、外观/语言/管理收进头像菜单；
+  **后端**（迁移 012–016）：site 三匿名端点（stats/changelog/announcement）、
+  repository star/unstar、MR 评论、合并设置（allowMergeCommit/allowSquash/minReviewers）、
+  mergeBranch 的 deleteSourceBranch、archive 归档下载、redeliverWebhookLog、u_bio、
+  admin/changelog|announcement 四端点、config 白名单加 siteName 与 smtp.*；
+  设计基线 `docs/design-v3/DESIGN_TOKENS_V3.md` 已标注被 v4 取代。
+  本轮明确延后：AI 助手、/explore（需可见性模型）、web 端文件编辑、rebase 合并、
+  未登录宣传页（site/stats 已就绪）。
 
 - 2026-10-24：本文件首次创建，内容基于性能整改期间的实地核对。
   若发现与实际不符，请在下方追加更正条目，不要直接改写上文。

@@ -68,6 +68,10 @@ type RepositoryTx interface {
 	DeleteReviewer(ctx context.Context, mrKey, uKey string) error
 	MergeRequestClose(ctx context.Context, uKey, mrKey, sourceSHA, targetSHA string) error
 	MergeRequestMerge(ctx context.Context, uKey, mrKey, sourceSHA, targetSHA string) error
+
+	// CreateMRComment 写入一条 MR 评论。评论与评论事件的入队共用同一个事务，
+	// 保证"评论落库则通知事件在、评论回滚则事件消失"。
+	CreateMRComment(ctx context.Context, mrKey, uKey, body string) (int64, error)
 }
 
 // WithTx 在一个事务里执行 fn。
@@ -102,6 +106,11 @@ var repositoryWritableColumns = map[string]bool{
 	"r_fork_r_key":          true,
 	"r_status":              true,
 	"r_deleted":             true,
+	// 合并设置（015_repo_merge_settings.sql）：repository/update 的
+	// 可更新字段扩展。
+	"r_allow_merge_commit": true,
+	"r_allow_squash":       true,
+	"r_min_reviewers":      true,
 }
 
 // protectedBranchWritableColumns 是保护分支规则表的列白名单。
@@ -776,6 +785,26 @@ func (r *RepositoryWriteRepo) ReviewPending(ctx context.Context, mrKey string) (
 	return true, nil
 }
 
+// ApprovedReviewCount 统计**已通过评审**的评审人数。
+//
+// r_min_reviewers > 0 时的新校验口径：COUNT(mrr_is_review = GLOBAL_TRUE)
+// ≥ min_reviewers 即放行。与 ReviewPending（旧的"全部通过"口径）并存，
+// 由 handler 按仓库设置选择用哪一个。
+func (r *RepositoryWriteRepo) ApprovedReviewCount(ctx context.Context, mrKey string) (int, error) {
+	if mrKey == "" {
+		return 0, errors.New("合并请求主键不能为空")
+	}
+	var n int
+	err := r.runner().QueryRowContext(ctx, `
+		SELECT COUNT(*) FROM cc_merge_request_reviewers
+		WHERE mr_key = ? AND mrr_status = ? AND mrr_is_review = ?`,
+		mrKey, domain.CommonStatusNormal, domain.GlobalTrue).Scan(&n)
+	if err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
 // MergeRequestClose 关闭一个合并请求。
 //
 // 逐字对应 application/models/repository_model.php:1327-1354 的 mergeRequestClose()。
@@ -800,6 +829,27 @@ func (r *RepositoryWriteRepo) MergeRequestMerge(ctx context.Context, uKey, mrKey
 		WHERE mr_key = ?`,
 		sourceSHA, targetSHA, domain.MergeRequestStatusMerged, uKey, mrKey)
 	return err
+}
+
+// CreateMRComment 写入一条合并请求评论，返回评论主键。
+//
+// mr_id 存的是 MR 主键（mr_key）。放在事务集合里而不是 MRCommentRepo：
+// 评论写入必须与评论事件的入队共用同一个事务（见 RepositoryTx 的说明）。
+func (r *RepositoryWriteRepo) CreateMRComment(ctx context.Context, mrKey, uKey, body string) (int64, error) {
+	if mrKey == "" || uKey == "" {
+		return 0, ErrNotFound
+	}
+	res, err := r.runner().ExecContext(ctx, `
+		INSERT INTO cc_merge_request_comments (mr_id, u_key, c_body)
+		VALUES (?, ?, ?)`, mrKey, uKey, body)
+	if err != nil {
+		return 0, err
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return 0, err
+	}
+	return id, nil
 }
 
 // SetDefaultBranch 更新仓库默认分支（启动修复 HEAD 时使用）。

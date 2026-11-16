@@ -116,24 +116,28 @@
 
 2. 本项目的事实标准：**自研设计令牌 + 自研组件库**（2026-10 前端重写后：
    不再使用任何 UI 框架，MUI 已随旧 `www/view` 一起删除）。
-   令牌基线与取值见 `docs/design-v3/DESIGN_TOKENS_V3.md`
-   （Git Platform Design System V3），可视化见
-   `docs/design-v3/tokens-v3-prototype.html`。
+   令牌基线与取值见 `docs/design-v5/DESIGN.md`（格·代码 Cell Code v1.0，2026-11 起；
+   v4 落地注记 `docs/design-v4/DESIGN_NOTES.md` 及 v3 令牌保留作为历史参考）。
+   **过渡状态**：`web/src` 实现尚未迁移到 v5（仍为 v4 令牌与 Phosphor 图标），
+   前端重写完成前，界面改动以 v5 为设计目标、以 theme.css 现行令牌为实现约束；
+   图标体系目标为 v5 §8 自研线性族，现有 `@phosphor-icons/react` 白名单
+   （`web/src/config/icons.ts`）继续生效直至迁移。
 
 3. 令牌分三层，**依赖只能单向向下**：
 
    | 层 | 前缀 | 谁能引用 |
    |---|---|---|
    | 原始层 | `--p-*` | **只有 `theme.css` 内部**；组件与页面一律不得引用 |
-   | 语义层 | `--bg-` `--fg-` `--bd-` `--ac-` `--st-` `--code-` `--diff-` `--tok-` `--chart-` `--shadow-` `--scrim` `--chrome-` | 组件与页面的**唯一**颜色来源 |
+   | 语义层 | `--bg-` `--text-` `--line` `--brand-` `--danger-` `--success-` `--warning-` `--purple-` `--code-` `--diff-` `--tok-` `--chart-` `--shadow-` `--scrim` | 组件与页面的**唯一**颜色来源 |
    | 尺寸层 | `--sp-` `--r-` `--fs-` `--fw-` `--lh-` `--ctl-` `--row-` `--cell-` `--tab-` `--layout-` `--icon-` `--dur-` `--ease-` `--z-` `--focus-` | 组件与页面的**唯一**尺寸来源 |
 
 4. **禁止**硬编码视觉值：`#2563eb`、`padding: 13px`、`border-radius: 5px`、
    自造阴影或表格行高。需要新值时，先看既有令牌能否用 `calc()` 组合；
-   不能则加到对应层，再引用。
+   不能则加到对应层，再引用。例外：代码高亮 / diff 色值来自 GitHub Light/Dark
+   官方色板，集中在 `theme.css` 语义层并注明来源（§11）。
 
 5. 语义层按主题成对定义：`:root`（浅色）与 `:root[data-theme="dark"]`。
-   两组**必须键名一一对应**（当前 95 个）。新增颜色令牌时两个主题一起加 ——
+   两组**必须键名一一对应**（v4 当前 70 个）。新增颜色令牌时两个主题一起加 ——
    只加一边会让那一处在切主题时静默回退到继承值，不报错、肉眼极难发现。
 
 6. 组件内部量（某个组件自己的 padding / 宽度 / 字号）**不进** `theme.css`，
@@ -243,12 +247,35 @@
 
    ```bash
    cd web
-   npm run typecheck && npm run lint && npm run build
+   npm run typecheck && npm run lint && npm run check:ui && npm run build
+   # 等价于一条：npm run verify
    ```
 
-   **三条缺一不可**：`typecheck`（TS strict）+ `lint`（ESLint flat config）+
-   `build`（Vite，产出 `web/build`）。旧版把 lint 藏在 webpack 构建期，
-   换 Vite 后必须显式恢复成独立门禁，否则等于没有 lint。
+   **四条缺一不可**：`typecheck`（TS strict）+ `lint`（ESLint flat config）+
+   `check:ui`（设计体系静态检查）+ `build`（Vite，产出 `web/build`）。
+   旧版把 lint 藏在 webpack 构建期，换 Vite 后必须显式恢复成独立门禁，
+   否则等于没有 lint。
+
+   `check:ui` 查四件事：CSS/TSX 里的硬编码色值、组件引用 `--p-*` 原始层、
+   浅深主题键是否一一对应、同一条规则内文字与背景的对比度是否 ≥ 4.5:1。
+   它拦的是 typecheck / lint / build 全绿但界面读不出来的问题 ——
+   2026-10 令牌改名把「浅琥珀」错映射成「实心琥珀」，`.cf-tag--warning`
+   掉到 1.41:1，就是这条检查抓出来的。
+
+   **可选的真机检查**（不进必过门禁，需要跑着的实例）：
+
+   ```bash
+   # 先起实例（会重新构建镜像，带上当前 web/build）
+   pwsh -File scripts/run-local.ps1 up
+   # 再逐页跑渲染后的对比度 + 溢出审计
+   cd web && npm run check:ui:live -- --url http://127.0.0.1:9080 \
+        --login <邮箱>:<口令> --paths repositories,home,<组>/<仓库>/files
+   ```
+
+   分工：`check:ui` 只看源码里**同一条规则内**的配色；真机审计逐个可见文本节点
+   向上找真实背景再算 —— 基类给 `color`、变体类给 `background` 这种跨规则组合
+   只有它能覆盖（2026-10 用它抓出 7 处占位符色当正文用的问题）。
+   `--paths` 不要带前导斜杠：Git Bash 会把 `/foo` 转成 Windows 路径。
 
    并且**必须把重建后的 `web/build` 一并提交**（见 §9）。
 
@@ -280,8 +307,8 @@
 | 陷阱 | 正确做法 |
 |---|---|
 | 改了 `web/src` 却没重建 `build/` | `web/build` 是**入库产物**，Dockerfile 只 `COPY` 不构建前端；改 src 后必须 `npm run build` 并提交 |
-| 从 `web/src/assets/icons/` 造 barrel 全量导入 | 会把 154 个图标全部打进产物（旧版踩过）。图标一律从 `web/src/config/icons.ts` 按需 import |
-| 在页面/组件里写颜色、间距、圆角字面值 | 违反 §5：色值唯一允许出现在 `web/src/theme/theme.css` 的原始层（`--p-*`）；其他位置一律引用语义令牌（`--bg-*` / `--fg-*` / `--bd-*` / `--ac-*` / `--st-*`）与尺寸令牌 |
+| 直接 `import '@phosphor-icons/react'` | 会绕过白名单、让图标使用面失控。图标一律从 `web/src/config/icons.ts` 按需 import（v3 时代的 assets/icons barrel 风险同款，2026-11 切 Phosphor 后沿用同一约束） |
+| 在页面/组件里写颜色、间距、圆角字面值 | 违反 §5：色值唯一允许出现在 `web/src/theme/theme.css` 的原始层（`--p-*`）；其他位置一律引用语义令牌（`--bg-*` / `--text-*` / `--line` / `--brand-*` / `--success-*` 等）与尺寸令牌 |
 | 改了 Go 的页面 GET 却忘了 SPA 壳 | `/user/*`、`/doc/*` 的 GET 现在统一下发 `web/build/index.html`（`httpapi/spa.go`）；新增页面 GET 时直接调 `httpapi.ServeSPA` |
 | 用 `view.type === 'tree'` 判断目录 | `repository/object` 在 `parent` 是**提交**时返回 `type: 'commit'`（最常见），只有 tree SHA 才返回 `'tree'`。判目录请用 `api/types.ts` 的 `isDirectoryView()`，否则文件列表会是空的（2026-10 真实踩过） |
 | 壳被缓存导致发布白屏 | 壳必须 `Cache-Control: no-cache`（引用的是带哈希的资源名）；`/static/js|css` 才是一年 immutable |
@@ -308,7 +335,7 @@
 - [ ] 视觉值取自主题 / 样式变量，无硬编码颜色、间距、圆角
 - [ ] 页面只含业务字段、业务动作、模块差异
 - [ ] §8 的六个后端门禁本地全绿
-- [ ] 前端改动：`npm run typecheck && npm run lint && npm run build` 全绿，`web/build` 已重建并纳入提交
+- [ ] 前端改动：`npm run typecheck && npm run lint && npm run check:ui && npm run build` 全绿（或直接 `npm run verify`），`web/build` 已重建并纳入提交
 - [ ] 涉及数据库：迁移落在 `migrations/`，集成用例本地跑过
 - [ ] 涉及部署：`docker compose build` 成功且容器冒烟通过
 - [ ] 若有偏离规则之处，已在说明中写清"哪一条 / 为什么 / 代价"

@@ -1,12 +1,9 @@
 import { Link } from 'react-router'
 
 import type { Commit } from '@/api/types'
-import { Avatar } from '@/components/unit/Avatar'
 import { CopyButton } from '@/components/unit/CopyButton'
 import { FormattedTime } from '@/components/unit/FormattedTime'
-import { Icon } from '@/components/unit/Icon'
 import { Tag } from '@/components/unit/Tag'
-import { plCopy } from '@/config/icons'
 import type { ResolvedMember } from '@/helpers/members'
 import { useT } from '@/i18n'
 
@@ -28,11 +25,10 @@ export interface CommitRowProps {
 }
 
 /**
- * 提交行。
+ * 提交行（v5 §6 G6）。
  *
- * 结构对齐旧 `components/unit/CommitItem.js`：
- *   第一行 = 提交标题（点进详情）；第二行 = 头像 + 作者名（临时用户带提示）+ 「提交于 时间」；
- *   右侧 = 8 位短哈希 + 复制按钮（旧 `CommitHashChip` 的组合）。
+ * 结构：头像 24（成员有头像用图，否则首字母圆）+ 两行主列（标题 13/500 + 
+ * "作者 · 提交于 时间" 12 fg-3）+ 右侧 8 位短哈希芯片（well 底）+ 复制。
  */
 export function CommitRow({ commit, linkBase, author, showHash = true, makeHref }: CommitRowProps) {
   const t = useT()
@@ -40,27 +36,31 @@ export function CommitRow({ commit, linkBase, author, showHash = true, makeHref 
 
   return (
     <div className="commit-row">
+      {author.icon ? (
+        <img className="commit-row__avatar" src={`/file/fetch/avatar/${author.icon}`} alt="" />
+      ) : (
+        <span className="commit-row__avatar" aria-hidden="true">
+          {author.name.slice(0, 1).toUpperCase()}
+        </span>
+      )}
       <div className="commit-row__main">
         <Link className="commit-row__message text-overflow" to={href}>
           {commit.commit}
         </Link>
         <div className="commit-row__meta">
-          <Avatar size="sm" src={author.icon ?? undefined} name={author.name} />
           <span className="commit-row__author">{author.name}</span>
           {author.temporary ? <Tag tone="warning">{t('message.itsMyEmail')}</Tag> : null}
           <span className="commit-row__time">
-            {t('label.editIn')}: <FormattedTime timestamp={Number(commit.time)} />
+            <FormattedTime timestamp={Number(commit.time)} />
           </span>
         </div>
       </div>
       {showHash ? (
         <div className="commit-row__hash-group">
           <Link className="commit-row__hash" to={href}>
-            {commit.sha.slice(0, 8)}
+            {commit.sha.slice(0, 7)}
           </Link>
-          <CopyButton text={commit.sha} label={t('label.copyHash')} message={t('label.copied')}>
-            <Icon icon={plCopy} size={14} />
-          </CopyButton>
+          <CopyButton text={commit.sha} label={t('label.copyHash')} message={t('label.copied')} />
         </div>
       ) : null}
     </div>

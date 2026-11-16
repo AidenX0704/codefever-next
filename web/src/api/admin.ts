@@ -168,3 +168,33 @@ export async function fetchAdminConfig(): Promise<Record<string, unknown>> {
 export function saveAdminConfig(payload: Record<string, unknown>) {
   return post('/api/admin/config', { data: JSON.stringify(payload) })
 }
+
+/* ------------------------------ 公告与更新日志（v4 新增） ------------------------------ */
+
+/** 新建 / 更新更新日志（`id` 缺省即新建；releasedAt 为 "YYYY-MM-DD" 或空）。 */
+export function saveAdminChangelog(body: {
+  id?: number
+  version: string
+  title: string
+  body: string
+  releasedAt?: string
+}) {
+  return post('/api/admin/changelogSave', body)
+}
+
+export function deleteAdminChangelog(id: number) {
+  return post('/api/admin/changelogDelete', { id })
+}
+
+export function saveAdminAnnouncement(body: {
+  id?: number
+  type: 'security' | 'privacy' | 'support'
+  body: string
+  enabled: boolean
+}) {
+  return post('/api/admin/announcementSave', body)
+}
+
+export function deleteAdminAnnouncement(id: number) {
+  return post('/api/admin/announcementDelete', { id })
+}

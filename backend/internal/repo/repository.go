@@ -34,7 +34,7 @@ const (
 	repositoryColumnsTpl = "%[1]s.r_key, %[1]s.u_key, %[1]s.g_key, %[1]s.r_fork_r_key, " +
 		"%[1]s.r_display_name, %[1]s.r_name, %[1]s.r_path, %[1]s.r_description, %[1]s.r_avatar, " +
 		"%[1]s.r_default_branch_name, CAST(%[1]s.r_created AS CHAR), CAST(%[1]s.r_updated AS CHAR), " +
-		"%[1]s.r_status"
+		"%[1]s.r_status, %[1]s.r_allow_merge_commit, %[1]s.r_allow_squash, %[1]s.r_min_reviewers"
 
 	repositoryGroupColumnsTpl = "%[1]s.g_key, %[1]s.u_key, %[1]s.g_type, %[1]s.g_display_name, " +
 		"%[1]s.g_name, %[1]s.g_description, %[1]s.g_avatar, " +
@@ -955,9 +955,11 @@ func (r *RepositoryRepo) GetByOwnerAndName(ctx context.Context, ownerName, repoN
 func scanRepository(row scanner) (*domain.Repository, error) {
 	var repo domain.Repository
 	var forkFrom, avatar, defaultBranch sql.NullString
+	var allowMergeCommit, allowSquash, minReviewers int
 	err := row.Scan(&repo.Key, &repo.OwnerKey, &repo.GroupKey, &forkFrom, &repo.DisplayName,
 		&repo.Name, &repo.Path, &repo.Description, &avatar, &defaultBranch,
-		&repo.Created, &repo.Updated, &repo.Status)
+		&repo.Created, &repo.Updated, &repo.Status,
+		&allowMergeCommit, &allowSquash, &minReviewers)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -967,6 +969,9 @@ func scanRepository(row scanner) (*domain.Repository, error) {
 	repo.ForkFromKey = nullToPtr(forkFrom)
 	repo.Avatar = nullToPtr(avatar)
 	repo.DefaultBranch = nullToPtr(defaultBranch)
+	repo.AllowMergeCommit = allowMergeCommit != 0
+	repo.AllowSquash = allowSquash != 0
+	repo.MinReviewers = minReviewers
 	return &repo, nil
 }
 
@@ -976,14 +981,19 @@ func scanRepositories(rows *sql.Rows) ([]domain.Repository, error) {
 	for rows.Next() {
 		var repo domain.Repository
 		var forkFrom, avatar, defaultBranch sql.NullString
+		var allowMergeCommit, allowSquash, minReviewers int
 		if err := rows.Scan(&repo.Key, &repo.OwnerKey, &repo.GroupKey, &forkFrom, &repo.DisplayName,
 			&repo.Name, &repo.Path, &repo.Description, &avatar, &defaultBranch,
-			&repo.Created, &repo.Updated, &repo.Status); err != nil {
+			&repo.Created, &repo.Updated, &repo.Status,
+			&allowMergeCommit, &allowSquash, &minReviewers); err != nil {
 			return nil, err
 		}
 		repo.ForkFromKey = nullToPtr(forkFrom)
 		repo.Avatar = nullToPtr(avatar)
 		repo.DefaultBranch = nullToPtr(defaultBranch)
+		repo.AllowMergeCommit = allowMergeCommit != 0
+		repo.AllowSquash = allowSquash != 0
+		repo.MinReviewers = minReviewers
 		out = append(out, repo)
 	}
 	return out, rows.Err()

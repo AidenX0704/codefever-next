@@ -1,12 +1,13 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
 
 import { cn } from '@/helpers/cn'
-import { Icon, type IconData } from '@/components/unit/Icon'
+import { Icon } from '@/components/unit/Icon'
+import type { IconComponent } from '@/config/icons'
 import { Tooltip } from '@/components/unit/Tooltip'
 
 
 export interface SquareIconButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
-  icon: IconData
+  icon: IconComponent
   /** 工具提示文本（同时也是 aria-label）。 */
   label: string
   /** 未读角标数字（0 不显示；>99 显示为 …，与旧版一致）。 */

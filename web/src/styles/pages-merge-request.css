@@ -17,8 +17,10 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-4);
-  padding: calc(var(--sp-4) * 1.5) calc(var(--sp-4) * 3);
-  border-top: 1px solid var(--bd);
+  min-height: calc(var(--sp-4) * 9);
+  padding: var(--sp-4) var(--sp-7);
+  border-bottom: 1px solid var(--line);
+  background: var(--bg-sheet);
 }
 
 .cf-mr-row:hover {
@@ -37,13 +39,13 @@
   align-items: center;
   gap: var(--sp-4);
   min-width: 0;
-  color: var(--fg);
+  color: var(--text-primary);
   font-weight: var(--fw-bold);
 }
 
 .cf-mr-row__title a {
   overflow: hidden;
-  color: var(--fg);
+  color: var(--text-primary);
   font-weight: var(--fw-bold);
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -54,8 +56,8 @@
   flex-wrap: wrap;
   align-items: center;
   gap: var(--sp-2);
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
 }
 
 .cf-mr-row__merge {
@@ -67,11 +69,14 @@
 .cf-mr-row__side {
   display: flex;
   flex: 0 0 auto;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: var(--sp-2);
-  color: var(--fg-muted);
-  font-size: var(--fs-14);
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-secondary);
+  font-size: var(--fs-small);
+}
+
+.cf-mr-row__side .cf-tag {
+  border-radius: var(--r-full);
 }
 
 /* 评审人头像组：右对齐、互相叠压 8px（旧版 marginLeft -8px）。 */
@@ -94,20 +99,20 @@
   position: absolute;
   right: 0;
   bottom: 0;
-  z-index: 1;
+  z-index: var(--z-raised);
   display: inline-flex;
   align-items: center;
   justify-content: center;
   width: calc(var(--sp-4) * 1.5);
   height: calc(var(--sp-4) * 1.5);
-  border: var(--badge-border) solid var(--bg-surface);
+  border: var(--badge-border) solid var(--bg-sheet);
   border-radius: var(--r-full);
-  background: var(--bg-surface);
-  color: var(--fg-muted);
+  background: var(--bg-sheet);
+  color: var(--text-secondary);
 }
 
 .cf-mr-reviewer__badge--done {
-  color: var(--st-success);
+  color: var(--success);
 }
 
 /* 排序按钮：升序时把"降序"图标翻转（旧版 rotateX(180deg)）。 */
@@ -120,4 +125,294 @@
   display: flex;
   justify-content: center;
   padding-top: calc(var(--sp-4) * 2);
+}
+
+/* ------------------------------ MR 讨论时间线（DESIGN.md §7.5） ------------------------------ */
+.mr-comment {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-4);
+  padding: var(--sp-4) 0;
+  border-top: 1px solid var(--line);
+}
+
+.mr-comment:first-of-type {
+  border-top: 0;
+}
+
+.mr-comment__main {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--sp-1);
+  min-width: 0;
+}
+
+.mr-comment__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+}
+
+.mr-comment__name {
+  color: var(--text-primary);
+  font-weight: var(--fw-medium);
+}
+
+.mr-comment__body {
+  color: var(--text-primary);
+  font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.mr-comment__input {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ------------------------------ v5 §6 G8 行内容 ------------------------------ */
+.cf-mr-row__icon {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+.cf-mr-row__title-link {
+  overflow: hidden;
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+  text-overflow: ellipsis;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.cf-mr-row__title-link:hover {
+  color: var(--brand-text);
+}
+
+.cf-mr-row__path {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
+}
+
+.cf-mr-row__number {
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
+}
+
+.cf-mr-row__author-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--sp-4) * 2);
+  height: calc(var(--sp-4) * 2);
+  border-radius: var(--r-full);
+  background: var(--bg-well);
+  color: var(--text-primary);
+  font-size: 8px;
+  font-weight: var(--fw-semibold);
+}
+
+.cf-mr-row__author {
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
+}
+
+.cf-mr-row__chip {
+  display: inline-flex;
+  align-items: center;
+  overflow: hidden;
+  max-width: calc(var(--sp-4) * 25);
+  padding: 0 var(--sp-2);
+  border-radius: var(--r-sm);
+  background: var(--bg-well);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-caption);
+  white-space: nowrap;
+}
+
+.cf-mr-row__chip a {
+  overflow: hidden;
+  color: inherit;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+
+.cf-mr-row__chip a:hover {
+  color: var(--brand-text);
+}
+
+.cf-mr-row__arrow {
+  flex: 0 0 auto;
+  color: var(--text-disabled);
+}
+
+.cf-mr-row__time {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  white-space: nowrap;
+}
+
+
+/* ============================== v5 §6 G9 MR 详情页 ============================== */
+
+/* 头部纸页：标题行 + 说明行 + 描述 + Tabs。 */
+.cf-mr-detail__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-7) var(--sp-7) 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-sheet);
+}
+
+.cf-mr-detail__titlerow {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.cf-mr-detail__title {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--fs-h1);
+  font-weight: var(--theme-heading-weight);
+  letter-spacing: -0.4px;
+  line-height: var(--lh-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cf-mr-detail__number {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+  font-family: var(--font-mono);
+  font-size: var(--fs-small);
+}
+
+.cf-mr-detail__status {
+  flex: 0 0 auto;
+  border-radius: var(--r-full);
+}
+
+.cf-mr-detail__spacer {
+  flex: 1 1 auto;
+}
+
+.cf-mr-detail__metarow {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+.cf-mr-detail__meta-text {
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+}
+
+.cf-mr-detail__desc {
+  max-width: var(--layout-prose-max);
+  color: var(--text-secondary);
+  font-size: var(--fs-body);
+}
+
+/* 主体两列：主列弹性 + 右侧栏 272px 固定。 */
+.cf-mr-detail__body {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-6);
+}
+
+.cf-mr-detail__main {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  min-width: 0;
+}
+
+.cf-mr-detail__side {
+  display: flex;
+  flex: 0 0 calc(var(--sp-4) * 34);
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.cf-mr-detail__reviewer {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.cf-mr-detail__reviewer-name {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--fs-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* MergeBox：白底纸页；阻塞时 headline 染 warn/bad 色。 */
+.cf-mergebox {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  padding: var(--sp-7);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-sheet);
+}
+
+.cf-mergebox__headline {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  color: var(--text-primary);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+}
+
+.cf-mergebox__headline--ok {
+  color: var(--success-text);
+}
+
+.cf-mergebox__headline--warn {
+  color: var(--warning-text);
+}
+
+.cf-mergebox__headline--bad {
+  color: var(--danger-text);
+}
+
+.cf-mergebox__hint {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.cf-mergebox__options {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-5);
+  padding-top: var(--sp-2);
+}
+
+.cf-mergebox__spacer {
+  flex: 1 1 auto;
 }

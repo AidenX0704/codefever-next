@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router'
 import type { HomeOverview } from '@/api/types'
 import { fetchHomeOverview } from '@/api/home'
 import { AnnouncementCard } from '@/components/view/home/AnnouncementCard'
+import { ChangelogPanel } from '@/components/view/home/ChangelogPanel'
 import { HomeHero } from '@/components/view/home/HomeHero'
 import { MergeRequestPanel } from '@/components/view/home/MergeRequestPanel'
 import { MyRepositoriesTable } from '@/components/view/home/MyRepositoriesTable'
@@ -116,6 +117,7 @@ export default function Home() {
 
         <div className="home-work__side">
           <RecentRepositories onBrowse={() => navigate('/repositories')} />
+          <ChangelogPanel />
           <AnnouncementCard />
         </div>
       </div>

@@ -136,6 +136,14 @@ func (f *fakeStore) ReviewPending(ctx context.Context, mrKey string) (bool, erro
 	return false, nil
 }
 
+func (f *fakeStore) ApprovedReviewCount(ctx context.Context, mrKey string) (int, error) {
+	return 0, nil
+}
+
+func (f *fakeStore) CreateMRComment(ctx context.Context, mrKey, uKey, body string) (int64, error) {
+	return 1, nil
+}
+
 func (f *fakeStore) GetWebhook(ctx context.Context, rwKey string) (*domain.RepositoryWebhook, *string, error) {
 	return nil, nil, nil
 }

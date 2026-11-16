@@ -13,6 +13,49 @@
 
 ### 新增
 
+- **设计体系 v4 落地（DESIGN.md 全面重构）**：语义令牌按 DESIGN.md 命名全量改名
+  （`--text-primary` / `--brand` / `--line` / `--success`…，585 处引用迁移，映射表见
+  `docs/design-v4/DESIGN_NOTES.md`）；取值刷新（白画布 + #2F6BFF 品牌蓝 + GitHub Light/Dark
+  代码色板，浅深语义键 70 个一一对应）；控件 32px、行高 56/紧凑 40、圆角 6/10/16、
+  阴影只给浮层（L2）；卡片改 L0（`--bg-subtle` 底、hover 换 `--bg-muted`）。
+  `check:ui` 全绿（含 9 处对比度修复：品牌浅底文字改 `--brand-text`、危险实心按钮
+  白字加深到 4.74:1、行号色提到 secondary）。
+- **图标切换 Phosphor**（`@phosphor-icons/react@2`）：`web/src/config/icons.ts` 重写为
+  白名单（canonical 语义名 + v3 旧名别名，19 个既有文件零改动接入）；
+  删除 `web/src/assets/icons/`（155 个文件）与 `scripts/extract-icons.mjs`；
+  `Icon` 组件支持 regular/duotone/fill 三字重；CopyButton 复制成功后图标切 Check 1.5s。
+- **命令面板（⌘K / Ctrl+K）**：`components/layout/CommandPalette`，分组（最近访问 /
+  仓库 / 仓库组 / 命令）、↑↓↵ 键盘导航、`>` 前缀命令模式（页面跳转、管理入口按角色显隐）。
+- **页头重排（DESIGN.md §4）**：中部搜索输入框换成 ⌘K 按钮；管理后台、外观（主题切换）、
+  语言、个人信息、退出全部收进头像菜单；未读角标保留。
+- **主题切换 UI**：`/settings/appearance`（浅色 / 深色 / 跟随系统 + 语言）；
+  头像菜单内也可直接切换（`helpers/theme.ts` 机制此前已有、本轮补入口）。
+- **仓库星标**：新端点 `POST /api/repository/star|unstar`（幂等），
+  `repository/list|config` 响应新增 `starCount`/`starred`；列表行与仓库二级头部均可
+  一键标星（乐观更新 + 失败回滚）。
+- **MR 讨论**：迁移 `014_mr_comments.sql`；新端点 `GET mergeRequestComments` /
+  `POST addMergeRequestComment`（1–10000 字，评论后站内通知创建者与评审人）；
+  MR 详情新增「讨论」Tab（Ctrl+Enter 发送）。
+- **合并设置**：迁移 `015_repo_merge_settings.sql`（`allowMergeCommit` / `allowSquash` /
+  `minReviewers`）；`mergeBranch` 新增 `deleteSourceBranch` 参数（合并后删源分支）；
+  `checkMergeType` 尊重仓库允许的合并方式。
+- **归档下载**：`GET /api/repository/archive?repositoryId&ref&format=zip|tar.gz`
+  （`git archive` 流式输出 + Content-Disposition）。
+- **公开站点信息**（匿名可访问）：`GET /api/site/stats`（仓库/组/成员/已合并 MR 计数）、
+  `GET /api/site/changelog`（分页）、`GET /api/site/announcement`；
+  首页右栏新增「更新日志」Timeline（新组件 `components/unit/Timeline`），
+  「平台公告」从内置三条须知升级为读真实公告（空时回落须知）。
+- **管理后台「公告与更新日志」页**（`/admin/announcements`）：`admin/changelogSave|Delete`、
+  `announcementSave|Delete` 四个管理端点；公告类型（安全/合规/支持）与启用开关。
+- **个人简介**：迁移 `016_user_bio.sql`（`cc_users.u_bio`）；`user/info` 返回 `bio`，
+  `updateBasicInfo` 接受 `bio`（≤255 字）。
+- **webhook 投递重发**：`POST /api/repository/redeliverWebhookLog`。
+- **系统设置扩展**：`admin/config` 白名单新增 `siteName`（页头品牌名跟随）与 `smtp.*`
+  （host/port/username/from，密码只写不回读；留空回落 `CODEFEVER_SMTP_*` 环境变量）；
+  管理后台系统设置页补对应字段。
+- **空态组件升级**：`EmptyState` 支持 64px duotone 图标（DESIGN.md §6.10），旧插图保留兼容。
+- **Tabs 计数徽标**：`TabItem.count` 显示 `--bg-muted` 胶囊计数。
+
 - **员工首页 `/home`**（方案与取舍见 `docs/HOME_PAGE_PLAN_2026-10-27.md`）：
   **登录后不再直接落到仓库列表**，而是先到工作台。页面分两层：
   - **工作台（个人化）**：问候 + 主推仓库的 `git clone` 命令（一键复制）、
@@ -77,6 +120,229 @@
 
 ### 变更
 
+- **MR 详情页（G9）按原型重写**：旧 `cf-mr-layout` 双列布局废弃，改为三层——
+  **头部纸页**（标题 20/600 + #编号 mono + 状态胶囊 info/success/default +
+  编辑/关闭动作右推；说明行 = 提交者头像 + 创建时间 + 源→目标分支芯片 +
+  arrow-right；描述 markdown-body 限宽 880；Tabs 讨论/变更/提交/动态 贴底部）→
+  **MergeBox**（评审阻塞时 headline 染 warn 色显示"N 位未通过"、冲突时染 bad 色
+  + 解决命令引导、就绪时染 ok 色；合并选项 + 禁用合并按钮锁图标 + 分体箭头；
+  `minReviewers` 取自目标仓库设置而非 MR 详情——`MergeRequestDetail` 类型无此字段）
+  → **双列主体**（主列弹性 + 侧栏 272px：评审人行 + 动态时间线）。
+  门禁：verify 全绿；`web/build` 已重建。
+- **退役布局类清除**：`.cf-repo-layout` / `.cf-sidebar`（约 140 行）与
+  `.cf-repo-main > .page` 内边距规则随 v5 导航收口一并移除——所有页面的导航
+  现已完全收口到四套 v5 形态：平台侧栏（PlatformSidebar）/ 仓库页内 Tabs /
+  组页内 Tabs / 设置锚点导航。`web/build` 已重建。
+- **个人设置外壳（G11）与旧导航体系退役**：`SettingsLayout` 从左侧 Drawer 改为
+  **G11 锚点导航面板**（200px 纸页 sticky，激活 `--bg-selected`+`--brand-text`，
+  覆盖 资料/邮箱/SSH Key/通知/令牌/外观 六项）；<991 转顶部横排。
+  **删除全部退役导航代码**：`components/layout/Sidebar.tsx`（旧上下文抽屉组件）与
+  `config/drawer.ts`（repository/settings/group/admin 四组 drawer 配置，约 300 行）
+  零引用清除——平台侧栏（PlatformSidebar + platformNav.ts）与各布局页内 Tabs
+  已完整接管导航；`Sidebar` 相关的 `.cf-repo-layout/.cf-repo-main` 布局类保留
+  （组/设置页迁移后复用判断在下一轮）。
+  门禁：verify 全绿 + `check:ui:live` 真机 4 组通过；`web/build` 已重建。
+- **仓库组外壳（G3）与管理后台（G13）按原型重写**：
+  `GroupLayout` 废弃左侧上下文导航，改为 **GroupHeader 纸页**（组头像 48——无图标
+  用 2×2 方格标、名称 20/600、描述 · 成员数元信息、右侧新建仓库/设置入口）+
+  页内下划线 Tabs（仓库｜合并请求｜成员｜动态｜设置）；原型的"概览/子组"页签
+  因后端为扁平组结构不单列（数据边界注记）。
+  管理子导航（用户/仓库/仓库组/公告/设置）从二级侧栏**迁移到平台侧栏「管理」分组**
+  （原型 G13 形态；审计日志/集成/系统状态路由后端未提供，不渲染空入口）；
+  `AdminLayout` 去掉二级侧栏，管理页补 v5 页头（用户页：标题 + `label._N_user` 计数）。
+  门禁：verify 全绿；`web/build` 已重建。
+- **分支 / 标签列表（G7）按原型落地**：全部（活跃/陈旧分组）装进一张 `.list-sheet`
+  纸页（分组标题 32px 实色行）；行 48px——图标 + **名称等宽 13/500**（链接悬停
+  `--brand-text`）+ 徽标对齐 §7.3 语义（**默认 Tag(info) 在前、受保护 Tag(idle) 带
+  锁图标**，修正 v4 的 success 用色）+ 提交说明 fg-3 填充 + 更新者首字母头像 20 +
+  时间 + **7 位短哈希**（v4 为 8 位，对齐 §12.2 列表 7 位口径）；行悬停整行。
+  门禁：verify 全绿；`web/build` 已重建。
+- **提交列表（G6）按原型落地**：全部日期组装进一张 `.list-sheet` 纸页（分组行 32px
+  实色 `--bg-sheet-2` 等宽 12 fg-3），提交行 56px——**头像 24**（成员头像图或首字母圆）
+  + 标题 13/500 主色 + "作者 · 时间" 12 fg-3 + 右侧 **7 位短哈希芯片**（well 底，
+  去掉 v4 拼块边框）+ 复制；整行悬停 `--bg-hover`。CommitRow 为文件页提交条、
+  MR/提交详情时间线共用，同步生效。
+- **仓库布局重写为 v5 G4 结构（废弃左侧上下文导航）**：`RepositoryLayout` 不再渲染
+  `Sidebar` 上下文抽屉，改为 **RepoHeader + 页内下划线 Tabs**（代码｜提交｜分支｜标签｜
+  合并请求｜设置，NavLink 驱动；files Tab 兼容仓库根路径与 blame，与旧 drawer 语义一致）；
+  内容区改 `repo-page` 容器（子页 `.page` 去重内边距）。原型中的"关于"侧栏（语言分布/
+  贡献者/活跃度）后端无聚合数据，暂不渲染。`config/drawer.ts` 的
+  `repositoryDrawerEntries` 退役（保留函数待组/设置布局统一迁移后删除）。
+  门禁：verify 全绿；`web/build` 已重建。
+- **MR 行（G8）/ 搜索页（G14）/ 令牌 Dialog（G12）按 Pixso 设计稿节点落地**：
+  本轮以 `query_nodes` 抽取原型节点数据为准（而非仅按 DESIGN.md 文字）。
+  MR 行重排为原型解剖——行首 MR 图标（fg-3）+ 标题 14/600（#号移出标题）+
+  元信息行（仓库路径/`#编号` 等宽 fg-3、作者 16px 首字母圆、源→目标分支**芯片**
+  `--bg-well` 等宽 11 + 箭头 12 fg-4），右侧横排：评审人头像组 + 状态胶囊
+  （开放 info / 已合并 success / 已关闭 default，对齐 §11.2 词表）+ 时间 12 fg-3；
+  搜索页挂 `search-page` 作用域：输入框盒 42px 圆角 10、结果 SectionCard 纸页化、
+  行悬停整行；令牌创建 Dialog 的"明文一次性展示"改为警示行 + 深底 console 块
+  （`token-reveal`）。数据边界：令牌表的前缀/权限/过期列后端无字段，**不造假列**，
+  等接口后补。门禁：verify 全绿 + 真机 4 组通过；`web/build` 已重建。
+- **Diff 视图（G10）与首页 Hero（G1）按 v5 落地**：
+  Diff 渲染层对齐原型——列序改为**旧号 48 ｜ 新号 48 ｜ 符号 20 ｜ 代码**，新增行
+  `+` / 删除行 `−` 符号列（状态文字档，增删的第二通道）；增删行整行实色底
+  （行号/符号/代码同底，去掉 gutter 分色）；hunk 头行高 32 + `--diff-hunk-fg`；
+  文件头 44px 实色 `--bg-sheet-2`、路径等宽、统计列等宽 tabular；side-by-side
+  左右分界用 1px 发丝线（连接线不着色）。
+  首页 Hero 从通栏 `--brand-subtle` 色块改为**纯文字页头**（问候 24/600 +
+  副标题 fg-3；新建动作统一走顶栏「＋新建」）；clone 命令保留为右侧等宽小块
+  （`--bg-well`，偏离注记见 HomeHero.tsx）。首页工作台面板（SectionCard plain）
+  作用域纸页化：标题行 56px + 发丝线，与 G1 面板形态一致。
+  门禁：verify 全绿 + `check:ui:live` 真机 4 组通过；`web/build` 已重建。
+- **文件页按 v5 G4 版式落地（对齐 Pixso 原型）**：文件列表从"带表头表格"改为
+  纸页里的行式列表——顶部**最新提交条**（头像 20 + 作者 + 提交标题 + 7 位短哈希芯片
+  + 时间 + 历史入口，48px），下方**无表头 40px 行**（图标 16 + 名称 13/500 +
+  最近提交说明 fg-3 + 时间右对齐），目录在前文件在后，整行悬停 `--bg-hover`；
+  纸页容器 `.list-sheet` 与仓库列表共用。MR 列表页补 v5 页头（标题 + 计数）。
+  全局表格行整行悬停。门禁：verify 全绿 + 真机 4 组通过；`web/build` 已重建。
+- **仓库列表 / 仓库页头 / MR 列表按 v5 版式（G2 / G4 / G8）落地**：
+  `/repositories` 新增 v5 页头（标题 24/600 + 计数 + 右侧唯一主按钮），
+  列表装进 `.list-sheet` 纸页（白底 + 发丝边 + 12px 圆角），行高 64、
+  组路径 fg-3 + 仓库名 600、计数列精简为次要信息；仓库组卡片纸页化；
+  仓库页头 `.repo-head` 改为纸页（标题 20/600 + 组路径 fg-3 + 计数条加分隔线）；
+  MR 行 72 高装进纸页容器（`.list-sheet`），悬停 `--bg-hover`。
+  全局 `cf-card` 纸页化（白底 + 发丝边）、表头 `--bg-sheet-2`（v5 §6.5）。
+  门禁：`npm run verify` 全绿 + `check:ui:live` 真机 4 组通过；`web/build` 已重建。
+- **前端外壳与令牌迁移到 v5（格·代码）**：`theme.css` 语义键名沿用 v4 实现 API、
+  取值全量重绑 v5 色板（主题蓝固定 #1677FF、墨系前景四档、雾白画布 + 纸页表面、
+  发丝线三档、ok/warn/bad 半透明底、v5 语法色板），新增 `--bg-sheet/--bg-sheet-2/
+  --bg-well/--bg-hover/--bg-selected` 与外壳毛玻璃材质键（浅深成对）；尺寸对齐
+  （控件 36、圆角 8/12/16、行高 48、内容最大 1680、页边距 28）。
+  新增**平台侧栏** `PlatformSidebar`（悬浮玻璃面板，工作台/代码/协作/管理分组，
+  管理按 `user.admin` 门控，折叠持久化并经 `<html data-rail>` 联动 `--rail-current`），
+  顶栏改为通栏雾面、左侧面包屑、去掉主导航与 Logo（沉入侧栏）；
+  仓库/组/设置/管理的页内导航改为纸页面板。表面令牌批量切换
+  （卡片/表格/输入从画布白改挂 `--bg-sheet`，全页背景保留雾白）。
+  `check:ui` 增加 v5 §3.1 既定取舍的定向豁免（主题蓝 #1677FF 实心上的白字
+  按钮/角标 4.1:1，仅此一对；`check:ui:live` 同口径）。品牌色**文字/链接**统一
+  降档到 `--brand-text`（浅 #0958D9 / 深 #69B1FF，两主题 ≥4.5:1）。
+  门禁：`npm run verify` 全绿 + `check:ui:live` 真机 4 组通过；`web/build` 已重建。
+- **设计基线切换至 v5（格·代码 Cell Code v1.0）**：新增 `docs/design-v5/DESIGN.md`
+  （同源 Cell Workbench v5.6：主题蓝 #1677FF、雾白纸页、悬浮玻璃侧栏 + 通栏雾面顶栏、
+  方格母题、Diff 整行底色、自研线性图标族 §8）；`AGENTS.md` §5.2 指向 v5，
+  `docs/design-v4/DESIGN_NOTES.md` 顶部标记基线已切换（v4/v3 资料保留作历史参考）。
+  **过渡状态**：`web/src` 实现尚未迁移（仍为 v4 令牌 #2F6BFF 与 Phosphor 图标），
+  迁移在前端重写工程中推进；设计原型见 Pixso 文件页「Codefever · 格·代码」。
+- **仓库列表行补「默认分支」（V3 §7.3）**：行内显示 `defaultBranch`（如 `main`），
+  等宽 + 次要色，与角色徽标区分开。刻意**不做成彩色胶囊** —— §6.3 明确
+  「不要把分支名、SHA、角色、流水线状态都做成同款彩色胶囊」，否则一行三个色块，
+  谁是状态谁是标识就分不清了。实测：行高 72px 未变、无横向溢出、文字色
+  `--fg-muted`（4.55:1）。
+- **新增 `npm run check:ui:live`（`web/scripts/check-ui-live.mjs`）**：把上一轮
+  临时用的真机审计固化成仓库脚本 —— 自起 headless Chrome、可选表单登录、逐页对
+  **每个可见文本节点**向上找真实背景算对比度，并检查横向溢出。它补的是静态
+  `check:ui` 的盲区：静态只能看"同一条规则里同时声明前景与背景"，而
+  "基类给 color、变体类给 background"这种跨规则组合只有渲染后才知道。
+  不进必过门禁（需要跑着的实例），用法见 AGENTS §8。
+  同时修掉脚本自身一个判定错误：把「14px 粗体」当成了 WCAG 大字号，
+  阈值从 4.5 放水到 3 —— 现在按「≥24px 常规 / ≥18.66px 粗体」判定。
+- **可点击行补键盘激活（V3 §10）**：仓库列表行、团队卡用
+  `<div role="button" tabIndex={0} onClick>` 实现 —— 能 Tab 到、读屏也念成按钮，
+  但**按 Enter / Space 什么都不会发生**，键盘用户实际点不进去。抽出
+  `helpers/keyboard.ts` 的 `activateOnKey()` 供三处共用（帮助页入口原本内联了
+  同一段逻辑，一并收敛）。实测：Tab 到仓库行 → Enter → 正确进入 `/demo1/111222/files`。
+- **焦点环选择器提升特异性**：全局 `:where(a, button, [role="button"], summary)`
+  的 `outline` 特异性为 0，任何组件随手写一句 `outline` 都会把它静默盖掉、
+  焦点环消失。改为真实选择器列表（`a:focus-visible` 等）。实测仓库行聚焦时
+  描边 `solid 2px rgb(37,99,235) offset 2px` 正常。
+- **修掉 7 处「`--fg-subtle` 当正文用」的对比度问题**（真机审计发现，静态扫描抓不到）：
+  首页仓库格 slug（2.56:1）、快捷入口标签（2.56:1）、团队卡描述（2.56:1）、
+  动态流时间（2.45:1）、侧栏计数（2.45:1 / 选中项 4.37:1）、分支列表 SHA（2.45:1）。
+  `--fg-subtle` 按规范只用于占位符与禁用态，这些位置都是**要读的信息**，统一改
+  `--fg-muted`；选中侧栏项里的计数跟随主色（4.75:1）。另修两处：描边按钮
+  `--fg-muted` → `--fg`（放在首页 hero 的浅底上只有 4.37:1）、首页 hero 副标题同理。
+- **新增真机验证手段**：本地构建 + 一个把 `/api` 与 `/user/*` 非 GET 请求代理到
+  已在 Docker 里运行的实例的静态服务器，登录后用无头浏览器逐页跑
+  「逐可见文本节点算实际对比度」的审计。静态扫描只能看"同一条规则里同时声明
+  前景与背景"的组合，跨规则继承（基类给 color、变体类给 background）会漏。
+  用它跑 **9 个页面 × 浅/深两套主题 = 18 组，全部 0 违规、0 控制台异常**。
+- **表单无障碍（V3 §10）**：`FieldShell` 的 `children` 改为渲染函数，由外壳算好
+  无障碍属性再交给控件 —— 帮助 / 错误文案生成 id 并通过 `aria-describedby` 关联，
+  错误态补 `aria-invalid`。此前错误只有红框和一行小字，读屏聚焦时完全读不到原因。
+  没有 `label` 的输入（成员邀请、建分支/标签、改邮箱等 8 处）用 `placeholder` 兜底
+  `aria-label`。实测：10 个表单控件**全部有可访问名**，图标按钮**全部有 aria-label**。
+- **清理 5 条死 CSS 规则**：`.lighter` / `.flex-row` / `.flex-col` /
+  `.marker-dark` / `.marker-dark-clickable` 在 TSX 中零引用（`.marker-dark` 的
+  `--marker` 基类早已不存在）。删掉后全仓 `!important` 只剩两处有据可依的例外：
+  Chrome 自动填充中和（UA 样式无法用普通作者样式覆盖）与 `prefers-reduced-motion`。
+- **首屏防闪白**：`web/index.html` 增加内联脚本，在样式表与 React 之前把
+  `data-theme` 落到 `<html>`。此前主题是在 `main.tsx` 的模块脚本里应用的，
+  深色用户会先看到一帧白底再跳深色（V3 §9 明确要求"主题偏好应在首屏渲染前应用"）。
+  实测：页面加载 120ms（React 尚未挂载）时 `data-theme` 已是 `dark`。
+  同时把 `theme-color` 拆成浅 / 深两条带 `prefers-color-scheme` 的声明，
+  移动端状态栏颜色不再固定为黑。
+- **`PROJECT_MAP.md` 同步**：`theme.css` 条目改写为 v3 三层令牌口径（旧口径标注
+  已废弃并指向 `docs/design-v2/`），`tokens.ts` 补充十三组导出，新增
+  `helpers/theme.ts` / `styles/markdown-body.dark.css` / `scripts/check-ui.mjs` 三条，
+  `Sidebar` 补注宽度令牌。
+- **主导航宽度改用令牌（V3 §7.1）**：`.cf-sidebar` 由写死的 320px 改为
+  `--layout-side`（232），折叠态由 88 改为 `--layout-side-collapsed`（64）。
+  此前这两个令牌在 theme.css 里定义了却**没有任何消费者** —— 侧栏自己写死 320，
+  比规范宽 88px，密集列表页白少一列空间。影响仓库 / 团队 / 管理 / 设置四个带侧栏的布局。
+- **动效时长全部令牌化**：`0.12s` / `0.16s` / `0.2s` 等裸时长改为
+  `--dur-fast` / `--dur`，全仓无 `transition: all`、无超过 220ms 的过渡。
+  侧栏宽度过渡是唯一一处动画化布局属性，已按 V3 §8.2 在代码里写明例外理由
+  （折叠只有 width 能表达，transform 会带走子元素）。
+- **时间显示统一到秒（AGENTS §5.9 / V3 §5.2）**：`FormattedTime` 的默认行为由
+  「7 天内显示相对时间、超过显示绝对」改为**一律绝对 `yyyy-MM-dd HH:mm:ss`**，
+  相对时间降级为可选的辅助文案（传 `relative` 时精确值放进 `title`，悬停可见）。
+  原因：自动切换会让同一个列表里两种时间口径混排，且相对时间看不到秒 ——
+  V3 明确「相对时间不得替代主时间字段」。同时补 `<time datetime>` 供机器读取，
+  无效时间统一显示 `—`（不再可能漏出 `Invalid Date`）。影响 **26 处调用点**，
+  列表页的时间列会变宽（19 字符 vs "3 分钟前"）。
+- **等宽数字全局生效**：`time` / `.cf-stat__value` / `.cf-num` / `.cf-duration` /
+  行号统一 `font-variant-numeric: tabular-nums lining-nums` —— 比例数字在列表滚动、
+  耗时刷新时会左右抖动，数值列右对齐等于白做。
+- **设计系统页补「时间与数字」样张**：绝对 / 相对 / 无效 / 等宽数字四种形态并排，
+  改时间格式后先在这里比对（V3 §15 要求预览页覆盖时间格式）。
+- **弹窗焦点管理（V3 §6.5）**：`Dialog` 补上「打开时焦点进入弹窗、关闭后焦点
+  回到触发元素、Tab 在弹窗内循环、标题经 `aria-labelledby` 关联」。此前关掉弹窗焦点
+  会掉到页面顶部，键盘用户得重新 Tab 一遍才能回到原处。实现时踩到一个坑并已修正：
+  `onClose` 通常是内联箭头（每次父组件重渲染都是新引用），若放进 effect 依赖，
+  父组件一重渲染 effect 就重跑、把焦点又抢回第一个元素 —— 改为用 ref 持有，effect 只依赖 `open`。
+- **下拉菜单键盘操作（V3 §6.2）**：`Dropdown` 补上「点击展开时焦点进入首项、↑/↓ 循环、
+  Home/End 跳首尾、Esc 关闭并把焦点还给触发器」。悬停展开（页头仓库/仓库组菜单）不抢焦点，
+  否则鼠标划过就会跳走键盘位置。焦点归还时先找触发器**内部**的可聚焦元素 ——
+  触发器容器是 `div`，直接 `focus()` 是空操作，焦点会掉到 body。
+- **Toast 健壮性与语义**：并发条数上限 4（超出丢最旧的）—— 批量失败时逐条弹会把屏幕铺满，
+  旧的那些早已被顶出视野、点不到关闭；错误类改用 `role="alert"`（其余仍是 `status`），
+  读屏会立即播报而不是等空闲。
+- **新增设计体系静态检查 `npm run check:ui`（`web/scripts/check-ui.mjs`）**，
+  并把它并入前端门禁：`npm run verify` = typecheck + lint + check:ui + build。
+  查四件事：CSS/TSX 里的硬编码色值、组件引用 `--p-*` 原始层、浅深主题键是否
+  一一对应、同一条规则内文字与背景的对比度是否 ≥ 4.5:1。动机：本轮修掉的
+  `.cf-tag--warning` 1.41:1 这类问题 typecheck / lint / build 全绿也发现不了，
+  只能靠算对比度。已用故意写坏的文件验证过四条检查都会失败（复现出同样的 1.41:1）。
+- **剩余裸字面值令牌化**：tooltip 箭头偏移（-9/-6px）、方形图标按钮内边距
+  （7px 8px）与最小宽（34px）、必填星号间距（2px）、复制按钮内边距、角标内边距、
+  文档菜单间距、认证页 20px 间距与负边框重叠（-1px）全部改走令牌或组件令牌块；
+  `z-index: 1` 收敛为 `--z-raised`。扫描后 `web/src/styles` 下已无裸字号 /
+  字重 / 圆角 / 间距 / 层级字面值（仅剩 markdown-body 这份 vendored 副本）。
+- **应用壳层与页面标题对齐 v3**：页头固定 56px、左右内边距与内容区统一 32px
+  （原来是 64px 高 + 24px 内边距）；页面标题 20px/700 → **24px/600**（中文 700 在
+  20px 上会糊），副标题降到 13px；区块标题 700 → 600。标题字重改由
+  `--theme-heading-weight` 驱动，深色下自动降到 500。
+- **内容区底色由 surface 改为 canvas**：原来整个内容区是纯白，卡片、表格、区块容器
+  之间没有层级差，"哪里是容器"只能靠边线猜。现在页面底是 canvas、卡片与表格是
+  surface，层级靠表面色差表达（V3 §7.2）。同时给 `.cf-card` 补 1px 细边、圆角 4 → 8px
+  —— 深色下 `--shadow-1` 在 #0b1120 上几乎不可见，没有边线就分不出卡片边界。
+- **新增 `styles/markdown-body.dark.css`**：`markdown-body.css` 是 GitHub 早期 README
+  样式的原样 vendored 副本，全是写死的浅色值，深色主题下文档页会变成白底黑字的孤岛。
+  新增一层 `[data-theme="dark"]` 覆盖（30 余条，映射到 `--fg-*` / `--tok-*` /
+  `--diff-*`），浅色下完全不变。其中 3 条工具类（`.bg-white` / `.border` /
+  `.text-gray-light`）必须用 `!important` 才能压过 vendored 文件自带的 `!important`
+  —— 已在文件头按 AGENTS §7 写明偏离理由与回归条件。
+- **组件基线对齐 v3**：标签固定 22px 高 / 4px 圆角并补状态描边（浅底标签在
+  深色下不再糊在背景里）；弹窗圆角 6 → 12px；大号按钮字号 20 → 16px（v3 只放大尺寸
+  不放大字号）；表头改 12px / 500 / `--bg-sunken` 浅底，行分隔线由 `--bd` 换成
+  `--bd-subtle` —— 表格不再靠粗边线分层。
+- **页面骨架内边距 24/48 → 28/32**（≥1440 为 32，1024–1439 为 24，<1024 为 16）：
+  旧的左右 48px 让密集列表白白少了 32px 可用宽度，这是 V3 §7.2 的明确要求。
+- **新增主题入口 `helpers/theme.ts`**：`initTheme()` 在 `createRoot` 之前把
+  `data-theme` 落到 `<html>`（避免深色用户先看到一帧浅色），优先级为
+  「用户显式选择（localStorage `cf-theme`）> 系统 `prefers-color-scheme`」。
+  设计系统页（`/__design`）提供浅色 / 深色切换按钮，作为深色主题的验收入口。
 - **设计令牌重写为 v3（Git Platform Design System V3）**：`web/src/theme/theme.css`
   由「MUI v4 主题逐项抄录」改为三层令牌 —— 原始层 `--p-*`（唯一色值来源）→
   语义层（`--bg-` / `--fg-` / `--bd-` / `--ac-` / `--st-` / `--code-` / `--diff-` /
@@ -112,6 +378,14 @@
 
 ### 修复
 
+- **8 处「文字压背景」未达 WCAG AA 的规则**（用脚本逐条实测对比度定位）：
+  `.cf-tag--warning` 实心琥珀底压深琥珀字只有 **1.41:1**（令牌改名时把"浅琥珀"
+  错映射成"实心琥珀"），已改回 `--st-warning-tint` + `--st-warning-text`（6.84:1）；
+  代码行号误用 `--fg-subtle`（2.45:1）已改用 `--code-gutter-fg`（4.55:1）；
+  头像占位字母、成员数徽标（4.34:1）改用 `--fg`（9.9:1）；
+  diff hunk 头（4.37:1）改用 `--diff-hunk-fg`（8.01:1）；
+  危险 text 按钮 hover（4.41:1）改用 `--st-danger-text`（5.91:1）。
+  审计后全仓「同一条规则内同时声明前景与背景」的组合为 **0 处低于 4.5:1**。
 - **克隆地址在 `ssh` 配置不带结尾分隔符时拼错**：旧实现是裸拼接 `${ssh}${path}`，
   当站点配置的 `ssh` 为 `ssh://git@host`（无结尾 `/`）时会得到
   `ssh://git@hostgroup/repo.git` 这种不可用地址。现在按配置的实际写法选择分隔符

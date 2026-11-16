@@ -6,6 +6,8 @@ import { cn } from '@/helpers/cn'
 export interface TabItem<K extends string = string> {
   key: K
   label: ReactNode
+  /** 计数徽标（DESIGN.md §6.6：Tab 右侧 --bg-muted 胶囊）。undefined 不显示。 */
+  count?: number
 }
 
 export interface TabsProps<K extends string = string> {
@@ -15,7 +17,8 @@ export interface TabsProps<K extends string = string> {
   className?: string
 }
 
-/** 页签：高 40px、padding 0 24px、选中加粗 + 2px 主色指示条（见 unit.css 注释）。 */
+/** 页签：下划线式（DESIGN.md §6.6）—— 选中 --text-primary + 底部 2px --brand，
+ *  Tab 栏底部 1px --line，右侧可带计数徽标。 */
 export function Tabs<K extends string = string>({ items, value, onChange, className }: TabsProps<K>) {
   return (
     <div className={cn('cf-tabs', className)} role="tablist">
@@ -29,6 +32,7 @@ export function Tabs<K extends string = string>({ items, value, onChange, classN
           onClick={() => onChange(item.key)}
         >
           {item.label}
+          {item.count !== undefined ? <span className="cf-tab__count">{item.count}</span> : null}
         </button>
       ))}
     </div>

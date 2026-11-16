@@ -55,6 +55,14 @@ const EventTypeHOOK_POST_RECEIVE EventType = "hook:postReceive"
 const EventDataDescHOOK_POST_RECEIVE_D EventDataDesc = "rKey:string|name:string|from:string|to:string"
 const EventTypeMERGE_REQUEST_CLOSE EventType = "mergeRequest:close"
 const EventDataDescMERGE_REQUEST_CLOSE_D EventDataDesc = "gKey:string|rKey:string|id:int|mrKey:string|sourceBranch:string|targetBranch:string|sourceRKey:string|sourceGKey:string"
+
+// EventTypeMERGE_REQUEST_COMMENT 是新增的事件（PHP 侧没有评论能力，
+// 因此没有"逐字搬运"的来源，命名沿用 主事件:子事件 的既有惯例）。
+//
+// 受众是「MR 创建者 + 全体评审人 − 评论者自己」，由 events/notification.go
+// 的 mrParticipants 取人；body 是评论正文原文。
+const EventTypeMERGE_REQUEST_COMMENT EventType = "mergeRequest:comment"
+const EventDataDescMERGE_REQUEST_COMMENT_D EventDataDesc = "gKey:string|rKey:string|id:int|mrKey:string|body:string"
 const EventTypeMERGE_REQUEST_CREATE EventType = "mergeRequest:create"
 const EventDataDescMERGE_REQUEST_CREATE_D EventDataDesc = "gKey:string|rKey:string|id:int|mrKey:string|sourceBranch:string|targetBranch:string|sourceRKey:string|sourceGKey:string"
 const EventTypeMERGE_REQUEST_MERGE EventType = "mergeRequest:merge"

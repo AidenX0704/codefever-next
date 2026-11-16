@@ -145,7 +145,7 @@ export default function Search() {
   }
 
   return (
-    <div className="page">
+    <div className="page search-page">
       <div className="search-page__head">
         <TextField
           value={input}

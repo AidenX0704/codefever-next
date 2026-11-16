@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
 import { AppLink } from '@/components/unit/AppLink'
+import { activateOnKey } from '@/helpers/keyboard'
 import { Button } from '@/components/unit/Button'
 import { Card } from '@/components/unit/Card'
 import { CodeBlock } from '@/components/unit/CodeBlock'
@@ -197,12 +198,7 @@ export default function Help() {
               role="button"
               tabIndex={0}
               onClick={entry.onClick}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault()
-                  entry.onClick()
-                }
-              }}
+              onKeyDown={activateOnKey(entry.onClick)}
             >
               <div className="help-entry__head">
                 <Icon icon={entry.icon} size={20} />

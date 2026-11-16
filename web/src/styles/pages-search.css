@@ -32,7 +32,7 @@
   align-items: center;
   gap: var(--sp-4);
   min-height: var(--row-h);
-  border-bottom: 1px solid var(--bd);
+  border-bottom: 1px solid var(--line);
 }
 
 .search-row:last-child {
@@ -47,7 +47,7 @@
 }
 
 .search-row__title {
-  color: var(--ac-primary);
+  color: var(--brand-text);
   font-weight: var(--fw-medium);
   white-space: nowrap;
   overflow: hidden;
@@ -55,8 +55,8 @@
 }
 
 .search-row__desc {
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -64,8 +64,8 @@
 
 .search-row__meta {
   flex: 0 0 auto;
-  color: var(--fg-muted);
-  font-size: var(--fs-12);
+  color: var(--text-secondary);
+  font-size: var(--fs-caption);
   white-space: nowrap;
 }
 
@@ -78,4 +78,56 @@
 .search-row--mr > .cf-mr-row {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+/* ------------------------------ v5 §6 G14 搜索页 ------------------------------ */
+/* 大输入框 42：白纸页底 + 发丝边 + 圆角 10；右侧 Ctrl+K 键位帽。 */
+.search-page__field {
+  min-height: calc(var(--sp-4) * 5.25);
+  border-radius: 10px;
+}
+
+.search-page__field .cf-field__input {
+  font-size: var(--fs-body);
+}
+
+/* 结果组标题下结果行贴纸页；行悬停整行（纸页由 SectionCard 提供）。 */
+.search-page .section {
+  gap: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-sheet);
+}
+
+.search-page .section__head {
+  min-height: calc(var(--sp-4) * 7);
+  padding: var(--sp-4) var(--sp-6);
+  border-bottom: 1px solid var(--line);
+}
+
+.search-page .section__title {
+  font-size: var(--fs-body);
+  font-weight: var(--fw-semibold);
+}
+
+.search-row {
+  padding: 0 var(--sp-6);
+}
+
+.search-row:hover {
+  background: var(--bg-hover);
+}
+
+.search-row__title {
+  color: var(--text-primary);
+  font-weight: var(--fw-semibold);
+}
+
+/* 结果组标题（仓库 / 仓库组 / 成员）：12/500 fg-3 贴在纸页外。 */
+.search-group__title {
+  margin: var(--sp-8) 0 var(--sp-3);
+  color: var(--text-tertiary);
+  font-size: var(--fs-caption);
+  font-weight: var(--fw-medium);
 }

@@ -10,9 +10,13 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "build": "npm run typecheck && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "check:ui": "node scripts/check-ui.mjs",
+    "verify": "npm run typecheck && npm run lint && npm run check:ui && npm run build",
+    "check:ui:live": "node scripts/check-ui-live.mjs"
   },
   "dependencies": {
+    "@phosphor-icons/react": "^2.1.10",
     "date-fns": "^4.4.0",
     "prismjs": "^1.30.0",
     "react": "^19.3.1",

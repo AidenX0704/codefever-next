@@ -3,25 +3,41 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
-    <meta name="theme-color" content="#000000" />
+    <!-- 主题色（浏览器地址栏 / 移动端状态栏）。两个值必须与 theme.css 的 --bg-canvas 保持一致；
+         这是平台 API，只能写字面值，属于 §5「有明确外部格式要求的常量」例外。 -->
+    <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0d1117" media="(prefers-color-scheme: dark)" />
+    <!-- 首屏防闪白：在样式表与 React 之前落主题（AGENTS §5 / V3 §9）。
+         逻辑与 src/helpers/theme.ts 的 initTheme() 保持一致 —— 改一处必须同步另一处。 -->
+    <script>
+      (function () {
+        try {
+          var saved = window.localStorage.getItem('cf-theme')
+          var dark = saved ? saved === 'dark' : window.matchMedia('(prefers-color-scheme: dark)').matches
+          document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'light')
+        }
+      })()
+    </script>
     <meta name="description" content="CodeFever Next" />
     <link rel="manifest" href="/manifest.json" />
     <link rel="shortcut icon" href="/favicon.ico" />
     <title>CodeFever Next</title>
-    <script type="module" crossorigin src="/static/js/index-D0-HU-qL.js"></script>
+    <script type="module" crossorigin src="/static/js/index-DqPURA3A.js"></script>
     <link rel="modulepreload" crossorigin href="/static/js/rolldown-runtime-XKyaHtl9.js">
     <link rel="modulepreload" crossorigin href="/static/js/vendor-Cwr4aY6H.js">
-    <link rel="modulepreload" crossorigin href="/static/js/i18n-CnnFzgPj.js">
+    <link rel="modulepreload" crossorigin href="/static/js/i18n-C5onaUyU.js">
     <link rel="modulepreload" crossorigin href="/static/js/cn-hZG6twJP.js">
     <link rel="modulepreload" crossorigin href="/static/js/Button-DbSad5Oq.js">
-    <link rel="modulepreload" crossorigin href="/static/js/Toast-Dkj-S6wn.js">
-    <link rel="modulepreload" crossorigin href="/static/js/user-BlML39AH.js">
-    <link rel="modulepreload" crossorigin href="/static/js/AppDataProvider-Bl5Oi88g.js">
-    <link rel="modulepreload" crossorigin href="/static/js/EmptyState-BfOAF8TK.js">
+    <link rel="modulepreload" crossorigin href="/static/js/Toast-DUTaJ5pH.js">
+    <link rel="modulepreload" crossorigin href="/static/js/user-Djc-dnSt.js">
+    <link rel="modulepreload" crossorigin href="/static/js/AppDataProvider--sXWf49u.js">
     <link rel="modulepreload" crossorigin href="/static/js/docUrl-nrVKR0Pc.js">
-    <link rel="modulepreload" crossorigin href="/static/js/Icon-SIioroX-.js">
+    <link rel="modulepreload" crossorigin href="/static/js/Icon-DpQOZe1i.js">
     <link rel="modulepreload" crossorigin href="/static/js/Tooltip-hp_1bV-B.js">
-    <link rel="stylesheet" crossorigin href="/static/js/index-DF5wZgZN.css">
+    <link rel="modulepreload" crossorigin href="/static/js/EmptyState-BH1VkTwd.js">
+    <link rel="stylesheet" crossorigin href="/static/js/index-CXAWnGEy.css">
   </head>
   <body>
     <noscript>

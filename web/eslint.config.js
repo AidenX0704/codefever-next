@@ -17,7 +17,17 @@ export default tseslint.config(
     // 构建期工具脚本（Node 环境，不是浏览器代码）
     files: ['scripts/**/*.mjs'],
     languageOptions: {
-      globals: { console: 'readonly', process: 'readonly', URL: 'readonly' },
+      // Node 18+ 已内置 fetch / WebSocket，检查脚本会用到；
+      // 这里显式声明，避免 no-undef 误报。
+      globals: {
+        console: 'readonly',
+        process: 'readonly',
+        URL: 'readonly',
+        fetch: 'readonly',
+        WebSocket: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
     },
   },
   {

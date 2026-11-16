@@ -1,105 +1,88 @@
-import { Suspense, lazy, useState } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
-import { logoCommunity } from '@/assets/images'
-import { avatarUrl } from '@/config/constants'
 import { HELP_LINKS } from '@/config/helpLinks'
 import { publicApiDocUrl } from '@/config/publicApi'
 import {
-  plBell,
-  plSearch,
-  plCaretDownLine,
-  plCheck,
-  plDraft,
+  caretDownIcon,
+  checkIcon,
+  meterIcon,
+  notificationIcon,
   plExit,
-  plHelp,
-  plKey,
-  plLocalization,
-  plMemberAlt,
-  plMerge,
-  psAddAlt,
-  psRepair,
+  plusIcon,
+  questionIcon,
+  searchIcon,
+  settingsIcon,
+  userIcon,
 } from '@/config/icons'
 import { useAppData } from '@/features/app-data/AppDataProvider'
 import { docUrl } from '@/helpers/docUrl'
+import { applyTheme, getTheme } from '@/helpers/theme'
 import { useI18n, useT } from '@/i18n'
-import { Avatar } from '@/components/unit/Avatar'
 import { Dropdown, type MenuItemSpec } from '@/components/unit/Dropdown'
 import { Icon } from '@/components/unit/Icon'
-import { Button } from '@/components/unit/Button'
 import { SquareIconButton } from '@/components/unit/SquareIconButton'
-import { TextField } from '@/components/unit/TextField'
-// 通知抽屉只在点铃铛时用，懒加载以免把它的代码（含通知接口）带进首屏。
+// 通知抽屉 / 命令面板只在用到时才加载，避免把代码带进首屏。
 const NotificationDrawer = lazy(() => import('./NotificationDrawer').then((mod) => ({ default: mod.NotificationDrawer })))
+const CommandPalette = lazy(() => import('./CommandPalette').then((mod) => ({ default: mod.CommandPalette })))
 
 
 /**
- * 页头。
+ * 顶栏（v5 DESIGN.md §4.3：通栏雾面，只承载上下文与全局动作）。
  *
- * 结构逐项对齐旧版 `components/Header.js`：
- *   左：品牌 logo（高 32px、左 24px、右 48px）→ 仓库菜单 → 仓库组菜单 → 合并请求按钮
- *   右：新建菜单（＋）→ 语言 → 帮助 → 管理后台（仅管理员）→ 用户菜单
+ * 结构：
+ *   左：面包屑（当前平台分区，一级导航已沉入平台侧栏）
+ *   中：?K 搜索按钮（打开命令面板）
+ *   右：＋新建 / 通知 / 帮助 / 头像（外观、语言、个人信息、退出都在头像菜单）
  *
- * 与旧版的差异（记录在 `docs/FRONTEND_REWRITE_PLAN.md` §10 批 2）：
- *   - **未读通知铃铛暂不渲染**：通知抽屉是批 5 的内容，提前放一个无目标的按钮
- *     会变成死交互；`unReadNotification` 数据已经在 `useAppData()` 里备好。
- *   - 滚动阴影（旧版 `withScrollTrigger` 的 elevation 0→2）暂缺省：
- *     该效果依赖 `.app-content` 滚动监听，批 3 随仓库页布局一起补。
+ * v5 变化：Logo 与主导航（首页/仓库/仓库组/合并请求）沉入平台侧栏
+ * （PlatformSidebar）；本栏不再承载一级导航。
  */
 export function Header() {
   const t = useT()
   const navigate = useNavigate()
   const { pathname } = useLocation()
-  const { user, repositories, groups } = useAppData()
+  const { user } = useAppData()
   const { lang, setLang } = useI18n()
   const [notificationOpen, setNotificationOpen] = useState(false)
-  // 页头搜索框：回车或点图标才跳转（提交式），不做输入即搜 —— 见 pages/Search.tsx 的说明。
-  const [searchKeyword, setSearchKeyword] = useState('')
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const [, setThemeTick] = useState(0) // 主题切换后重渲染菜单勾选态
 
   /** 路径是否落在 `base` 这一层（避免 `/g/repo` 误配 `/g/repo2`）。 */
   const underPath = (base: string) => pathname === base || pathname.startsWith(`${base}/`)
 
-  // 当前所在的仓库 / 仓库组：官方原版在菜单里给当前项打勾（旧 `GroupRepositoryMenu`
-  // 的 `currentRepositoryKey` / `currentGroupKey`）。这里直接从路由推导，不再引入全局状态。
-  const currentRepository = repositories.find((item) => underPath(`/${item.group.name}/${item.name}`))
-  const currentGroup = groups.find((item) => underPath(`/groups/${item.name}`))
+  // 全局快捷键：?K / Ctrl+K 呼出命令面板（DESIGN.md §4）。
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+        event.preventDefault()
+        setPaletteOpen((open) => !open)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
-  // 列表**不做条数截断**（官方原版就是全量列出）：面板自身有 max-height + overflow，
-  // 列表长了滚动，而不是只显示前 20 条让人以为"仓库/仓库组少了"。
-  const repositoryMenuItems: MenuItemSpec[] = repositories.map((repository) => ({
-    key: repository.id,
-    label: `${repository.group.displayName}/${repository.displayName}`,
-    icon: <Avatar square size="sm" src={avatarUrl(repository.icon)} name={repository.name} />,
-    trailing: currentRepository?.id === repository.id ? <Icon icon={plCheck} size={14} /> : undefined,
-    onClick: () => navigate(`/${repository.group.name}/${repository.name}`),
-  }))
-
-  const groupMenuItems: MenuItemSpec[] = groups.map((group) => ({
-    key: group.id,
-    label: group.displayName,
-    icon: <Avatar square size="sm" src={avatarUrl(group.icon)} name={group.name} />,
-    trailing: !currentRepository && currentGroup?.id === group.id ? <Icon icon={plCheck} size={14} /> : undefined,
-    onClick: () => navigate(`/groups/${group.name}`),
-  }))
+  // 面包屑：当前平台分区（v5 §4.3 左位；仓库详情页归「仓库」）。
+  const crumbKey = (() => {
+    if (underPath('/home')) return 'label.home'
+    if (underPath('/groups')) return 'label.group'
+    if (underPath('/mergerequests')) return 'label.mergeRequest'
+    if (underPath('/search')) return 'label.search'
+    if (underPath('/settings')) return 'menu.profile'
+    if (underPath('/admin')) return 'label.adminArea'
+    if (underPath('/help')) return 'help.center'
+    if (/^\/(?!groups\b|mergerequests\b|settings\b|admin\b|search\b|help\b|home\b|user\b|doc\b)[^/]+\/[^/]+/.test(pathname)) {
+      return 'label.repository'
+    }
+    return 'label.home'
+  })()
 
   const createItems: MenuItemSpec[] = [
     { key: 'new-repository', label: t('label.newRepository'), onClick: () => navigate('/repositories/new') },
     { key: 'new-group', label: t('label.newGroup'), onClick: () => navigate('/groups/new') },
     { key: 'new-merge-request', label: t('label.createMergeRequest'), onClick: () => navigate('/mergerequests/new') },
   ]
-
-  // 帮助菜单：站内落点优先（帮助中心回答"去哪儿"，文档中心回答"怎么用"），
-  // 站外链接只保留"求助 / 反馈 / 贡献"三件必须出站的事。
-  // 与旧版差异：旧版四项全部跳站外，站内没有帮助页；地址口径从上游 PGYER/codefever
-  // 改到本仓库（见 `config/helpLinks.ts` 的说明）。
-  const submitSearch = () => {
-    const keyword = searchKeyword.trim()
-    if (!keyword) {
-      navigate('/search')
-      return
-    }
-    navigate(`/search?keyword=${encodeURIComponent(keyword)}`)
-  }
 
   const helpItems: MenuItemSpec[] = [
     { key: 'help-center', label: t('help.center'), onClick: () => navigate('/help') },
@@ -112,97 +95,83 @@ export function Header() {
   ]
 
   const languageItems: MenuItemSpec[] = [
-    { key: 'zh-cn', label: t('lang.chinese'), onClick: () => setLang('zh-cn') },
-    { key: 'en-us', label: t('lang.english'), onClick: () => setLang('en-us') },
+    {
+      key: 'zh-cn',
+      label: t('lang.chinese'),
+      trailing: lang === 'zh-cn' ? <Icon icon={checkIcon} size={14} /> : undefined,
+      onClick: () => setLang('zh-cn'),
+    },
+    {
+      key: 'en-us',
+      label: t('lang.english'),
+      trailing: lang === 'en-us' ? <Icon icon={checkIcon} size={14} /> : undefined,
+      onClick: () => setLang('en-us'),
+    },
   ]
 
+  const appearanceItems: MenuItemSpec[] = [
+    {
+      key: 'light',
+      label: t('appearance.light'),
+      trailing: getTheme() === 'light' ? <Icon icon={checkIcon} size={14} /> : undefined,
+      onClick: () => {
+        applyTheme('light')
+        setThemeTick((tick) => tick + 1)
+      },
+    },
+    {
+      key: 'dark',
+      label: t('appearance.dark'),
+      trailing: getTheme() === 'dark' ? <Icon icon={checkIcon} size={14} /> : undefined,
+      onClick: () => {
+        applyTheme('dark')
+        setThemeTick((tick) => tick + 1)
+      },
+    },
+  ]
+
+  // 头像菜单（DESIGN.md §4：管理后台 / 外观 / 语言 / 退出全部收进来）。
+  // 「外观 / 语言」两项直接给出两个候选（带当前勾选），避免再做二级菜单。
   const userItems: MenuItemSpec[] = [
-    { key: 'profile', label: t('menu.profile'), icon: <Icon icon={plMemberAlt} size={16} />, onClick: () => navigate('/settings/profile') },
-    { key: 'mail', label: t('menu.mail'), icon: <Icon icon={plDraft} size={16} />, onClick: () => navigate('/settings/email') },
-    { key: 'sshkey', label: t('menu.SSHKey_pl'), icon: <Icon icon={plKey} size={16} />, onClick: () => navigate('/settings/sshkey') },
-    { key: 'logout', label: t('menu.logout'), icon: <Icon icon={plExit} size={16} />, onClick: () => { window.location.href = '/user/logout' }, dividerAfter: false },
+    { key: 'profile', label: t('menu.profile'), icon: <Icon icon={userIcon} size={16} />, onClick: () => navigate('/settings/profile') },
+    { key: 'tokens', label: t('tokens.title'), icon: <Icon icon={meterIcon} size={16} />, onClick: () => navigate('/settings/tokens') },
+    ...appearanceItems,
+    ...languageItems,
+    ...(user?.admin
+      ? [{ key: 'admin', label: t('label.adminArea'), icon: <Icon icon={settingsIcon} size={16} />, onClick: () => navigate('/admin/dashboard') } as MenuItemSpec]
+      : []),
+    { key: 'logout', label: t('menu.logout'), icon: <Icon icon={plExit} size={16} />, onClick: () => { window.location.href = '/user/logout' }, dividerAfter: true },
   ]
 
   return (
     <header className="app-header">
       <div className="app-header__left">
-        <img className="app-header__logo" src={logoCommunity} alt="CodeFever" onClick={() => navigate('/home')} />
-        {/* 首页：`/home` 是员工落地页（2026-10-27 新增，见 docs/HOME_PAGE_PLAN_2026-10-27.md）。
-            logo 也指向它，但 logo 不像按钮、很多人不会去点，所以这里显式给一个文字入口；
-            当前在首页时用 `--ac-primary-tint` 底标出（与仓库/组菜单的"打勾"同义）。 */}
-        <Button
-          variant="text"
-          className={pathname === '/home' ? 'app-header__nav-active' : undefined}
-          aria-current={pathname === '/home' ? 'page' : undefined}
-          onClick={() => navigate('/home')}
-        >
-          {t('label.home')}
-        </Button>
-        {/* 仓库 / 仓库组：对齐官方原版 `GroupRepositoryMenu` ——
-            **点击触发器 = 跳到完整列表页**（`/repositories` 全部仓库、`/groups` 仓库组卡片列表），
-            **悬停 = 展开快速跳转菜单**（全量条目、分类标题、方形头像、当前项打勾）。
-            触发器只有文字 + 线框三角箭头（无左侧图标），展开时箭头翻转 180°。 */}
-        <Dropdown
-          trigger={
-            <Button variant="text" endIcon={<Icon icon={plCaretDownLine} size={12} />}>
-              {t('label.repository')}
-            </Button>
-          }
-          openOnHover
-          onTriggerClick={() => navigate('/repositories')}
-          title={t('label.repository')}
-          items={repositoryMenuItems}
-          emptyLabel={t('message._S_listEmpty', { s: t('label.repository') })}
-          minWidth={272}
-        />
-        <Dropdown
-          trigger={
-            <Button variant="text" endIcon={<Icon icon={plCaretDownLine} size={12} />}>
-              {t('label.group')}
-            </Button>
-          }
-          openOnHover
-          onTriggerClick={() => navigate('/groups')}
-          title={t('label.group')}
-          items={groupMenuItems}
-          emptyLabel={t('message._S_listEmpty', { s: t('label.group') })}
-          minWidth={272}
-        />
-        <SquareIconButton icon={plMerge} label={t('label.mergeRequest')} onClick={() => navigate('/mergerequests')} />
+        <span className="app-header__crumb">{t(crumbKey)}</span>
       </div>
 
-      {/* 全局搜索：页头中部。提交式（回车/点图标）—— 三类结果各 10 条，
-          实时搜会打满后端 LIKE 查询，而真实动作是"改几次词再回车"。 */}
-      <div className="app-header__search">
-        <TextField
-          value={searchKeyword}
-          onChange={(event) => setSearchKeyword(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault()
-              submitSearch()
-            }
-          }}
-          placeholder={t('search.placeholder')}
-          startAdornment={<Icon icon={plSearch} size={16} />}
-          aria-label={t('search.title')}
-          containerClassName="app-header__search-field"
-        />
+      {/* ⌘K 命令面板按钮（DESIGN.md §4 中部）：替代原输入框；命令面板里可搜仓库/组/命令。 */}
+      <div className="app-header__palette">
+        <button
+          type="button"
+          className="app-header__palette-btn"
+          onClick={() => setPaletteOpen(true)}
+          aria-label={t('palette.title')}
+        >
+          <Icon icon={searchIcon} size={16} />
+          <span className="app-header__palette-text">{t('search.placeholder')}</span>
+          <kbd className="app-header__palette-kbd">⌘K</kbd>
+        </button>
       </div>
 
       <div className="app-header__right">
-        <Dropdown trigger={<SquareIconButton icon={psAddAlt} label={t('label.create')} />} items={createItems} align="right" />
+        <Dropdown trigger={<SquareIconButton icon={plusIcon} label={t('label.create')} />} items={createItems} align="right" />
         <SquareIconButton
-          icon={plBell}
+          icon={notificationIcon}
           label={t('label.notification')}
           badge={user?.unReadNotification ?? 0}
           onClick={() => setNotificationOpen(true)}
         />
-        <Dropdown trigger={<SquareIconButton icon={plLocalization} label={t('label.language')} />} items={languageItems} align="right" />
-        <Dropdown trigger={<SquareIconButton icon={plHelp} label={t('label.help')} />} items={helpItems} align="right" />
-        {user?.admin ? (
-          <SquareIconButton icon={psRepair} label={t('label.adminArea')} onClick={() => navigate('/admin')} />
-        ) : null}
+        <Dropdown trigger={<SquareIconButton icon={questionIcon} label={t('label.help')} />} items={helpItems} align="right" />
         <Dropdown
           align="right"
           minWidth={240}
@@ -210,8 +179,7 @@ export function Header() {
           trigger={
             <span className="app-header__user">
               {user?.icon ? <img className="app-header__avatar" src={`/file/fetch/avatar/${user.icon}`} alt="" /> : <span className="app-header__avatar" />}
-              {/* 与「仓库 / 仓库组」同一支线框三角（旧版用户菜单同样用 faAngleDown）。 */}
-              <Icon icon={plCaretDownLine} size={12} />
+              <Icon icon={caretDownIcon} size={12} />
             </span>
           }
         />
@@ -219,6 +187,11 @@ export function Header() {
       {notificationOpen ? (
         <Suspense fallback={null}>
           <NotificationDrawer open onClose={() => setNotificationOpen(false)} />
+        </Suspense>
+      ) : null}
+      {paletteOpen ? (
+        <Suspense fallback={null}>
+          <CommandPalette open onClose={() => setPaletteOpen(false)} />
         </Suspense>
       ) : null}
     </header>

@@ -5,7 +5,7 @@ import { AppLink } from '@/components/unit/AppLink'
 import { FormattedTime } from '@/components/unit/FormattedTime'
 import { Icon } from '@/components/unit/Icon'
 import { Tag, type TagTone } from '@/components/unit/Tag'
-import { plMerge } from '@/config/icons'
+import { arrowRightIcon, plMerge } from '@/config/icons'
 import { useAppData } from '@/features/app-data/AppDataProvider'
 import { resolveMember } from '@/helpers/members'
 import { useT } from '@/i18n'
@@ -30,15 +30,15 @@ export interface MergeRequestRowProps {
   compact?: boolean
 }
 
-/** 状态徽标配色：旧版 open=success、merged=info、closed=warning。 */
+/** 状态徽标（v5 §11.2 词表）：开放=info、已合并=success、已关闭=default（idle）。 */
 function statusTone(status: number): TagTone {
   if (status === 2) {
-    return 'info'
+    return 'success'
   }
   if (status === 3) {
-    return 'warning'
+    return 'default'
   }
-  return 'success'
+  return 'info'
 }
 
 /** 分支的提交列表链接：`/{组}/{仓库}/commits?rev={分支}`。 */
@@ -86,42 +86,58 @@ export function MergeRequestRow({ item, href, showRepository = false, compact = 
 
   return (
     <div className="cf-mr-row">
+      {/* v5 §6 G8：行首 MR 方格图标（fg-3，不染状态色）。 */}
+      <Icon icon={plMerge} size={16} className="cf-mr-row__icon" />
+
       <div className="cf-mr-row__main">
         <div className="cf-mr-row__title">
-          <Link className="cf-link" to={href}>
-            #{item.number} {item.title}
+          <Link className="cf-mr-row__title-link" to={href}>
+            {item.title}
           </Link>
-          <Tag tone={statusTone(item.status)}>{statusLabel}</Tag>
         </div>
         <div className="cf-mr-row__meta">
-          {showRepository ? <span>{targetName}</span> : null}
-          <span>!{item.number}</span>
-          <span aria-hidden="true">·</span>
-          <span className="cf-mr-row__merge">
-            <Icon icon={plMerge} size={14} />
-            {sourceHref ? <AppLink to={sourceHref}>{item.sourceBranch}</AppLink> : <span>{item.sourceBranch}</span>}
-            <span aria-hidden="true">→</span>
-            {targetHref ? <AppLink to={targetHref}>{item.targetBranch}</AppLink> : <span>{item.targetBranch}</span>}
+          {showRepository ? <span className="cf-mr-row__path">{targetName}</span> : null}
+          <span className="cf-mr-row__number">#{item.number}</span>
+          {!compact && updater ? (
+            <>
+              <span className="cf-mr-row__author-avatar" aria-hidden="true">
+                {updater.slice(0, 1).toUpperCase()}
+              </span>
+              <span className="cf-mr-row__author">{updater}</span>
+            </>
+          ) : null}
+          <span className="cf-mr-row__chip">
+            {sourceHref ? (
+              <AppLink to={sourceHref} title={item.sourceBranch}>
+                {item.sourceBranch}
+              </AppLink>
+            ) : (
+              item.sourceBranch
+            )}
           </span>
-          <span aria-hidden="true">·</span>
-          {compact ? (
-            // 紧凑变体：首页工作台拿不到 commit（后端刻意不跑 git），
-            // 因此这里显示 MR 自身的更新时间，而不是"最后提交人 + 编辑于"。
-            <span>
-              {t('label.updateTime')}: <FormattedTime timestamp={Number(item.update)} />
-            </span>
-          ) : (
-            <span>
-              {updater} {t('label.editIn')}: <FormattedTime timestamp={Number(item.commit?.time ?? 0)} />
-            </span>
-          )}
+          <Icon icon={arrowRightIcon} size={12} className="cf-mr-row__arrow" />
+          <span className="cf-mr-row__chip">
+            {targetHref ? (
+              <AppLink to={targetHref} title={item.targetBranch}>
+                {item.targetBranch}
+              </AppLink>
+            ) : (
+              item.targetBranch
+            )}
+          </span>
         </div>
       </div>
-      {compact ? null : (
+
+      {compact ? (
+        <span className="cf-mr-row__time">
+          <FormattedTime timestamp={Number(item.update)} />
+        </span>
+      ) : (
         <div className="cf-mr-row__side">
           <MergeRequestReviewers reviewers={item.reviewers ?? []} members={target?.members ?? []} />
-          <span>
-            {t('label.updateTime')}: <FormattedTime timestamp={Number(item.update)} />
+          <Tag tone={statusTone(item.status)}>{statusLabel}</Tag>
+          <span className="cf-mr-row__time">
+            <FormattedTime timestamp={Number(item.update)} />
           </span>
         </div>
       )}

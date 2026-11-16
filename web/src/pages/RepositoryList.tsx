@@ -76,22 +76,28 @@ export default function RepositoryList() {
 
   return (
     <div className="page">
-      <div className="list-header">
-        <Tabs<TabKey>
-          value={tab}
-          onChange={setTab}
-          items={[
-            { key: 'all', label: firstTabLabel },
-            { key: 'joined', label: t('label.IJoined') },
-            { key: 'created', label: t('label.ICreated') },
-          ]}
-        />
+      {/* v5 §6 G2 页头：标题 24/600 + 计数 + 右侧唯一主按钮。 */}
+      <div className="page-head">
+        <div className="page-head__text">
+          <h1 className="page__title">{currentGroup ? currentGroup.displayName : t('label.repository')}</h1>
+          <span className="page-head__count">{t('label._N_repository', { n: filtered.length })}</span>
+        </div>
         {currentGroup || repositoryId ? null : newRepositoryButton()}
       </div>
 
       {error ? <div className="auth-message">{error}</div> : null}
 
-      <div className="list-body">
+      <Tabs<TabKey>
+        value={tab}
+        onChange={setTab}
+        items={[
+          { key: 'all', label: firstTabLabel },
+          { key: 'joined', label: t('label.IJoined') },
+          { key: 'created', label: t('label.ICreated') },
+        ]}
+      />
+
+      <div className="list-sheet">
         {loading ? (
           <Loading />
         ) : filtered.length > 0 ? (

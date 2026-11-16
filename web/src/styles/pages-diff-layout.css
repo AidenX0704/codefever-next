@@ -16,11 +16,11 @@
   align-items: center;
   gap: var(--sp-4);
   padding: var(--sp-4) calc(var(--sp-4) * 2);
-  border: 1px solid var(--bd);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--bg-canvas);
-  color: var(--fg);
-  font-size: var(--fs-14);
+  color: var(--text-primary);
+  font-size: var(--fs-body);
 }
 
 .cf-diff__summary-files {
@@ -30,17 +30,18 @@
 .cf-diff__layout {
   margin-left: auto;
   padding: 0 var(--sp-4);
-  border: 1px solid var(--bd);
-  border-radius: var(--r-md);
-  background: var(--bg-surface);
-  color: var(--ac-primary);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-canvas);
+  /* 品牌色文字按 v5 §3.1 用 --brand-text（深一档信号色），压雾白画布 ≥4.5:1。 */
+  color: var(--brand-text);
   cursor: pointer;
-  font-size: var(--fs-12);
+  font-size: var(--fs-caption);
   line-height: var(--ctl-h-sm);
 }
 
 .cf-diff__layout:hover {
-  background: var(--ac-primary-tint);
+  background: var(--brand-subtle);
 }
 
 /* 折叠面板头：文件名可点展开/收起，操作按钮靠右。 */
@@ -65,9 +66,9 @@
 
 .cf-diff__mode {
   flex: 0 0 auto;
-  color: var(--fg-muted);
+  color: var(--text-secondary);
   font-family: var(--font-mono);
-  font-size: var(--fs-12);
+  font-size: var(--fs-caption);
 }
 
 .cf-diff__actions {
@@ -76,7 +77,7 @@
   align-items: center;
   gap: var(--sp-2);
   margin-left: auto;
-  color: var(--fg-muted);
+  color: var(--text-secondary);
 }
 
 .cf-diff__actions a {
@@ -112,7 +113,7 @@
 .cf-diff__hunk {
   padding: 0 var(--sp-4);
   background: var(--diff-hunk-bg);
-  color: var(--fg-muted);
+  color: var(--diff-hunk-fg);
 }
 
 /* "展开完整文件"的内容区。 */
@@ -128,5 +129,5 @@
 
 .cf-diff__full--image img {
   max-width: 80%;
-  border: 1px solid var(--bd);
+  border: 1px solid var(--line);
 }

@@ -270,6 +270,13 @@ export default function AdminUsers() {
 
   return (
     <div className="page">
+      {/* v5 §6 G13 页头：标题 + 计数 + 右侧唯一主按钮。 */}
+      <div className="page-head">
+        <div className="page-head__text">
+          <h1 className="page__title">{t('menu.user_pl')}</h1>
+          {typeof count === 'number' ? <span className="page-head__count">{t('label._N_user', { n: count })}</span> : null}
+        </div>
+      </div>
       <div className="list-header">
         <Tabs<CategoryKey>
           value={category}

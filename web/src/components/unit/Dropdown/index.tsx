@@ -60,6 +60,11 @@ export interface DropdownProps {
  * 旧版用 MUI `Menu`（Popover + 定位）；这里用「相对定位容器 + 绝对定位面板」实现，
  * 行为对齐：点击触发开合、点击外部关闭、Esc 关闭、`transitionDuration: 0` 的即时显隐。
  * `openOnHover` 另提供官方原版页头那种"悬停展开"模式。
+ *
+ * 键盘行为（V3 §6.2「下拉菜单支持键盘上下选择、Enter 确认、Esc 关闭；焦点不能丢失」）：
+ *   - 点击展开时焦点进入第一个菜单项（悬停展开不抢焦点，否则鼠标划过就跳焦点）；
+ *   - ↑ / ↓ 循环移动、Home / End 跳到首尾、Enter 触发（原生 button 行为）；
+ *   - Esc 关闭并把焦点还给触发器。
  */
 
 /**
@@ -70,6 +75,8 @@ export interface DropdownProps {
  * 100ms 延迟）。这个值只影响关闭的灵敏度，不参与任何视觉尺寸。
  */
 const HOVER_CLOSE_DELAY = 120
+
+const ITEM_SELECTOR = '.cf-menu__item:not([disabled])'
 
 export function Dropdown({
   trigger,
@@ -85,6 +92,8 @@ export function Dropdown({
 }: DropdownProps) {
   const [open, setOpen] = useState(false)
   const wrapRef = useRef<HTMLDivElement>(null)
+  const triggerRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
   const closeTimerRef = useRef<number | null>(null)
 
   const cancelScheduledClose = () => {
@@ -102,6 +111,20 @@ export function Dropdown({
     }, HOVER_CLOSE_DELAY)
   }
 
+  /**
+   * 把焦点还给触发器。
+   *
+   * 触发器容器是 `<div>`，本身不可聚焦 —— 直接 `focus()` 是空操作，
+   * 焦点会掉到 body 上。真正的可聚焦元素是它内部的按钮/链接，
+   * 所以先找内部可聚焦元素，找不到才退回容器。
+   */
+  const focusTrigger = () => {
+    const wrap = triggerRef.current
+    if (!wrap) return
+    const inner = wrap.querySelector<HTMLElement>('button, a[href], [tabindex]:not([tabindex="-1"])')
+    ;(inner ?? wrap).focus()
+  }
+
   // 卸载时清掉待执行的收起定时器，避免对已卸载组件 setState。
   useEffect(
     () => () => {
@@ -116,6 +139,12 @@ export function Dropdown({
     if (!open) {
       return
     }
+
+    // 点击展开时把焦点送进菜单；悬停展开不抢焦点（鼠标划过不应改变键盘位置）。
+    if (!openOnHover) {
+      menuRef.current?.querySelector<HTMLElement>(ITEM_SELECTOR)?.focus()
+    }
+
     const onPointerDown = (event: MouseEvent) => {
       if (!wrapRef.current?.contains(event.target as Node)) {
         setOpen(false)
@@ -124,6 +153,27 @@ export function Dropdown({
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpen(false)
+        focusTrigger()
+        return
+      }
+      const menu = menuRef.current
+      if (!menu) return
+      const focusables = Array.from(menu.querySelectorAll<HTMLElement>(ITEM_SELECTOR))
+      if (focusables.length === 0) return
+      const current = focusables.indexOf(document.activeElement as HTMLElement)
+
+      if (event.key === 'ArrowDown') {
+        event.preventDefault()
+        focusables[(current + 1) % focusables.length].focus()
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault()
+        focusables[(current - 1 + focusables.length) % focusables.length].focus()
+      } else if (event.key === 'Home') {
+        event.preventDefault()
+        focusables[0].focus()
+      } else if (event.key === 'End') {
+        event.preventDefault()
+        focusables[focusables.length - 1].focus()
       }
     }
     document.addEventListener('mousedown', onPointerDown)
@@ -132,7 +182,7 @@ export function Dropdown({
       document.removeEventListener('mousedown', onPointerDown)
       document.removeEventListener('keydown', onKeyDown)
     }
-  }, [open])
+  }, [open, openOnHover])
 
   return (
     <div
@@ -150,6 +200,7 @@ export function Dropdown({
     >
       <div
         className={cn('cf-dropdown__trigger', triggerClassName)}
+        ref={triggerRef}
         onClick={() => {
           // 有 onTriggerClick 时点击是"跳转"，不是"开合"（官方原版的口径）。
           if (onTriggerClick) {
@@ -169,6 +220,7 @@ export function Dropdown({
         <div
           className={cn('cf-menu', align === 'right' && 'cf-menu--right')}
           role="menu"
+          ref={menuRef}
           style={minWidth ? { minWidth } : undefined}
         >
           {title !== undefined ? <div className="cf-menu__title">{title}</div> : null}
@@ -185,6 +237,8 @@ export function Dropdown({
                     return
                   }
                   setOpen(false)
+                  // 动作可能只改状态而不跳转，焦点要能回到触发器上继续操作。
+                  focusTrigger()
                   item.onClick?.()
                 }}
               >
