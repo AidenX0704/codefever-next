@@ -41,6 +41,14 @@ type UserHandler struct {
 	// PHP 时代这一步由 misc/modify_authorized_keys.php 守护进程完成
 	// （FIFO + SIGUSR1），PHP 运行时下线后改由 Go 后端直接写文件。
 	AuthKeys *authkeys.Writer
+
+	// Repos / Stars / Home 服务个人主页端点（GET /api/user/profile，见
+	// user_profile.go）：仓库可见性要跟 repository/list 同口径（RolesFor
+	// 才能算对组继承），动态要按"请求者可见范围"过滤。三者在 main.go
+	// 装配时注入；为 nil 时 profile 动作不可用（返回操作失败）。
+	Repos *repo.RepositoryRepo
+	Stars *repo.StarRepo
+	Home  *repo.HomeRepo
 }
 
 // NewUserHandler 创建用户域处理器。
@@ -127,7 +135,7 @@ func (h *UserHandler) listKey(ctx context.Context, req *httpapi.Request) (any, e
 //
 // 对应 PHP 侧 Base::_ajax_message()：
 //
-//	{"code":0,"message":"登录成功","extra":{"redirect":"/repositories"}}
+//	{"code":0,"message":"登录成功","extra":{"redirect":"/home"}}
 //
 // 注意这个信封与 /api/* 的信封**不同**：没有 data、没有 request-id，
 // 且 extra 在无内容时是空数组 [] 而不是空对象。
@@ -219,7 +227,9 @@ func (h *LoginHandler) Login(ctx context.Context, w http.ResponseWriter, r *http
 	}
 	h.writeSessionCookie(w, r, sess.Key)
 
-	return LoginResult{Code: 0, Message: msgLoginSuccess, Extra: map[string]any{"redirect": "/repositories"}}, nil
+	// 落地目标 2026-11 起改为 /home（平台主页）：登录后第一屏回答"平台上有什么 /
+	// 我该做什么"；个人视角的内容在 /:username。前端 Login.tsx 的回退值已同步。
+	return LoginResult{Code: 0, Message: msgLoginSuccess, Extra: map[string]any{"redirect": "/home"}}, nil
 }
 
 // Logout 处理登出：删除服务端会话、清除 Cookie 并跳转登录页。

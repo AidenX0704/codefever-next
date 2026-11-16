@@ -116,6 +116,16 @@ func (r *HomeRepo) TodoCounts(ctx context.Context, uKey string) (pendingReviews,
 // 的仓库的动态不会出现 —— 真实实例上就有这种情况（成员表为空、仓库靠 u_key 归属），
 // 2026-10-27 修正。
 func (r *HomeRepo) RecentActivities(ctx context.Context, uKey string, limit int) ([]domain.RepositoryActivity, error) {
+	return r.RecentActivitiesBy(ctx, uKey, "", limit)
+}
+
+// RecentActivitiesBy 是 RecentActivities 的按人过滤变体：actorKey 非空时
+// 只返回该用户（u_key）产生的动态，可见范围仍按 viewer（uKey）计算。
+//
+// 个人主页（/api/user/profile）用它展示"某用户的最近动态"；可见性口径
+// 与首页团队动态完全一致 —— 看不到的仓库里的动态不出现，而不是出现一条
+// "无权查看"。actorKey 为空时行为与 RecentActivities 相同。
+func (r *HomeRepo) RecentActivitiesBy(ctx context.Context, uKey, actorKey string, limit int) ([]domain.RepositoryActivity, error) {
 	if uKey == "" || limit <= 0 {
 		return []domain.RepositoryActivity{}, nil
 	}
@@ -132,12 +142,20 @@ func (r *HomeRepo) RecentActivities(ctx context.Context, uKey string, limit int)
 		" a_relative_mr_key, a_data, CAST(a_created AS CHAR), a_status"
 
 	merged := map[string]domain.RepositoryActivity{}
+	actorCond := ""
+	if actorKey != "" {
+		actorCond = " AND u_key = ?"
+	}
 	if len(rKeys) > 0 {
 		placeholders, args := inPlaceholders(rKeys)
-		args = append(args, domain.CommonStatusNormal, limit)
+		args = append(args, domain.CommonStatusNormal)
+		if actorKey != "" {
+			args = append(args, actorKey)
+		}
+		args = append(args, limit)
 		rows, qerr := r.db.QueryContext(ctx,
 			"SELECT "+activityCols+" FROM cc_activities"+
-				" WHERE a_relative_r_key IN ("+strings.Join(placeholders, ", ")+") AND a_status = ?"+
+				" WHERE a_relative_r_key IN ("+strings.Join(placeholders, ", ")+") AND a_status = ?"+actorCond+
 				" ORDER BY a_created DESC LIMIT ?", args...)
 		if qerr != nil {
 			return nil, qerr
@@ -153,10 +171,14 @@ func (r *HomeRepo) RecentActivities(ctx context.Context, uKey string, limit int)
 	}
 	if len(gKeys) > 0 {
 		placeholders, args := inPlaceholders(gKeys)
-		args = append(args, domain.CommonStatusNormal, limit)
+		args = append(args, domain.CommonStatusNormal)
+		if actorKey != "" {
+			args = append(args, actorKey)
+		}
+		args = append(args, limit)
 		rows, qerr := r.db.QueryContext(ctx,
 			"SELECT "+activityCols+" FROM cc_activities"+
-				" WHERE a_relative_g_key IN ("+strings.Join(placeholders, ", ")+") AND a_status = ?"+
+				" WHERE a_relative_g_key IN ("+strings.Join(placeholders, ", ")+") AND a_status = ?"+actorCond+
 				" ORDER BY a_created DESC LIMIT ?", args...)
 		if qerr != nil {
 			return nil, qerr

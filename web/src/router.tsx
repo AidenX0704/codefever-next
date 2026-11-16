@@ -66,6 +66,7 @@ const AdminAnnouncements = lazy(() => import('@/pages/admin/Announcements'))
 const Doc = lazy(() => import('@/pages/Doc'))
 const Help = lazy(() => import('@/pages/Help'))
 const Home = lazy(() => import('@/pages/Home'))
+const Profile = lazy(() => import('@/pages/Profile'))
 const Search = lazy(() => import('@/pages/Search'))
 const GroupSettingsGeneral = lazy(() => import('@/pages/group/SettingsGeneral'))
 const GroupSettingsMembers = lazy(() => import('@/pages/group/SettingsMembers'))
@@ -157,6 +158,13 @@ export const router = createBrowserRouter([
       },
       { path: 'mergerequests', element: suspense(<GlobalMergeRequestBoard />) },
       { path: 'mergerequests/new', element: suspense(<NewMergeRequest />) },
+      {
+        // 个人主页（GitHub 口径）：/home 是平台主页，/:username 才是个人工作台。
+        // 放在所有静态路由之后：react-router 按特异性排序（静态 > 动态），
+        // 顺序只是可读性；用户不存在时页面内渲染 404 空态。
+        path: ':username',
+        element: suspense(<Profile />),
+      },
       {
         // 仓库上下文：URL 形状与旧版一致（/{组名}/{仓库名}/…）；组名/仓库名合法性
         // 由 RepositoryProvider“列表里找不到即 404”承担（v8 不支持路径正则）。

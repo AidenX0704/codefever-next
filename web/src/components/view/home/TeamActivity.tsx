@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, type ReactNode } from 'react'
 
 import type { ActivityItem } from '@/api/types'
 import { ActivityFeed } from '@/components/view/unit/ActivityFeed'
@@ -16,7 +16,7 @@ import { useT } from '@/i18n'
  * 默认只显示前 5 条（方案 §2.2 的调研结论：动态 feed 是加分项，但内部噪音大，
  * 默认折叠）。"展开"是纯前端行为，不额外请求。
  */
-export function TeamActivity({ items }: { items: ActivityItem[] }) {
+export function TeamActivity({ items, title }: { items: ActivityItem[]; title?: ReactNode }) {
   const t = useT()
   const { repositories, groups } = useAppData()
 
@@ -34,8 +34,10 @@ export function TeamActivity({ items }: { items: ActivityItem[] }) {
     return map
   }, [repositories])
 
+  const heading = title ?? t('home.section.activities')
+
   return (
-    <SectionCard title={t('home.section.activities')}>
+    <SectionCard title={heading}>
       <ActivityFeed
         items={items}
         groupNameOf={(id) => groups.find((group) => group.id === id)?.displayName ?? id ?? ''}

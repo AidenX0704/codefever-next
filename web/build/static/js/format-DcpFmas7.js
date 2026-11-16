@@ -1,0 +1,1 @@
+function e(e){let t=Number.isFinite(e)?Math.max(0,e):0;if(t<1024)return`${Math.round(t)} B`;let n=[`KB`,`MB`,`GB`,`TB`],r=t/1024,i=0;for(;r>=1024&&i<n.length-1;)r/=1024,i+=1;return`${r.toFixed(1)} ${n[i]}`}function t(e){let t=new Date(e*1e3);return`${t.getFullYear()}-${String(t.getMonth()+1).padStart(2,`0`)}-${String(t.getDate()).padStart(2,`0`)}`}export{e as n,t};

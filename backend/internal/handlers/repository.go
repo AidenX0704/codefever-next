@@ -180,53 +180,11 @@ func (h *RepositoryHandler) list(ctx context.Context, req *httpapi.Request) (any
 	if mode == "starred" {
 		repos = h.listStarredFilter(ctx, uKey, repos)
 	}
-	if len(repos) == 0 {
-		return []any{}, nil
-	}
 
-	rKeys := make([]string, 0, len(repos))
-	gKeys := make([]string, 0, len(repos))
-	for _, r := range repos {
-		rKeys = append(rKeys, r.Key)
-		gKeys = append(gKeys, r.GroupKey)
-	}
-
-	groups, err := h.Repos.GroupsByKeys(ctx, gKeys)
-	if err != nil {
-		return nil, err
-	}
-	forkCounts, err := h.Repos.ForkCounts(ctx, rKeys)
-	if err != nil {
-		return nil, err
-	}
-	mrCounts, err := h.Repos.MergeRequestCounts(ctx, rKeys)
-	if err != nil {
-		return nil, err
-	}
-	roles, err := h.Repos.RolesFor(ctx, rKeys, uKey)
-	if err != nil {
-		return nil, err
-	}
-	members, err := h.membersOf(ctx, repos, groups)
-	if err != nil {
-		return nil, err
-	}
-	stars := h.newStarView(ctx, uKey, rKeys)
-
-	out := make([]any, 0, len(repos))
-	for i := range repos {
-		r := repos[i]
-		item := domain.RepositoryListItem{
-			NormalizedRepository: domain.NormalizeRepository(
-				&r, groups[r.GroupKey], forkCounts[r.Key], mrCounts[r.Key]),
-			Role:      roles[r.Key],
-			Members:   members[r.Key],
-			StarCount: stars.count[r.Key],
-			Starred:   stars.starred[r.Key],
-		}
-		out = append(out, item)
-	}
-	return out, nil
+	// 字段补齐（role / members / 计数 / 标星）抽成了共享函数：
+	// 个人主页（GET /api/user/profile）输出"该用户创建的仓库"时
+	// 必须是同一份口径（见 repository_list_view.go）。
+	return repositoryListView(ctx, h.Repos, h.Stars, uKey, repos, h.host(), h.ssh())
 }
 
 // ---------------------------------------------------------------------------
@@ -1590,92 +1548,7 @@ const maxDisplayDiffFile = 100
 // 组成员（含组创建者）+ 仓库成员 + 仓库创建者，
 // 再用 Helper::getUniqueMemberList() 去重。
 func (h *RepositoryHandler) membersOf(ctx context.Context, repos []domain.Repository, groups map[string]*domain.RepositoryGroup) (map[string][]domain.NormalizedRepositoryMember, error) {
-	out := map[string][]domain.NormalizedRepositoryMember{}
-	if len(repos) == 0 {
-		return out, nil
-	}
-
-	rKeys := make([]string, 0, len(repos))
-	gKeys := make([]string, 0, len(repos))
-	uKeys := make([]string, 0, len(repos)*2)
-	for _, r := range repos {
-		rKeys = append(rKeys, r.Key)
-		gKeys = append(gKeys, r.GroupKey)
-		uKeys = append(uKeys, r.OwnerKey)
-		if g, ok := groups[r.GroupKey]; ok && g != nil {
-			uKeys = append(uKeys, g.OwnerKey)
-		}
-	}
-
-	repoMembers, err := h.Repos.MembersOf(ctx, rKeys)
-	if err != nil {
-		return nil, err
-	}
-	groupMembers, err := h.Repos.GroupMembersOf(ctx, gKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, list := range repoMembers {
-		for _, m := range list {
-			uKeys = append(uKeys, m.UKey)
-		}
-	}
-	for _, list := range groupMembers {
-		for _, m := range list {
-			uKeys = append(uKeys, m.UKey)
-		}
-	}
-
-	users, err := h.Repos.UsersByKeys(ctx, uKeys)
-	if err != nil {
-		return nil, err
-	}
-	emails, err := h.Repos.CommitEmailsByUser(ctx, uKeys)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, r := range repos {
-		items := []domain.NormalizedRepositoryMember{}
-
-		// 组成员（含组创建者）。
-		groupItems := []domain.NormalizedRepositoryMember{}
-		for _, m := range groupMembers[r.GroupKey] {
-			u, ok := users[m.UKey]
-			if !ok {
-				continue
-			}
-			groupItems = append(groupItems,
-				domain.NormalizeRepositoryGroupMember(&m, u, emails[m.UKey], h.host(), h.ssh()))
-		}
-		if g, ok := groups[r.GroupKey]; ok && g != nil {
-			if u, ok := users[g.OwnerKey]; ok {
-				groupItems = append(groupItems,
-					domain.NormalizeRepositoryGroupCreator(g, u, emails[g.OwnerKey], h.host(), h.ssh()))
-			}
-		}
-		items = append(items, mergeMembers(groupItems)...)
-
-		// 仓库成员 + 仓库创建者。
-		repoItems := []domain.NormalizedRepositoryMember{}
-		for _, m := range repoMembers[r.Key] {
-			u, ok := users[m.UKey]
-			if !ok {
-				continue
-			}
-			repoItems = append(repoItems,
-				domain.NormalizeRepositoryMember(&m, u, emails[m.UKey], h.host(), h.ssh()))
-		}
-		if u, ok := users[r.OwnerKey]; ok {
-			repoItems = append(repoItems,
-				domain.NormalizeRepositoryCreator(&r, u, emails[r.OwnerKey], h.host(), h.ssh()))
-		}
-		items = append(items, repoItems...)
-
-		out[r.Key] = mergeMembers(items)
-	}
-	return out, nil
+	return membersOfRepos(ctx, h.Repos, repos, groups, h.host(), h.ssh())
 }
 
 // mergeMembers 按 id 去重成员。

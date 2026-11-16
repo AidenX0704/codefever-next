@@ -98,18 +98,7 @@ type starView struct {
 // 两条 GROUP BY / IN 查询覆盖整批仓库，避免逐仓库 N+1；
 // Stars 未注入时返回零值视图（list / config 的字段照常输出）。
 func (h *RepositoryHandler) newStarView(ctx context.Context, uKey string, rKeys []string) starView {
-	view := starView{count: map[string]int{}, starred: map[string]bool{}}
-	if h.Stars == nil || len(rKeys) == 0 {
-		return view
-	}
-	if counts, err := h.Stars.StarCounts(ctx, rKeys); err == nil {
-		view.count = counts
-	}
-	// 标星状态查询失败只影响 starred 字段（降级为 false），不让整个列表失败。
-	if starred, err := h.Stars.StarredKeys(ctx, uKey, rKeys); err == nil {
-		view.starred = starred
-	}
-	return view
+	return starViewOf(ctx, h.Stars, uKey, rKeys)
 }
 
 // listStarredFilter 实现 list 的 mode=starred 筛选。

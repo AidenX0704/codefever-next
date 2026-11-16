@@ -16,6 +16,8 @@
   display: flex;
   align-items: center;
   gap: calc(var(--sp-4) * 2);
+  /* 窄屏时动作区整行换行到标题下方，而不是把标题挤扁。 */
+  flex-wrap: wrap;
 }
 
 .repo-head__identity {
@@ -90,32 +92,6 @@
 
 .repo-head__star-count {
   font-variant-numeric: tabular-nums;
-}
-
-.repo-head__stats {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--sp-6);
-  padding-top: var(--sp-5);
-  border-top: 1px solid var(--line);
-  color: var(--text-secondary);
-  font-size: var(--fs-small);
-}
-
-.repo-stat {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-}
-
-.repo-stat__value {
-  color: var(--text-primary);
-  font-weight: var(--fw-medium);
-}
-
-.repo-stat__label {
-  color: var(--text-secondary);
 }
 
 /* ------------------------------ 文件浏览 ------------------------------ */

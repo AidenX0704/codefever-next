@@ -75,6 +75,10 @@ export function Header() {
     if (/^\/(?!groups\b|mergerequests\b|settings\b|admin\b|search\b|help\b|home\b|user\b|doc\b)[^/]+\/[^/]+/.test(pathname)) {
       return 'label.repository'
     }
+    // 单段路径且不是任何静态路由 = 个人主页 /:username。
+    if (/^\/(?!home\b|repositories\b|groups\b|mergerequests\b|settings\b|admin\b|search\b|help\b|user\b|doc\b|__design\b)[^/]+$/.test(pathname)) {
+      return 'profile.title'
+    }
     return 'label.home'
   })()
 
@@ -133,6 +137,11 @@ export function Header() {
   // 头像菜单（DESIGN.md §4：管理后台 / 外观 / 语言 / 退出全部收进来）。
   // 「外观 / 语言」两项直接给出两个候选（带当前勾选），避免再做二级菜单。
   const userItems: MenuItemSpec[] = [
+    // 个人主页（/:username）与个人信息（/settings/profile）是两个落点：前者是
+    // 别人也能看的公开页，后者是编辑表单 —— GitHub 同款分工，都要给入口。
+    ...(user
+      ? [{ key: 'my-page', label: t('profile.title'), icon: <Icon icon={userIcon} size={16} />, onClick: () => navigate(`/${user.name}`) } as MenuItemSpec]
+      : []),
     { key: 'profile', label: t('menu.profile'), icon: <Icon icon={userIcon} size={16} />, onClick: () => navigate('/settings/profile') },
     { key: 'tokens', label: t('tokens.title'), icon: <Icon icon={meterIcon} size={16} />, onClick: () => navigate('/settings/tokens') },
     ...appearanceItems,

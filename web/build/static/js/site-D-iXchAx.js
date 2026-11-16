@@ -1,1 +1,0 @@
-import{s as e}from"./i18n-C5onaUyU.js";async function t(t={}){let n=new URLSearchParams;t.page&&n.set(`page`,String(t.page)),t.pagesize&&n.set(`pagesize`,String(t.pagesize));let r=n.toString(),{data:i}=await e(`/api/site/changelog${r?`?${r}`:``}`);return i}async function n(){let{data:t}=await e(`/api/site/announcement`);return t}export{t as n,n as t};

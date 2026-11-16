@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 
 import type { CurrentUser, RepositoryConfig, RepositoryListItem } from '@/api/types'
@@ -8,10 +8,8 @@ import { Avatar } from '@/components/unit/Avatar'
 import { Button } from '@/components/unit/Button'
 import { CloneBox } from '@/components/unit/CloneBox'
 import { Icon } from '@/components/unit/Icon'
-import { Tag } from '@/components/unit/Tag'
 import { useToast } from '@/components/unit/Toast'
-import { forkIcon, plMerge, psBranch, psCommit, psFile, psMembers, psTag, starIcon } from '@/config/icons'
-import { formatBytes } from '@/helpers/format'
+import { forkIcon, starIcon } from '@/config/icons'
 import { useT } from '@/i18n'
 
 
@@ -22,20 +20,27 @@ export interface RepositoryHeaderProps {
   user: CurrentUser | null
   /** fork 来源仓库（全局仓库列表里按 `forkFrom` 找到的那一条）。 */
   forkSource?: RepositoryListItem | null
+  /**
+   * 页内 Tabs（v5 §7.4：Tabs 行贴在仓库页头纸页底部）。
+   * 由 RepositoryLayout 传入，本组件只负责摆位，不感知路由。
+   */
+  children?: ReactNode
 }
 
 /**
- * 仓库页头部（DESIGN.md §7.5 二级头部）。
+ * 仓库页头部（DESIGN.md v5 §7.4 RepoHeader）。
  *
- * 三块内容：
- *   1. 身份区：头像 + 组名/显示名 + 描述 + **fork 来源链接**；
- *   2. 操作区：**Star 计数按钮**（fill 表已标星）、**Fork 按钮 + fork 数**、
+ * 三块内容自上而下：
+ *   1. fork 来源行（仅 fork 仓库有）：`forked from 组/仓库`；
+ *   2. 标题行：头像 + 可点击的组名 + 仓库名 + 描述（≤2 行）；
+ *      右侧动作区：**Star 计数按钮**（fill 表已标星）、**Fork 按钮（含计数）**、
  *      **克隆按钮**（展开 CloneBox，SSH|HTTPS 分段）；
- *   3. 计数条：提交 / 分支 / 标签 / 仓库体积 / 未合并 MR / 成员数。
+ *   3. Tabs 行：贴纸页底，由调用方以 children 传入。
  *
- * 数据全部来自 `repository/config`（v4 起 config 含 starCount / starred）。
+ * 旧版标题行下方的六格计数条（提交/分支/标签/体积/MR/成员）已移除：
+ * 这些数字在各自的 Tab 与设置页都有自然落点，摆在头部只增加视觉噪音。
  */
-export function RepositoryHeader({ config, user, forkSource }: RepositoryHeaderProps) {
+export function RepositoryHeader({ config, user, forkSource, children }: RepositoryHeaderProps) {
   const t = useT()
   const navigate = useNavigate()
   const toast = useToast()
@@ -67,18 +72,22 @@ export function RepositoryHeader({ config, user, forkSource }: RepositoryHeaderP
           name={config.repository.name}
         />
         <div className="repo-head__identity">
-          <div className="repo-head__title">
-            <span className="repo-head__group">{config.group.displayName}/</span>
-            {config.repository.displayName}
-            {forkSource ? (
-              <span className="repo-head__fork">
-                <AppLink to={`/${forkSource.group.name}/${forkSource.name}`}>
-                  {t('label.forkFrom_S', { s: `${forkSource.group.displayName}/${forkSource.displayName}` })}
-                </AppLink>
-              </span>
-            ) : null}
-          </div>
-          {config.repository.description ? <div className="repo-head__desc">{config.repository.description}</div> : null}
+          {forkSource ? (
+            <div className="repo-head__fork">
+              <Icon icon={forkIcon} size={14} />
+              <AppLink to={`/${forkSource.group.name}/${forkSource.name}`}>
+                {t('label.forkFrom_S', { s: `${forkSource.group.displayName}/${forkSource.displayName}` })}
+              </AppLink>
+            </div>
+          ) : null}
+          <h1 className="repo-head__title">
+            <AppLink className="repo-head__group" to={`/groups/${config.group.name}`}>
+              {config.group.displayName}
+            </AppLink>
+            <span className="repo-head__sep" aria-hidden="true">/</span>
+            <span className="repo-head__name">{config.repository.displayName}</span>
+          </h1>
+          {config.repository.description ? <p className="repo-head__desc">{config.repository.description}</p> : null}
         </div>
 
         <div className="repo-head__actions">
@@ -86,6 +95,7 @@ export function RepositoryHeader({ config, user, forkSource }: RepositoryHeaderP
             type="button"
             className={`repo-head__star${starred ? ' repo-head__star--on' : ''}`}
             aria-pressed={starred}
+            title={t('star.star')}
             onClick={toggleStar}
           >
             <Icon icon={starIcon} size={16} weight={starred ? 'fill' : 'regular'} />
@@ -97,10 +107,8 @@ export function RepositoryHeader({ config, user, forkSource }: RepositoryHeaderP
             onClick={() => navigate(`/repositories/fork/${config.repository.id}`)}
           >
             {t('label.fork')}
+            <span className="repo-head__count">{config.repository.forkCount}</span>
           </Button>
-          <Tag tone="primary" title={t('label.fork')}>
-            {config.repository.forkCount}
-          </Tag>
           <Button variant="contained" onClick={() => setCloneOpen((value) => !value)}>
             {t('label.clone')}
           </Button>
@@ -109,24 +117,7 @@ export function RepositoryHeader({ config, user, forkSource }: RepositoryHeaderP
 
       {cloneOpen ? <CloneBox user={user} groupName={config.group.name} repositoryName={config.repository.name} /> : null}
 
-      <div className="repo-head__stats">
-        <Stat icon={psCommit} label={t('label.commit')} value={config.count.commit} />
-        <Stat icon={psBranch} label={t('label.branch')} value={config.count.branch} />
-        <Stat icon={psTag} label={t('label.tag')} value={config.count.tag} />
-        <Stat icon={psFile} label={t('label.repoSize')} value={formatBytes(config.count.file)} />
-        <Stat icon={plMerge} label={t('label.mergeRequestCount')} value={config.repository.mergeRequestCount.open} />
-        <Stat icon={psMembers} label={t('label.memberCount')} value={config.members.length} />
-      </div>
+      {children}
     </div>
-  )
-}
-
-function Stat({ icon, label, value }: { icon: Parameters<typeof Icon>[0]['icon']; label: string; value: number | string }) {
-  return (
-    <span className="repo-stat">
-      <Icon icon={icon} size={16} />
-      <span className="repo-stat__value">{value}</span>
-      <span className="repo-stat__label">{label}</span>
-    </span>
   )
 }

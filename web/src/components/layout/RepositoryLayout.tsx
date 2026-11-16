@@ -39,26 +39,36 @@ function RepositoryFrame() {
 
   return (
     <div className="repo-page">
-      {config ? <RepositoryHeader config={config} user={user} forkSource={forkSource} /> : null}
-      {config ? <RepoTabs config={config} /> : null}
+      {config ? (
+        <RepositoryHeader config={config} user={user} forkSource={forkSource}>
+          {/* v5 §7.4：Tabs 行由页头承载（贴纸页底），不再是页头外面的独立导航条。 */}
+          <RepoTabs config={config} />
+        </RepositoryHeader>
+      ) : null}
       <Outlet />
     </div>
   )
 }
 
-/** v5 §7.4：仓库内二级导航 = RepoHeader 里的下划线 Tabs（左侧上下文导航随 v5 退役）。 */
+/** v5 §7.4：仓库内二级导航 = RepoHeader 底部的下划线 Tabs（左侧上下文导航随 v5 退役）。 */
 function RepoTabs({ config }: { config: NonNullable<ReturnType<typeof useRepository>['config']> }) {
   const t = useT()
   const { pathname } = useLocation()
   const repositoryPath = `/${config.group.name}/${config.repository.name}`
   const active = useRepoTab(repositoryPath, pathname)
 
-  const tabs: Array<{ key: RepoTabKey; label: string; to: string }> = [
+  const tabs: Array<{ key: RepoTabKey; label: string; to: string; count?: number }> = [
     { key: 'files', label: t('menu.file_pl'), to: repositoryPath },
     { key: 'commits', label: t('menu.commit_pl'), to: `${repositoryPath}/commits` },
     { key: 'branches', label: t('menu.branch_pl'), to: `${repositoryPath}/branches` },
     { key: 'tags', label: t('menu.tag_pl'), to: `${repositoryPath}/tags` },
-    { key: 'mergerequests', label: t('menu.mergeRequest_pl'), to: `${repositoryPath}/mergerequests` },
+    // 未合并 MR 数挂在 Tab 上（GitHub 把 PR 数放在同位）；其余 Tab 不放计数。
+    {
+      key: 'mergerequests',
+      label: t('menu.mergeRequest_pl'),
+      to: `${repositoryPath}/mergerequests`,
+      count: config.repository.mergeRequestCount.open,
+    },
     { key: 'settings', label: t('menu.setting_pl'), to: `${repositoryPath}/settings` },
   ]
 
@@ -72,6 +82,7 @@ function RepoTabs({ config }: { config: NonNullable<ReturnType<typeof useReposit
           aria-current={tab.key === active ? 'page' : undefined}
         >
           {tab.label}
+          {tab.count !== undefined ? <span className="cf-tab__count">{tab.count}</span> : null}
         </NavLink>
       ))}
     </nav>

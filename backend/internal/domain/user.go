@@ -184,3 +184,41 @@ func NormalizeSSHKey(k *SSHKey) NormalizedSSHKey {
 
 // CommonStatusNormal 对应 PHP 常量 COMMON_STATUS_NORMAL。
 const CommonStatusNormal = 1
+
+// UserProfileView 是个人主页（GET /api/user/profile）的**公开资料**形态。
+//
+// 与 NormalizedUser 的区别是只带公开字段：主邮箱、手机号、MFA 状态、
+// 未读通知数这些私密信息一律不输出 —— 个人主页是任何登录用户可看的页面，
+// 复用 NormalizedUser 会把"能看主页"升级成"能看联系方式"。
+type UserProfileView struct {
+	Name     string  `json:"name"`
+	Icon     *string `json:"icon"`
+	Bio      string  `json:"bio"`
+	Team     *string `json:"team"`
+	Role     *string `json:"role"`
+	Location *string `json:"location"`
+	Created  int64   `json:"created"`
+	Admin    bool    `json:"admin"`
+}
+
+// NormalizeUserProfile 把用户行裁剪成公开资料。
+func NormalizeUserProfile(u *User) UserProfileView {
+	return UserProfileView{
+		Name:     u.Name,
+		Icon:     u.Avatar,
+		Bio:      u.Bio,
+		Team:     u.Team,
+		Role:     u.Role,
+		Location: u.Location,
+		Created:  PhpTime(u.Created.Format("2006-01-02 15:04:05")),
+		Admin:    u.Admin,
+	}
+}
+
+// UserProfile 是 GET /api/user/profile 的响应：公开资料 + 该用户创建且
+// 对请求者可见的仓库 + 该用户在可见仓库内的最近动态。
+type UserProfile struct {
+	Profile      UserProfileView          `json:"profile"`
+	Repositories []RepositoryListItem     `json:"repositories"`
+	Activities   []RepositoryActivityView `json:"activities"`
+}

@@ -10,13 +10,18 @@
  */
 
 .app-content {
+  /* 纵向 flex 容器里不能写 width: 100%：那会按 .app-root 全宽取值，
+     叠加 margin-left（侧栏宽）后内容区比视口还宽出一整条侧栏，
+     所有页面随之横向溢出（仓库页头部右侧按钮被裁掉就是这个原因）。
+     交由默认的 align-items: stretch 减去 margin 后自适应剩余宽度。 */
   flex: 1 1 auto;
-  width: 100%;
+  width: auto;
   min-width: 0;
   /* 页头与悬浮侧栏是 fixed，这里用等高 / 等宽偏移让开（v5 §4.1 --rail-current）。 */
   padding-top: var(--layout-header);
   margin-left: var(--rail-current);
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
   /* 页面底用雾白画布，卡片 / 表格 / 长文本用纸页（--bg-sheet）—— 层级靠表面差。 */
   background: var(--bg-canvas);
 }
@@ -437,13 +442,14 @@
   flex: 0 0 auto;
   width: calc(var(--sp-4) * 30);
 }
-/* ------------------------------ 仓库页头部 ------------------------------ */
-
+/* ------------------------------ 仓库页头部（v5 §7.4 RepoHeader） ------------------------------ */
+/* 纸页容器：标题 / 动作 / 页内 Tabs 三行；Tabs 贴纸页底（下方细线由容器自带的
+   border-bottom 承担，Tab 激活指示条恰好压在这条线上）。 */
 .repo-head {
   display: flex;
   flex-direction: column;
   gap: var(--sp-5);
-  padding: var(--sp-7) var(--sp-7) var(--sp-6);
+  padding: var(--sp-6) var(--sp-6) 0;
   border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--bg-sheet);
@@ -451,12 +457,14 @@
 
 .repo-head__title {
   display: flex;
-  align-items: center;
+  align-items: baseline;
   gap: var(--sp-2);
   min-width: 0;
+  margin: 0;
   color: var(--text-primary);
   font-size: var(--fs-h2);
   font-weight: var(--theme-heading-weight);
+  line-height: var(--lh-tight);
   letter-spacing: -0.01em;
 }
 
@@ -466,9 +474,56 @@
   font-weight: var(--fw-regular);
 }
 
+.repo-head__group:hover {
+  color: var(--brand-text);
+}
+
+.repo-head__sep {
+  color: var(--text-tertiary);
+  font-weight: var(--fw-regular);
+}
+
+.repo-head__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .repo-head__desc {
+  margin: var(--sp-2) 0 0;
   color: var(--text-secondary);
   font-size: var(--fs-body);
+  line-height: var(--lh-normal);
+}
+
+/* fork 来源行：GitHub 口径，置于标题上方的小字弱化行。 */
+.repo-head__fork {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  margin-bottom: var(--sp-1);
+  color: var(--text-tertiary);
+  font-size: var(--fs-small);
+}
+
+.repo-head__fork a {
+  color: var(--text-secondary);
+}
+
+.repo-head__fork a:hover {
+  color: var(--brand-text);
+}
+
+/* Fork 按钮内的计数芯片：与按钮文字之间用发丝线分隔（GitHub 口径）。 */
+.repo-head__count {
+  display: inline-flex;
+  align-items: center;
+  margin-left: var(--sp-2);
+  padding-left: var(--sp-2);
+  border-left: 1px solid var(--line);
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ------------------------------ 文件浏览 ------------------------------ */
@@ -708,18 +763,18 @@
   border-bottom: 1px solid var(--line);
 }
 
-/* v5 G4：仓库页容器（RepoHeader + 页内 Tabs + 子页），子页自带 .page 时去重内边距。 */
+/* v5 G4：仓库页容器（RepoHeader[含页内 Tabs] + 子页），子页自带 .page 时去重内边距。
+   纵向 gap 提供页头与子页之间的呼吸空间（旧版的负 margin 叠瓦已随 Tabs 入页头移除）。 */
 .repo-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
   padding: var(--layout-page-py) var(--layout-page-px);
 }
 
 .repo-page > .page {
   padding: 0;
   gap: var(--sp-6);
-}
-
-.repo-tabs {
-  margin-top: calc(-1 * var(--sp-2));
 }
 
 /* v5 G3：组头像 48（无图标用 2×2 方格标）与 RepoHeader 内 Tabs 的衔接。 */
@@ -751,8 +806,12 @@
   background: var(--brand-hover);
 }
 
+/* Tabs 在页头纸页内：左右外扩到容器边缘（负 margin + 等值内边距复原对齐），
+   自身的下边线让位给容器 border（Tab 激活指示条恰好压住那条线）。 */
 .repo-head .repo-tabs {
-  margin-top: var(--sp-2);
+  margin: 0 calc(-1 * var(--sp-6));
+  padding: 0 var(--sp-6);
+  border-bottom: 0;
 }
 
 /* ------------------------------ v5 §6 G11 设置页（左锚点导航 200） ------------------------------ */

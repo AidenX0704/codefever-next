@@ -37,9 +37,22 @@
 
 .home-hero {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: calc(var(--sp-4) * 4);
+}
+
+/* 平台主页变体（PlatformHero）：动作区在标题右侧，KPI 条整行铺到下面。 */
+.home-hero__actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+.home-hero .home-stats {
+  flex: 1 1 100%;
 }
 
 .home-hero__main {
@@ -96,6 +109,22 @@
   font-size: var(--fs-caption);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* ------------------------------ 平台消息（公告 | 更新日志） ------------------------------ */
+/* 展示首页底部的双栏消息区；<992 单列堆叠。 */
+
+.home-messages {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  align-items: start;
+  gap: calc(var(--sp-4) * 3);
+}
+
+@media (max-width: 991px) {
+  .home-messages {
+    grid-template-columns: 1fr;
+  }
 }
 
 /* ------------------------------ KPI 条 ------------------------------ */

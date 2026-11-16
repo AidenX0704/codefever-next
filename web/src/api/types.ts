@@ -525,6 +525,33 @@ export interface HomePlatform {
   openMergeRequests: number
 }
 
+/* ------------------------------ 个人主页 ------------------------------ */
+
+/**
+ * 公开资料（`domain.UserProfileView`）。
+ *
+ * 后端刻意只回公开字段 —— 邮箱 / 手机 / MFA / 未读数这些私密信息不出
+ * （见 backend/internal/domain/user.go 的注释），前端也不要试图从这里取它们。
+ */
+export interface UserProfileView {
+  name: string
+  icon: string | null
+  bio: string
+  team: string | null
+  role: string | null
+  location: string | null
+  /** 秒级时间戳（注册时间）。 */
+  created: number
+  admin: boolean
+}
+
+/** 个人主页聚合响应（`GET /api/user/profile?name=`）。 */
+export interface UserProfile {
+  profile: UserProfileView
+  repositories: RepositoryListItem[]
+  activities: ActivityItem[]
+}
+
 /**
  * 首页聚合响应。
  *

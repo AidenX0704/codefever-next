@@ -164,6 +164,10 @@ func run(baseDir, addr string, logger *slog.Logger) error {
 	// 但用户没有任何界面可以拿到它。
 	userHandler := handlers.NewUserHandler(cfg, users, notifications, disk, mail, sessions)
 	userHandler.Tokens = repo.NewAccessTokenRepo(sqlDB)
+	// 个人主页端点（GET /api/user/profile）需要的三个仓储，见 user_profile.go。
+	userHandler.Repos = repo.NewRepositoryRepo(sqlDB)
+	userHandler.Stars = repo.NewStarRepo(sqlDB)
+	userHandler.Home = repo.NewHomeRepo(sqlDB)
 	userHandler.Register(srv)
 	fileHandler := handlers.NewFileHandler(disk)
 	fileHandler.Register(srv)

@@ -20,6 +20,7 @@ import (
 //
 // 每个 handler 的实现都标注了对应的 PHP 位置，便于逐条比对契约。
 func (h *UserHandler) registerProfileActions(actions map[string]map[string]httpapi.ActionHandler) {
+	actions["profile"] = map[string]httpapi.ActionHandler{"GET": h.profile}
 	actions["addSSHKey"] = map[string]httpapi.ActionHandler{"POST": h.addSSHKey}
 	actions["removeSSHKey"] = map[string]httpapi.ActionHandler{"POST": h.removeSSHKey}
 	actions["updateBasicInfo"] = map[string]httpapi.ActionHandler{"POST": h.updateBasicInfo}
@@ -420,3 +421,80 @@ func nullableString(v any) any {
 
 // trimSpace 去除首尾空白。
 func trimSpace(s string) string { return strings.TrimSpace(s) }
+
+// userProfileLimits 是个人主页端点的取数上限。
+//
+// 与首页聚合端点（home.go）同一口径：编译期常量、不接受客户端传参，
+// 不存在 ClampPaging 风险面。仓库列表取全量可见仓库再按创建者过滤 ——
+// ListJoined 本来就是 repository/list 的单查询，个人主页的量级撑不起
+// 更"聪明"的 SQL（可见性含组继承，SQL 里判不对）。
+const (
+	userProfileActivityLimit = 10
+)
+
+// profile 实现 GET /api/user/profile?name=<用户名>。
+//
+// 个人主页（前端 /:username）的聚合请求：公开资料 + 该用户创建且对请求者
+// 可见的仓库 + 该用户在可见仓库内的最近动态。
+//
+// 隐私口径：
+//   - 资料只带公开字段（domain.UserProfileView），邮箱 / 手机 / MFA 不出；
+//   - 仓库与动态都按**请求者**的可见范围过滤（与 repository/list、
+//     home/overview 一致），看不到的不出现，而不是回一条"无权查看"；
+//   - 非正常状态（停用）的用户按不存在处理，与登录侧口径一致。
+func (h *UserHandler) profile(ctx context.Context, req *httpapi.Request) (any, error) {
+	viewer := req.UserKey()
+	if viewer == "" {
+		return nil, contract.NewError(contract.CodeInvalidCredential)
+	}
+	if h.Repos == nil || h.Home == nil {
+		return nil, contract.NewError(contract.CodeOperateFail)
+	}
+	name := req.Parsed.QueryString("name")
+	if name == "" {
+		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+
+	target, err := h.Users.GetByName(ctx, name)
+	if errors.Is(err, repo.ErrNotFound) {
+		return nil, contract.NewError(contract.CodeUserNotFound)
+	} else if err != nil {
+		return nil, err
+	}
+	if target.Status != domain.CommonStatusNormal {
+		return nil, contract.NewError(contract.CodeUserNotFound)
+	}
+
+	// 仓库：请求者可见 ∩ 目标用户创建。
+	repos, err := h.Repos.ListJoined(ctx, viewer)
+	if err != nil {
+		return nil, err
+	}
+	owned := make([]domain.Repository, 0, len(repos))
+	for _, r := range repos {
+		if r.OwnerKey == target.Key {
+			owned = append(owned, r)
+		}
+	}
+	cfg := h.Cfg.SiteConfig()
+	items, err := repositoryListView(ctx, h.Repos, h.Stars, viewer, owned, cfg.Host, cfg.SSH)
+	if err != nil {
+		return nil, err
+	}
+
+	// 动态：目标用户在请求者可见范围内的最近行为。
+	acts, err := h.Home.RecentActivitiesBy(ctx, viewer, target.Key, userProfileActivityLimit)
+	if err != nil {
+		return nil, err
+	}
+	views := make([]domain.RepositoryActivityView, 0, len(acts))
+	for i := range acts {
+		views = append(views, activityView(&acts[i]))
+	}
+
+	return domain.UserProfile{
+		Profile:      domain.NormalizeUserProfile(target),
+		Repositories: items,
+		Activities:   views,
+	}, nil
+}

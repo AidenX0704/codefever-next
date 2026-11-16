@@ -1,0 +1,1 @@
+import{t as e}from"./vendor-Cwr4aY6H.js";import{t}from"./cn-hZG6twJP.js";var n=e();function r({tone:e=`default`,children:r,className:i,title:a}){return(0,n.jsx)(`span`,{className:t(`cf-tag`,e!=="default"&&`cf-tag--${e}`,i),title:a,children:r})}export{r as t};

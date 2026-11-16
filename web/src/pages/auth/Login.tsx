@@ -59,7 +59,7 @@ export default function Login() {
     try {
       const result = await loginApi(email.trim(), password)
       if (result.code === 0) {
-        window.location.href = extraField(result, 'redirect') ?? '/repositories'
+        window.location.href = extraField(result, 'redirect') ?? '/home'
         return
       }
       if (result.code === 100) {

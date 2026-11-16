@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router'
 
+import type { SiteStats } from '@/api/site'
 import { Icon } from '@/components/unit/Icon'
 import { SectionCard } from '@/components/unit/SectionCard'
 import { Button } from '@/components/unit/Button'
@@ -10,25 +11,20 @@ import { useI18n, useT } from '@/i18n'
 
 
 export interface PlatformSectionProps {
-  /** 平台概览数字（全站口径，来自 `home/overview.platform`）；取不到时传 `undefined`。 */
-  platform: {
-    repositories: number | undefined
-    groups: number | undefined
-    members: number | undefined
-    openMergeRequests: number | undefined
-  }
+  /** 平台公开统计（`/api/site/stats`，匿名可访问）；取不到时传 `undefined`。 */
+  stats: SiteStats | undefined
 }
 
 /**
- * 门户区（"了解平台"那一层，全员一致）。
+ * 展示区（gitee.com 式首页的主体：平台概览 / 四步上手 / 团队规范 / 平台能力 / 快捷入口）。
  *
- * 定位来自调研结论（docs/HOME_PAGE_PLAN_2026-10-27.md §2.2）：小米这类"平台是整合层"
- * 的定位要求首页不能只做仓库列表，必须有一层"这个平台能给我什么"的说明。
+ * 定位来自调研结论（docs/HOME_PAGE_PLAN_2026-10-27.md §2.2）：平台是整合层，
+ * 首页必须有一层"这个平台能给我什么"的说明。
  *
- * 卡片**只在**这一层出现；工作台区（待办 / 我的仓库 / 动态）用无外框的分隔线区块。
+ * 卡片**只在**这一层出现；个人内容（待办 / 我的仓库 / 动态）在 `/:username`。
  * 卡内仍然是列表/表格，不做插画墙。
  */
-export function PlatformSection({ platform }: PlatformSectionProps) {
+export function PlatformSection({ stats }: PlatformSectionProps) {
   const t = useT()
   const { lang } = useI18n()
   const navigate = useNavigate()
@@ -47,10 +43,10 @@ export function PlatformSection({ platform }: PlatformSectionProps) {
   }
 
   const overviewRows: ReadonlyArray<{ key: string; label: string; value: number | undefined }> = [
-    { key: 'repositories', label: t('label.repository'), value: platform.repositories },
-    { key: 'groups', label: t('label.group'), value: platform.groups },
-    { key: 'members', label: t('home.overview.members'), value: platform.members },
-    { key: 'openMergeRequests', label: t('home.overview.openMergeRequest'), value: platform.openMergeRequests },
+    { key: 'repositories', label: t('label.repository'), value: stats?.repositoryCount },
+    { key: 'groups', label: t('label.group'), value: stats?.groupCount },
+    { key: 'members', label: t('home.overview.members'), value: stats?.memberCount },
+    { key: 'mergedMergeRequests', label: t('home.overview.mergedMergeRequest'), value: stats?.mergedMergeRequestCount },
   ]
 
   return (

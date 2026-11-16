@@ -20,6 +20,8 @@ import {
   Article,
   Bell,
   Book,
+  Briefcase,
+  Buildings,
   CaretDown,
   CaretLeft,
   CaretRight,
@@ -50,6 +52,7 @@ import {
   List,
   Lock,
   MagnifyingGlass,
+  MapPin,
   Password,
   PencilSimple,
   Plus,
@@ -88,6 +91,9 @@ export {
   Password as tokenIcon, // 访问令牌
   Users as membersIcon, // 成员
   User as userIcon, // 用户（单人）
+  Buildings as buildingIcon, // 团队 / 组织（个人主页 meta 行）
+  Briefcase as briefcaseIcon, // 职位 / 角色（个人主页 meta 行）
+  MapPin as locationIcon, // 所在地（个人主页 meta 行）
   GearSix as settingsIcon, // 设置
   MagnifyingGlass as searchIcon, // 搜索
   Bell as notificationIcon, // 通知
