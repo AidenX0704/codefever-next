@@ -504,69 +504,6 @@ export interface AccessToken {
   lastUsed: number | null
 }
 
-/* ------------------------------ 首页聚合 ------------------------------ */
-
-/**
- * 首页 KPI 条的待办计数（`GET /api/home/overview` 的 `counts`）。
- *
- * `我的仓库` / `我参与的组` 两个数字**不在这里**：前端 `useAppData()` 已经持有
- * 仓库与组清单，自己数即可，不必让后端重复计算。
- */
-export interface HomeCounts {
-  reviewRequests: number
-  myOpenMergeRequests: number
-}
-
-/** 平台概览（全站口径，供首页门户区展示）。 */
-export interface HomePlatform {
-  repositories: number
-  groups: number
-  members: number
-  openMergeRequests: number
-}
-
-/* ------------------------------ 个人主页 ------------------------------ */
-
-/**
- * 公开资料（`domain.UserProfileView`）。
- *
- * 后端刻意只回公开字段 —— 邮箱 / 手机 / MFA / 未读数这些私密信息不出
- * （见 backend/internal/domain/user.go 的注释），前端也不要试图从这里取它们。
- */
-export interface UserProfileView {
-  name: string
-  icon: string | null
-  bio: string
-  team: string | null
-  role: string | null
-  location: string | null
-  /** 秒级时间戳（注册时间）。 */
-  created: number
-  admin: boolean
-}
-
-/** 个人主页聚合响应（`GET /api/user/profile?name=`）。 */
-export interface UserProfile {
-  profile: UserProfileView
-  repositories: RepositoryListItem[]
-  activities: ActivityItem[]
-}
-
-/**
- * 首页聚合响应。
- *
- * `reviewRequests` / `myMergeRequests` 复用 `MergeRequestListItem` 结构，但后端
- * **不填** `commit` 与 `reviewers`（填它们要逐条跑 `git log`，首屏扛不住）。
- * 因此这两组数据只能用 `MergeRequestRow` 的 `compact` 变体渲染。
- */
-export interface HomeOverview {
-  counts: HomeCounts
-  reviewRequests: MergeRequestListItem[]
-  myMergeRequests: MergeRequestListItem[]
-  recentActivities: ActivityItem[]
-  platform: HomePlatform
-}
-
 /**
  * 判断某个 object 响应是不是"目录列表"。
  *

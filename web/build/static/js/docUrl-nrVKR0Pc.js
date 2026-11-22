@@ -1,1 +1,0 @@
-function e(e,t=``){let n=e===`en-us`?`en`:`cn`,r=t.replace(/^\/+/,``);return r?`/doc/${n}/${r}`:`/doc/${n}`}export{e as t};

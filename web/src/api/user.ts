@@ -1,27 +1,11 @@
 import { ApiError, errorMessage, get, post } from './client'
-import type { AccessToken, CurrentUser, MFAData, SSHKey, UserProfile } from './types'
+import type { AccessToken, CurrentUser, MFAData, SSHKey } from './types'
 
 /** 取当前登录用户（含未读通知数、提交邮箱）。`GET /api/user/info`。 */
 export async function fetchCurrentUser(): Promise<CurrentUser> {
   const { data } = await get<CurrentUser>('/api/user/info')
   if (!data) {
     throw new ApiError(0x0200, errorMessage(0x0200))
-  }
-  return data
-}
-
-/* ------------------------------ 个人主页 ------------------------------ */
-
-/**
- * 取某个用户的公开资料 + 创建的仓库 + 最近动态（`GET /api/user/profile?name=`）。
- *
- * 仓库与动态都已按**当前登录用户**的可见范围过滤：看不到的仓库不出现
- * （不是回一条空列表）；用户不存在或已停用时抛 0x0407。
- */
-export async function fetchUserProfile(name: string): Promise<UserProfile> {
-  const { data } = await get<UserProfile>('/api/user/profile', { name })
-  if (!data) {
-    throw new ApiError(0x0407, errorMessage(0x0407))
   }
   return data
 }

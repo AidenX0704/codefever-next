@@ -63,56 +63,7 @@
   font-weight: var(--fw-medium);
 }
 
-/* 页头中部 ⌘K 命令面板按钮（DESIGN.md §4）：--bg-subtle 底 + 快捷键徽标，
-   点击呼出 CommandPalette；替代原搜索输入框（搜索页仍走 /search）。 */
-.app-header__palette {
-  flex: 1 1 auto;
-  display: flex;
-  justify-content: center;
-  min-width: 0;
-  margin: 0 calc(var(--sp-4) * 3);
-}
-
-.app-header__palette-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--sp-2);
-  width: min(100%, calc(var(--sp-4) * 45));
-  height: var(--ctl-h);
-  padding: 0 var(--sp-4);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: var(--bg-subtle);
-  color: var(--text-secondary);
-  font-family: inherit;
-  font-size: var(--fs-small);
-  cursor: pointer;
-}
-
-.app-header__palette-btn:hover {
-  border-color: var(--line-strong);
-  color: var(--text-secondary);
-}
-
-.app-header__palette-text {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  text-align: left;
-  white-space: nowrap;
-}
-
-.app-header__palette-kbd {
-  padding: 0 var(--sp-2);
-  border: 1px solid var(--line);
-  border-radius: var(--r-sm);
-  background: var(--bg-canvas);
-  color: var(--text-secondary);
-  font-family: var(--font-mono);
-  font-size: var(--fs-caption);
-  line-height: calc(var(--sp-4) * 2.5);
-}
+/* 页头中部 ⌘K 命令面板按钮已于 2026-11-22 减负下线（CommandPalette 同批移除）。 */
 
 .app-header__user {
   display: inline-flex;

@@ -9,7 +9,7 @@
 - 废弃内容**只标注不删除**（`（已废弃 YYYY-MM-DD：原因）` / `（已迁移至 X）`）；
 - 末尾的「人工备注」由人维护，代理只可追加，不得重写既有内容。
 
-> 最后核对：2026-10-27（员工首页 `/home` 与聚合端点 `/api/home/overview` 落地后）
+> 最后核对：2026-11-22（前端减负第一批：展示首页 / 个人主页 / 帮助中心 / 全局搜索 / 命令面板等非核心页面下线后）
 
 ---
 
@@ -204,7 +204,7 @@ handler（业务写）
 | `scripts/check-ui-live.mjs` | **设计体系真机审计**（2026-10-28 新增，`npm run check:ui:live`，可选、需跑着的实例）：自起 headless Chrome，登录后逐页对**每个可见文本节点**向上找真实背景算对比度，并查横向溢出；覆盖静态扫描看不见的跨规则配色组合 |
 | `src/theme/global.css` | 全局基础样式与工具类（对应旧 `App.styl`） |
 | `src/components/unit/` | 自研组件库（磁盘上 **30** 个目录，2026-10-27 新增 `Stat` / `SectionCard`）：Button / IconButton / SquareIconButton / Icon / TextField / SelectField / Choices / Form / Table(+DataTable/Pagination) / Dialog / Confirm / Dropdown / Tabs / Tooltip / Toast / Avatar / Tag / Marker / Card / Loading / EmptyState / CopyButton / AppLink / FormattedTime / CodeViewer / **CodeBlock（2026-10-26 新增：文档片段代码块，等宽 + 语言标签 + 一键复制，无行号）** / DiffViewer（文件级 diff：汇总条 + inline·side-by-side 布局切换 + 逐文件折叠 + 复制路径 / 查看 @hash / 展开完整文件）/ FilterBar（页签+搜索+排序的工具条，分支·标签·活动三处共用）。**2026-10-26 接口变化**：`Button` 新增 `endIcon`（尾部图标，展开态旋转由 `.cf-dropdown__trigger[aria-expanded='true'] .cf-btn__end-icon` 负责）；`Dropdown` 新增 `title`（面板分类标题）、`emptyLabel`（空列表占位，避免空面板与"没打开"无法区分）、`openOnHover` + `onTriggerClick`（悬停展开 / 点击跳转，供页头「仓库 / 仓库组」按官方原版交互使用），`MenuItemSpec` 新增 `trailing`（行尾勾选等）。同批新增**手写图标** `assets/icons/plCaretDownLine.ts`（线框三角，不由 `extract-icons.mjs` 生成，原因见文件头）。⚠️ `TextareaField` / `Checkbox` / `Switch` **尚未实现**（此前清单误列，2026-10-25 校正），Release / Issue 表单落地前须先补齐 |
-| `src/components/layout/` | 外壳布局：NotificationDrawer（通知抽屉，四个分类 + 已读/清空）、AppShell（v5 外壳：雾面顶栏 + **平台侧栏 + 雾白内容区**）、**PlatformSidebar（2026-11-08 新增，v5 §4.1：悬浮玻璃平台侧栏，工作台/代码/协作/管理分组，管理按 `user.admin` 门控；折叠持久化 localStorage `codefever.rail.collapsed`，经 `<html data-rail>` 联动 `--rail-current` 令牌）**、Header（v5 改造 2026-11-08：**改为雾面顶栏，左侧面包屑（当前平台分区）、中部 ⌘K、右侧新建/通知/帮助/头像菜单；Logo 与主导航（首页/仓库/仓库组/合并请求）已沉入 PlatformSidebar，仓库/组快速菜单随迁至 ⌘K 命令面板与侧栏链接**；**帮助菜单 2026-10-26 改为站内落点**：帮助中心 `/help`、文档中心、公开 API 文档，站外只保留技术支持 / 反馈 / 贡献）、RepositoryLayout（仓库上下文外壳）、SettingsLayout（个人设置外壳）、AdminLayout（管理后台外壳）、Sidebar（页内上下文导航，可折叠；**2026-11-08 v5 纸页化**：`--bg-sheet` 面板 + 发丝边 + 圆角，激活态 `--bg-selected`+`--brand-text`；宽度取 `--layout-side`(224) / `--layout-side-collapsed`(72)，2026-11-08 随 v5 对齐；历史：232/64 ← 320/88） |
+| `src/components/layout/` | 外壳布局：NotificationDrawer（通知抽屉，四个分类 + 已读/清空）、AppShell（v5 外壳：雾面顶栏 + **平台侧栏 + 雾白内容区**）、**PlatformSidebar（2026-11-08 新增，v5 §4.1：悬浮玻璃平台侧栏，工作台/代码/协作/管理分组，管理按 `user.admin` 门控；折叠持久化 localStorage `codefever.rail.collapsed`，经 `<html data-rail>` 联动 `--rail-current` 令牌）**、Header（v5 改造后定形：**雾面顶栏 = 左侧面包屑 + 右侧新建/通知/帮助/头像菜单**，Logo 与主导航沉入 PlatformSidebar；**2026-11-22 减负**：⌘K 命令面板与中部按钮随 CommandPalette 组件删除、面包屑不再有个人主页分支、帮助菜单直链文档中心与公开 API 文档）、RepositoryLayout（仓库上下文外壳）、SettingsLayout（个人设置外壳）、AdminLayout（管理后台外壳）、Sidebar（页内上下文导航，可折叠；**2026-11-08 v5 纸页化**：`--bg-sheet` 面板 + 发丝边 + 圆角，激活态 `--bg-selected`+`--brand-text`；宽度取 `--layout-side`(224) / `--layout-side-collapsed`(72)，2026-11-08 随 v5 对齐；历史：232/64 ← 320/88） |
 | `src/components/view/` | 页面级组件（按业务域，逐批落地）：`auth/` = AuthLayout + 认证页样式（批 1）；`unit/` = RepositoryRow / GroupCard / list.css（批 2） |
 | `src/components/view/unit/` | 业务域共用件：`RepositoryRow`、`GroupCard`、`CommitRow`、`MembersManager`（仓库成员与组成员共用）、`AdvancedSettings`（仓库/组高级页共用）、`ActivityFeed`（41 个活动码的表驱动渲染）、`MergeRequestRow`（MR 行：标题/状态徽标/目标仓库名/分支链接/最后提交人/编辑于/评审人组/更新时间）、`MergeRequestToolbar`（MR 页签+搜索+排序+主操作）、`MergeRequestListBody`（MR 行列表+空态+查看更多）、`MergeRequestReviewers`（评审人头像组+已/未评审角标）、`AdminMembersDialog`（后台组/仓库成员弹窗）、`SettingsNotificationMatrix`（通知矩阵：组+仓库+角色徽标）、`RepositoryHeader`（仓库头：Fork/克隆地址/6 项计数）、`RefListView`（分支·标签列表共用）、`ObjectViewer`（文件内容富视图）、`MarkdownView`、`RepositoryEmpty`（空仓库引导）、`CommitRefs`（父提交+包含该提交的分支/标签）；样式集中在 `list.css` / `commit-row.css` / `merge-request.css` / `repository.css` |
 | `src/api/client.ts` | 统一请求层：multipart 编码（`key[sub]` / `key[]`、剥 `_SAFE`/`_BINARY`）、`requestTime`、信封与错误码表、`0x0101` 跳登录；另有 `postForm()`（表单页的 urlencoded 信封 `{code,message,extra}`） |
@@ -215,7 +215,7 @@ handler（业务写）
 | `src/features/app-data/` | `AppDataProvider`：页头与列表共享的用户/仓库/组三份数据（对应旧 Redux `DataStore`） |
 | `src/features/repository/` | `RepositoryProvider`：按「组名 + 仓库名」解析仓库主键 → 加载 `repository/config`，找不到即 404 |
 | `src/features/group/` | `GroupProvider`：按组名解析组主键 → 加载 `group/config`，找不到即 404 |
-| `src/config/` | `uac.ts`（角色与权限矩阵）、`icons.ts`（按需图标出口）、`constants.ts`（头像 URL 前缀）、`languages.ts`（扩展名→Prism 语言）、`drawer.ts`（仓库上下文 / 个人设置导航项与 active 判定）、**`platformNav.ts`（2026-11-08 新增：平台侧栏分组与 active 判定，v5 §4.2）**、`webhookEvents.ts`（25 个 Webhook 事件与文案键）、**`helpLinks.ts`（帮助中心与页头帮助菜单共用的站外地址，2026-10-26 新增）**、**`publicApi.ts`（公开 API 端点清单 + 文档页地址拼装，2026-10-26 新增）** |
+| `src/config/` | `uac.ts`（角色与权限矩阵）、`icons.ts`（按需图标出口）、`constants.ts`（头像 URL 前缀）、`languages.ts`（扩展名→Prism 语言）、`drawer.ts`（仓库上下文 / 个人设置导航项与 active 判定）、**`platformNav.ts`（2026-11-08 新增：平台侧栏分组与 active 判定，v5 §4.2；2026-11-22 减负后只余 代码/协作/管理 三组，工作台与搜索入口移除）**、`webhookEvents.ts`（25 个 Webhook 事件与文案键）、**`helpLinks.ts`（页头帮助菜单的站外地址，2026-10-26 新增）**、**`publicApi.ts`（公开 API 端点清单 + 文档页地址拼装，2026-10-26 新增）** |
 | `src/helpers/prism.ts` | Prism 语言注册（顺序敏感）+ 按「语言+全文」的 8 条 LRU 高亮缓存 |
 | `src/helpers/members.ts` | 提交邮箱 → 仓库成员解析（未命中标记临时用户，对应旧 `getUserInfo`） |
 | `src/helpers/slug.ts` | 标识名规范化 `makeSlug`（逐字对齐旧 `NetworkHelper.makeSlug`：非 `\w` 一律换下划线） |
@@ -223,31 +223,31 @@ handler（业务写）
 | `src/helpers/format.ts` | 数值/体积/日期分组格式化（`formatNumber` / `formatBytes` / `dayKey`） |
 | `src/pages/repository/` | 仓库页：`FileTree`（分支/标签下拉、面包屑、目录行、blob 分流、README 渲染、submodule、文件名过滤、blame 模式）、`CommitList`（服务端搜索 + 每页 20 条 + 日期分组 + 子目录路径）、`CommitDetail`（详情 + diff + 父提交展开 + 浏览文件）、`BranchList`/`TagList`（默认/已合并/保护标记、更新者、增删、筛选排序分页）、`CreateBranch`/`CreateTag`、`SettingsGeneral`（显示名/描述/头像 + 30·200 字校验）、`SettingsMembers`（仓库成员/组成员分表 + 增删改与所有权转移）、`SettingsBranch`（默认分支 + 保护分支规则，角色集合语义）、`SettingsWebhook`（列表/新建/编辑/删除/投递日志，含 secret）、`SettingsAdvanced`（改 slug/改创建者/删除仓库，两级确认）、`MergeRequestList`（全部/待合并/已合并/已关闭页签+角标、搜索、排序、每页 10 条+查看更多）、`MergeRequestCreate`（源/目标仓库与分支+评审人，全局态用 `global`）、`MergeRequestDetail`（详情+三 Tab+diff+评审/合并/关闭+评审人管理+右侧活动栏）、`ActivityList`（仓库动态：分类页签/搜索/翻页） |
 | `src/pages/MergeRequestBoard.tsx` | 全局 `/mergerequests` 与组内 `/groups/{名}/mergerequests` 看板：页签+角标（全局按 `relatedRepository` 命中仓库累加、组内按同组仓库累加）、搜索、排序、每页 10 条+查看更多、创建合并请求入口 |
-| `src/pages/admin/` | 管理后台：`Dashboard`（用量卡可点击/资源阈值配色/服务状态）、`Users`（四个分类页签+排序+添加用户与初始口令回显+设管理员口令校验+重置口令）、`Groups`（图标列/创建时间/成员管理）、`Repositories`（同构+组继承成员标记）、`Settings`（config 结构化表单 + 7 条校验） |
-| `src/pages/Home.tsx` | **展示首页（`/home`；2026-10-27 新增时为员工个人工作台，2026-11-16 定版为 gitee.com 式纯展示页）**：PlatformHero（平台名 + 定位 + 平台规模 4 格[含已合并 MR] + 新建/浏览动作）→ PlatformSection（平台概览/四步上手/团队规范/平台能力+快捷入口）→ 公告/更新日志双栏（`.home-messages`）。数据只用匿名 `api/site.ts` 的 `fetchSiteStats()`（1 个请求），不含任何个人内容。个人工作台内容全部迁往 `src/pages/Profile.tsx`（`/:username`）。方案见 `docs/HOME_PAGE_PLAN_2026-10-27.md` |
-| `src/pages/Profile.tsx` | **个人主页（`/:username`，2026-11-16 新增）**：左栏公开资料卡（头像/姓名/简介/团队/角色/所在地/加入时间，本人带「编辑资料」）；**本人视图** = 原 `/home` 个人工作台全家桶（问候 Hero[含主推仓库 clone 命令] + KPI 条 + 待我评审/我发起的 + 我的仓库表格 + 最近访问 + 团队动态）；**他人视图** = 创建的仓库（RepositoryRow）+ TA 的动态（GitHub profile 口径）。数据来自 `api/user.ts` 的 `fetchUserProfile()` + `fetchHomeOverview()`（仅本人）；不存在/停用用户渲染 404 页 |
-| `src/components/view/home/` | 首页/个人主页区块组件：`PlatformHero`（2026-11-16 新增，平台主页顶部）、`HomeHero`（个人问候页头，随个人工作台迁至 Profile 语境）、`StatStrip`、`MergeRequestPanel`（待我评审/我发起的共用，走 `MergeRequestRow compact`）、`MyRepositoriesTable`（表格形态 + 三个页签）、`RecentRepositories`、`AnnouncementCard`、`ChangelogPanel`、`TeamActivity`（包 `ActivityFeed` 并接 AppData 解析器；`title` 可覆盖）、`PlatformSection` |
-| `src/api/home.ts` | `fetchHomeOverview()`（`GET /api/home/overview`） |
+| `src/pages/admin/` | 管理后台：`Dashboard`（用量卡可点击/资源阈值配色/服务状态）、`Users`（四个分类页签+排序+添加用户与初始口令回显+设管理员口令校验+重置口令）、`Groups`（图标列/创建时间/成员管理）、`Repositories`（同构+组继承成员标记）。`Settings`（config 结构化表单 + 7 条校验）与 `Announcements`（公告/更新日志）**已废弃 2026-11-22（前端减负）**：站点名 / SMTP 直接编辑 `config.yaml`，公告消费方展示首页已下线 |
+| `src/pages/Home.tsx` | **（已废弃 2026-11-22：前端减负，展示首页整链下线，`/home` 收口为重定向存根 → `/repositories`；后端 `/` 的 302 目标待后端侧同步）** 原为展示首页（2026-10-27 新增时为员工个人工作台，2026-11-16 定版为 gitee.com 式纯展示页）：PlatformHero → PlatformSection → 公告/更新日志双栏。方案见 `docs/HOME_PAGE_PLAN_2026-10-27.md` |
+| `src/pages/Profile.tsx` | **（已废弃 2026-11-22：前端减负，`/:username` 路由下线；「待我评审 / 我发起的」回归 `/mergerequests` 看板，「我的仓库」回归 `/repositories`）** 原为个人主页（2026-11-16 新增，GitHub 口径）：左栏公开资料卡 + 本人工作台 / 他人视图 |
+| `src/components/view/home/` | **（已废弃 2026-11-22：前端减负，11 个区块组件随 /home 与 /:username 一并删除）** 原为首页/个人主页区块组件：PlatformHero、HomeHero、StatStrip、MergeRequestPanel、MyRepositoriesTable、RecentRepositories、AnnouncementCard、ChangelogPanel、TeamActivity、PlatformSection |
+| `src/api/home.ts` | **（已废弃 2026-11-22：前端减负）** 原 `fetchHomeOverview()`（`GET /api/home/overview`）；`api/site.ts` / `api/search.ts` 同批废弃删除 |
 | `src/helpers/cloneUrl.ts` | 克隆地址拼装（HTTPS/SSH，三种 `ssh` 写法都正确）；仓库页头与首页共用 |
 | `src/helpers/docUrl.ts` | 文档中心 URL（`zh-cn`/`en-us` → URL 段 `cn`/`en`）；页头帮助菜单、公开 API 文档、首页规范链接共用 |
 | `src/helpers/recentRepos.ts` | 最近访问仓库（localStorage，LRU 6 条，容错解析）；由 `RepositoryLayout` 写入、首页读取 |
-| `src/config/homeLinks.ts` | 首页「平台能力」8 项 + 「快捷入口」6 项（含未就绪标记）的唯一数据源 |
-| `src/config/homeOnboarding.ts` | 首页「四步上手」4 步 + 「团队规范」3 条（全部指向文档中心真实存在的文件） |
-| `src/styles/pages-home.css` | 首页布局与区块样式（零字面值，全部引用语义/尺寸令牌；文件顶部有首页专属令牌块） |
+| `src/config/homeLinks.ts` | **（已废弃 2026-11-22：前端减负）** 原首页「平台能力」8 项 + 「快捷入口」6 项（含未就绪标记）的唯一数据源 |
+| `src/config/homeOnboarding.ts` | **（已废弃 2026-11-22：前端减负）** 原首页「四步上手」4 步 + 「团队规范」3 条（全部指向文档中心真实存在的文件） |
+| `src/styles/pages-home.css` | **（已废弃 2026-11-22：前端减负）** 原首页布局样式；`pages-profile.css` / `pages-help.css` / `pages-search.css` 同批删除 |
 | `src/pages/Doc.tsx` | 文档中心（`/doc/{lang}/{path}`）：菜单树 + Markdown 渲染（react-markdown + remark-gfm） |
-| `src/pages/Search.tsx` | **全局搜索页（`/search?keyword=…`，2026-10-27 新增）**：提交式搜索框 + 三类结果（仓库 / 仓库组 / 合并请求标题，各 ≤10 条，截断时提示"仅显示前 10 条"）+ 空态/无结果态 + 范围说明。合并请求行复用 `MergeRequestRow` 的 `compact` 变体；关键词在主键解析上复用 AppData 的成员字典 |
-| `src/api/search.ts` | `fetchSearchResults()`（`GET /api/search/all`）+ 三类结果类型 |
+| `src/pages/Search.tsx` | **（已废弃 2026-11-22：前端减负，阶段一元数据搜索下线；阶段二的代码内容搜索将来一并考虑）** 原为全局搜索页（2026-10-27 新增，仓库/仓库组/MR 标题三类 ≤10 条） |
+| `src/api/search.ts` | **（已废弃 2026-11-22：前端减负）** 原 `fetchSearchResults()`（`GET /api/search/all`）+ 三类结果类型 |
 | `src/styles/pages-search.css` | 搜索页样式（零字面值） |
-| `src/pages/Help.tsx` | **帮助中心（`/help`，2026-10-26 新增）**：四个入口卡片（技术支持 / 提交反馈 / 为 CodeFever Next 贡献代码 / 关于）+ 文档中心入口 + 公开 API 端点总览（数据源 `config/publicApi.ts`）+ 鉴权与错误体示例 + 关于信息（维护者 / 许可证 / 上游项目）；页内锚点 `#api`、`#about` |
-| `src/pages/RepositoryList.tsx` | 仓库列表（`/repositories`、`/groups/{组}/repositories`、`/repositories/forklist/{仓库主键}`）：页签（全部/我参与的/我创建的）、fork 上下文（首 tab 变「fork 自 X」） |
+| `src/pages/Help.tsx` | **（已废弃 2026-11-22：前端减负；页头帮助菜单改为直链文档中心 / 公开 API 文档，站外支持/反馈/贡献入口保留）** 原为帮助中心（2026-10-26 新增）：入口卡片 + 公开 API 端点总览 + 关于信息 |
+| `src/pages/RepositoryList.tsx` | 仓库列表（`/repositories`、`/groups/{组}/repositories`）：页签（全部/我参与的/我创建的）。fork 列表上下文（`/repositories/forklist/{仓库主键}`）**已废弃 2026-11-22（前端减负）** |
 | `src/pages/GroupList.tsx` | 仓库组列表（`/groups`） |
 | `src/pages/NewRepository.tsx` | 新建仓库（`/repositories/new`、`/groups/{组}/repositories/new`） |
 | `src/pages/NewRepositoryFork.tsx` | Fork 仓库（`/repositories/fork/{源仓库主键}`） |
 | `src/pages/NewGroup.tsx` | 新建仓库组（`/groups/new`） |
 | `src/pages/NewMergeRequest.tsx` | 全局新建 MR（`/mergerequests/new`、`/groups/{组}/mergerequests/new`）：复用 `MergeRequestCreate` 的 `global` 态 |
 | `src/pages/group/` | 仓库组：`ActivityList`（组动态）、`SettingsGeneral`（组名 5–30 字校验/描述 200 字/头像）、`SettingsMembers`（成员管理）、`SettingsAdvanced`（改 slug/删除） |
-| `src/pages/settings/` | 个人设置：`Profile`（基本信息含可编辑 role/头像/口令/MFA 二维码+更换设备）、`Email`（主邮箱更换 + 提交邮箱管理 + 120 秒重发倒计时）、`SSHKey`（列表/新增/删除 + 指纹列 + 整行公钥容忍）、`Notification`（位掩码开关 + 组/仓库级通知矩阵 + 拒收列表恢复）、`Tokens`（访问令牌，2026-10-27 新增：列表 / 创建后明文一次性弹窗 / 吊销 + curl 用法示例）、**`Appearance`（2026-11 v4 新增：主题浅/深/跟随系统 + 语言，即时生效无保存按钮）** |
-| `src/i18n/supplement.ts` | 旧词表缺失的补充键（运行时覆盖自动生成的表，避免手改生成文件） |
+| `src/pages/settings/` | 个人设置：`Profile`（基本信息含可编辑 role/头像/口令/MFA 二维码+更换设备）、`SSHKey`（列表/新增/删除 + 指纹列 + 整行公钥容忍）、`Notification`（位掩码开关 + 组/仓库级通知矩阵 + 拒收列表恢复）、`Tokens`（访问令牌，2026-10-27 新增：列表 / 创建后明文一次性弹窗 / 吊销 + curl 用法示例）、**`Appearance`（2026-11 v4 新增：主题浅/深/跟随系统 + 语言，即时生效无保存按钮）**。`Email`（主邮箱更换 + 提交邮箱管理 + 120 秒重发倒计时）**已废弃 2026-11-22（前端减负）** |
+| `src/i18n/supplement.ts` | 旧词表缺失的补充键（运行时覆盖自动生成的表，避免手改生成文件）；2026-11-22 减负清理 ~200 个随下线页面孤儿化的键（自动生成词表源自 Go 词表，键数不减） |
 | `src/assets/icons/` | （已删除 2026-11：v4 切换 Phosphor 图标库，原 154 个 `@pgyer/icons` 本地化数据随 `extract-icons.mjs` 一并移除；旧导出名别名保留在 `config/icons.ts`） |
 | `src/i18n/` | `zh-cn.ts` / `en-us.ts` 由 `scripts/extract-lang.mjs` 自动生成（961 键 × 2：Go SSR 词表 + 旧 SPA 词表）；`I18nProvider` + `useT()`（支持 `{s}`/`{n}`） |
 | `src/pages/auth/` | 认证四页：Login / Register / Verify / ResetPassword（独立全屏，不套 AppShell） |
@@ -400,3 +400,14 @@ Dockerfile（两阶段）
   （所有者 ∪ 直接成员 ∪ 可见组下的仓库；仓库组为 我拥有的 ∪ 我是成员的）。
   `repo/search.go` 的判定收在 `visibleRepositoryPredicate` 一处，并有占位符/参数
   数量一致性的单测守护。
+
+- 2026-11-22（代理追加）：**前端减负第一批**（用户批准的减负方案全量执行，后端不动）——
+  下线 8 组非核心页面/入口：`/home` 展示首页、`/:username` 个人主页、`/help`、`/search`、
+  `/__design`、admin 公告与系统设置页、settings 多邮箱页、forklist 上下文；⌘K 命令面板
+  与顶栏中部入口一并移除。`/home` 保留为重定向存根（后端 `/` 仍 302 到 `/home`，
+  前端收口到 `/repositories`；后端 302 目标待后端侧改动时同步）。级联清理：
+  `view/home` 11 组件、`Timeline` 组件（从未被引用）、`api/{site,home,search}.ts`、
+  `config/{homeLinks,homeOnboarding}.ts`、7 个图标白名单条目、`supplement.ts` ~200 孤儿键、
+  4 个页面 CSS、serve-preview 对应 mock。源码净变化 -5,395 行。门禁四项全绿。
+  存量死条目未动（icons 白名单另有 ~50 个 v4 时代无消费者图标、supplement 存量孤儿键），
+  留待后续批次。

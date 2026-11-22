@@ -19,15 +19,6 @@ export interface MergeRequestRowProps {
   href: string
   /** 是否展示目标仓库前缀（全局/组内看板需要，仓库内列表不需要）。 */
   showRepository?: boolean
-  /**
-   * 紧凑变体：去掉"最后提交人 / 评审人头像组"，只留标题、状态、仓库、分支与更新时间。
-   *
-   * 用途是**首页工作台**（`view/home/MergeRequestPanel`）。那里的数据来自
-   * `GET /api/home/overview`，刻意不带 `commit` 与 `reviewers`（否则 5 条待办要跑
-   * 5 次 `git log`，见 docs/HOME_PAGE_PLAN_2026-10-27.md 的 D2）。
-   * 不传 `commit` 时旧渲染会显示"更新于 1970-01-01"，所以必须有这个变体。
-   */
-  compact?: boolean
 }
 
 /** 状态徽标（v5 §11.2 词表）：开放=info、已合并=success、已关闭=default（idle）。 */
@@ -55,8 +46,11 @@ function commitsLink(groupName: string, repositoryName: string, branch: string):
  *   - `!编号`、源分支 → 目标分支（**可点**，跳该仓库该分支的提交列表）；
  *   - 最后提交人（源仓库成员 → 目标仓库成员 → 邮箱本身）与"编辑于"时间；
  *   - 评审人头像组（已/未评审角标）与"更新时间"。
+ *
+ * 2026-11-22 减负：`compact` 变体随 `/home` 个人工作台下线（原为首页面板
+ * 渲染不带 commit / reviewers 的聚合数据所用）。
  */
-export function MergeRequestRow({ item, href, showRepository = false, compact = false }: MergeRequestRowProps) {
+export function MergeRequestRow({ item, href, showRepository = false }: MergeRequestRowProps) {
   const t = useT()
   const { repositories } = useAppData()
 
@@ -70,8 +64,7 @@ export function MergeRequestRow({ item, href, showRepository = false, compact = 
   const targetName = target ? target.displayName || target.name : item.targetRepository.slice(0, 8)
 
   // 最后提交人：源仓库成员 → 目标仓库成员 → 提交邮箱本身（旧版 getUserInfo 的三级回退）。
-  // compact 变体不展示这一段（且数据里没有 commit），直接跳过解析。
-  const fromSource = compact ? null : resolveMember(source?.members, item.commit?.email)
+  const fromSource = resolveMember(source?.members, item.commit?.email)
   const updater = !fromSource
     ? ''
     : !fromSource.temporary
@@ -98,7 +91,7 @@ export function MergeRequestRow({ item, href, showRepository = false, compact = 
         <div className="cf-mr-row__meta">
           {showRepository ? <span className="cf-mr-row__path">{targetName}</span> : null}
           <span className="cf-mr-row__number">#{item.number}</span>
-          {!compact && updater ? (
+          {updater ? (
             <>
               <span className="cf-mr-row__author-avatar" aria-hidden="true">
                 {updater.slice(0, 1).toUpperCase()}
@@ -128,19 +121,13 @@ export function MergeRequestRow({ item, href, showRepository = false, compact = 
         </div>
       </div>
 
-      {compact ? (
+      <div className="cf-mr-row__side">
+        <MergeRequestReviewers reviewers={item.reviewers ?? []} members={target?.members ?? []} />
+        <Tag tone={statusTone(item.status)}>{statusLabel}</Tag>
         <span className="cf-mr-row__time">
           <FormattedTime timestamp={Number(item.update)} />
         </span>
-      ) : (
-        <div className="cf-mr-row__side">
-          <MergeRequestReviewers reviewers={item.reviewers ?? []} members={target?.members ?? []} />
-          <Tag tone={statusTone(item.status)}>{statusLabel}</Tag>
-          <span className="cf-mr-row__time">
-            <FormattedTime timestamp={Number(item.update)} />
-          </span>
-        </div>
-      )}
+      </div>
     </div>
   )
 }

@@ -20,8 +20,6 @@ import {
   Article,
   Bell,
   Book,
-  Briefcase,
-  Buildings,
   CaretDown,
   CaretLeft,
   CaretRight,
@@ -30,7 +28,6 @@ import {
   CheckCircle,
   CircleNotch,
   Clock,
-  Code,
   Copy,
   DownloadSimple,
   DotsThree,
@@ -46,13 +43,11 @@ import {
   GitMerge,
   GitPullRequest,
   Globe,
-  House,
   Info,
   Key,
   List,
   Lock,
   MagnifyingGlass,
-  MapPin,
   Password,
   PencilSimple,
   Plus,
@@ -83,19 +78,13 @@ export {
   GitPullRequest as mergeRequestIcon, // 合并请求
   GitBranch as branchIcon, // 分支
   GitCommit as commitIcon, // 提交
-  Tag as tagIcon, // 标签
   GitMerge as mergeIcon, // 合并
-  Code as codeIcon, // 代码
   WebhooksLogo as webhookIcon, // Webhook
   Key as keyIcon, // SSH 密钥
   Password as tokenIcon, // 访问令牌
   Users as membersIcon, // 成员
   User as userIcon, // 用户（单人）
-  Buildings as buildingIcon, // 团队 / 组织（个人主页 meta 行）
-  Briefcase as briefcaseIcon, // 职位 / 角色（个人主页 meta 行）
-  MapPin as locationIcon, // 所在地（个人主页 meta 行）
   GearSix as settingsIcon, // 设置
-  MagnifyingGlass as searchIcon, // 搜索
   Bell as notificationIcon, // 通知
   Sparkle as sparkleIcon, // AI / 新特性
   Copy as copyIcon, // 复制（成功后调用方切 Check）
@@ -132,7 +121,6 @@ export {
   PencilSimple as editIcon,
   Eye as eyeIcon,
   Lock as lockIcon, // 私有
-  House as homeIcon,
   ArrowRight as arrowRightIcon,
   ArrowClockwise as refreshIcon, // 重新生成 / 重发
   CircleNotch as spinnerIcon,

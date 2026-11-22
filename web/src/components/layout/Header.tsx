@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
 import { HELP_LINKS } from '@/config/helpLinks'
@@ -11,7 +11,6 @@ import {
   plExit,
   plusIcon,
   questionIcon,
-  searchIcon,
   settingsIcon,
   userIcon,
 } from '@/config/icons'
@@ -22,9 +21,8 @@ import { useI18n, useT } from '@/i18n'
 import { Dropdown, type MenuItemSpec } from '@/components/unit/Dropdown'
 import { Icon } from '@/components/unit/Icon'
 import { SquareIconButton } from '@/components/unit/SquareIconButton'
-// 通知抽屉 / 命令面板只在用到时才加载，避免把代码带进首屏。
+// 通知抽屉只在用到时才加载，避免把代码带进首屏。
 const NotificationDrawer = lazy(() => import('./NotificationDrawer').then((mod) => ({ default: mod.NotificationDrawer })))
-const CommandPalette = lazy(() => import('./CommandPalette').then((mod) => ({ default: mod.CommandPalette })))
 
 
 /**
@@ -32,11 +30,10 @@ const CommandPalette = lazy(() => import('./CommandPalette').then((mod) => ({ de
  *
  * 结构：
  *   左：面包屑（当前平台分区，一级导航已沉入平台侧栏）
- *   中：?K 搜索按钮（打开命令面板）
  *   右：＋新建 / 通知 / 帮助 / 头像（外观、语言、个人信息、退出都在头像菜单）
  *
- * v5 变化：Logo 与主导航（首页/仓库/仓库组/合并请求）沉入平台侧栏
- * （PlatformSidebar）；本栏不再承载一级导航。
+ * 2026-11-22 减负：⌘K 命令面板下线（与侧栏导航、各列表页搜索三重重复），
+ * 面包屑不再有个人主页分支（/:username 已下线）。
  */
 export function Header() {
   const t = useT()
@@ -45,41 +42,18 @@ export function Header() {
   const { user } = useAppData()
   const { lang, setLang } = useI18n()
   const [notificationOpen, setNotificationOpen] = useState(false)
-  const [paletteOpen, setPaletteOpen] = useState(false)
   const [, setThemeTick] = useState(0) // 主题切换后重渲染菜单勾选态
 
   /** 路径是否落在 `base` 这一层（避免 `/g/repo` 误配 `/g/repo2`）。 */
   const underPath = (base: string) => pathname === base || pathname.startsWith(`${base}/`)
 
-  // 全局快捷键：?K / Ctrl+K 呼出命令面板（DESIGN.md §4）。
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
-        setPaletteOpen((open) => !open)
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [])
-
-  // 面包屑：当前平台分区（v5 §4.3 左位；仓库详情页归「仓库」）。
+  // 面包屑：当前平台分区（v5 §4.3 左位；仓库页与未知路径一律归「仓库」）。
   const crumbKey = (() => {
-    if (underPath('/home')) return 'label.home'
     if (underPath('/groups')) return 'label.group'
     if (underPath('/mergerequests')) return 'label.mergeRequest'
-    if (underPath('/search')) return 'label.search'
     if (underPath('/settings')) return 'menu.profile'
     if (underPath('/admin')) return 'label.adminArea'
-    if (underPath('/help')) return 'help.center'
-    if (/^\/(?!groups\b|mergerequests\b|settings\b|admin\b|search\b|help\b|home\b|user\b|doc\b)[^/]+\/[^/]+/.test(pathname)) {
-      return 'label.repository'
-    }
-    // 单段路径且不是任何静态路由 = 个人主页 /:username。
-    if (/^\/(?!home\b|repositories\b|groups\b|mergerequests\b|settings\b|admin\b|search\b|help\b|user\b|doc\b|__design\b)[^/]+$/.test(pathname)) {
-      return 'profile.title'
-    }
-    return 'label.home'
+    return 'label.repository'
   })()
 
   const createItems: MenuItemSpec[] = [
@@ -89,13 +63,11 @@ export function Header() {
   ]
 
   const helpItems: MenuItemSpec[] = [
-    { key: 'help-center', label: t('help.center'), onClick: () => navigate('/help') },
     { key: 'docs', label: t('help.docs.title'), onClick: () => navigate(docUrl(lang)) },
     { key: 'api-docs', label: t('help.api.title'), onClick: () => navigate(publicApiDocUrl(lang)), dividerAfter: true },
     { key: 'support', label: t('label.support'), onClick: () => window.open(HELP_LINKS.support, '_blank', 'noopener') },
     { key: 'feedback', label: t('label.feedback'), onClick: () => window.open(HELP_LINKS.feedback, '_blank', 'noopener') },
-    { key: 'contribute', label: t('label.contribute'), onClick: () => window.open(HELP_LINKS.contribute, '_blank', 'noopener'), dividerAfter: true },
-    { key: 'about', label: t('label.about'), onClick: () => navigate('/help#about') },
+    { key: 'contribute', label: t('label.contribute'), onClick: () => window.open(HELP_LINKS.contribute, '_blank', 'noopener') },
   ]
 
   const languageItems: MenuItemSpec[] = [
@@ -137,11 +109,6 @@ export function Header() {
   // 头像菜单（DESIGN.md §4：管理后台 / 外观 / 语言 / 退出全部收进来）。
   // 「外观 / 语言」两项直接给出两个候选（带当前勾选），避免再做二级菜单。
   const userItems: MenuItemSpec[] = [
-    // 个人主页（/:username）与个人信息（/settings/profile）是两个落点：前者是
-    // 别人也能看的公开页，后者是编辑表单 —— GitHub 同款分工，都要给入口。
-    ...(user
-      ? [{ key: 'my-page', label: t('profile.title'), icon: <Icon icon={userIcon} size={16} />, onClick: () => navigate(`/${user.name}`) } as MenuItemSpec]
-      : []),
     { key: 'profile', label: t('menu.profile'), icon: <Icon icon={userIcon} size={16} />, onClick: () => navigate('/settings/profile') },
     { key: 'tokens', label: t('tokens.title'), icon: <Icon icon={meterIcon} size={16} />, onClick: () => navigate('/settings/tokens') },
     ...appearanceItems,
@@ -156,20 +123,6 @@ export function Header() {
     <header className="app-header">
       <div className="app-header__left">
         <span className="app-header__crumb">{t(crumbKey)}</span>
-      </div>
-
-      {/* ⌘K 命令面板按钮（DESIGN.md §4 中部）：替代原输入框；命令面板里可搜仓库/组/命令。 */}
-      <div className="app-header__palette">
-        <button
-          type="button"
-          className="app-header__palette-btn"
-          onClick={() => setPaletteOpen(true)}
-          aria-label={t('palette.title')}
-        >
-          <Icon icon={searchIcon} size={16} />
-          <span className="app-header__palette-text">{t('search.placeholder')}</span>
-          <kbd className="app-header__palette-kbd">⌘K</kbd>
-        </button>
       </div>
 
       <div className="app-header__right">
@@ -196,11 +149,6 @@ export function Header() {
       {notificationOpen ? (
         <Suspense fallback={null}>
           <NotificationDrawer open onClose={() => setNotificationOpen(false)} />
-        </Suspense>
-      ) : null}
-      {paletteOpen ? (
-        <Suspense fallback={null}>
-          <CommandPalette open onClose={() => setPaletteOpen(false)} />
         </Suspense>
       ) : null}
     </header>
