@@ -125,6 +125,16 @@
 - 新增**设计令牌**：`--cf-section-bar-width/height`（区块标题竖条）、
   `--cf-home-*`（首页容器宽度 / HERO 高度 / 侧栏与表格列宽）。
 
+### 修复
+
+- **发布后旧标签页整页报 "Failed to fetch dynamically imported module"**：
+  `web/build` 重建会清空旧 hash chunk（`/static/js` 一年 immutable），发布前
+  打开的标签页内存里仍是旧路由表，访问未加载过的路由（如设置页）时 lazy 去
+  拉旧 chunk 得 404，整页白屏报错（2026-11-22 减负发布时真实复现）。现在
+  路由层的 `lazy` 统一包装：模块加载失败时整页刷新一次——壳 no-cache，刷新
+  即拿到新路由表；sessionStorage 哨兵防止服务端持续不可用时无限刷新，
+  加载成功后清哨兵。三段报错文案分别对应 Chrome / Firefox / Safari。
+
 ### 移除
 
 - **前端减负第一批（2026-11-22，后端与 123 条契约基线不动）**：围绕"登录 → 建仓 →

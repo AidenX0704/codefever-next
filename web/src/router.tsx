@@ -1,4 +1,4 @@
-import { lazy, Suspense, type ReactNode } from 'react'
+import { lazy, Suspense, type ComponentType, type ReactNode } from 'react'
 import { createBrowserRouter, Navigate } from 'react-router'
 
 import { AppShell } from '@/components/layout/AppShell'
@@ -26,53 +26,86 @@ import { PageLoading } from '@/components/unit/Loading'
  * 已无调用点（只有 doc 404 与 /lang 参数错误用到），因此不单独建路由，
  * 相关提示由对应页面内联呈现（见计划 §10 批 1 记录）。
  */
-const Login = lazy(() => import('@/pages/auth/Login'))
-const Register = lazy(() => import('@/pages/auth/Register'))
-const Verify = lazy(() => import('@/pages/auth/Verify'))
-const ResetPassword = lazy(() => import('@/pages/auth/ResetPassword'))
-const RepositoryList = lazy(() => import('@/pages/RepositoryList'))
-const NewRepository = lazy(() => import('@/pages/NewRepository'))
-const NewRepositoryFork = lazy(() => import('@/pages/NewRepositoryFork'))
-const GroupList = lazy(() => import('@/pages/GroupList'))
-const NewGroup = lazy(() => import('@/pages/NewGroup'))
-const NewMergeRequest = lazy(() => import('@/pages/NewMergeRequest'))
-const FileTree = lazy(() => import('@/pages/repository/FileTree'))
-const CreateBranch = lazy(() => import('@/pages/repository/CreateBranch'))
-const CreateTag = lazy(() => import('@/pages/repository/CreateTag'))
-const SettingsProfile = lazy(() => import('@/pages/settings/Profile'))
-const SettingsSSHKey = lazy(() => import('@/pages/settings/SSHKey'))
-const SettingsNotification = lazy(() => import('@/pages/settings/Notification'))
-const SettingsTokens = lazy(() => import('@/pages/settings/Tokens'))
-const SettingsAppearance = lazy(() => import('@/pages/settings/Appearance'))
-const RepoSettingsGeneral = lazy(() => import('@/pages/repository/SettingsGeneral'))
-const RepoSettingsMembers = lazy(() => import('@/pages/repository/SettingsMembers'))
-const RepoSettingsBranch = lazy(() => import('@/pages/repository/SettingsBranch'))
-const RepoSettingsWebhook = lazy(() => import('@/pages/repository/SettingsWebhook'))
-const RepoSettingsAdvanced = lazy(() => import('@/pages/repository/SettingsAdvanced'))
-const MergeRequestList = lazy(() => import('@/pages/repository/MergeRequestList'))
-const MergeRequestDetailPage = lazy(() => import('@/pages/repository/MergeRequestDetail'))
-const MergeRequestCreate = lazy(() => import('@/pages/repository/MergeRequestCreate'))
-const GlobalMergeRequestBoard = lazy(() =>
+/**
+ * 旧标签页兜底:`web/build` 重建会清空旧 hash chunk(/static/js 一年 immutable),
+ * 发布前打开的标签页内存里仍是旧路由表,访问未加载过的路由时 lazy 拉旧 chunk 得 404,
+ * 报 "Failed to fetch dynamically imported module"(2026-11-22 减负发布时真实复现)。
+ * 处理:模块加载失败时整页刷新一次 —— 壳 no-cache,刷新即拿到新路由表与新 chunk;
+ * sessionStorage 哨兵防止服务端持续不可用时无限刷新;加载成功后清掉哨兵。
+ * 正则三段文案分别对应 Chrome / Firefox / Safari 的动态导入失败报错。
+ */
+const STALE_CHUNK_RELOADED_KEY = 'cf:stale-chunk-reloaded'
+
+function lazyRoute(loader: () => Promise<{ default: ComponentType }>) {
+  return lazy(() =>
+    loader().then(
+      (module) => {
+        sessionStorage.removeItem(STALE_CHUNK_RELOADED_KEY)
+        return module
+      },
+      (error: unknown) => {
+        const isStaleChunk =
+          error instanceof TypeError &&
+          /failed to fetch dynamically imported module|error loading dynamically imported module|importing a module script failed/i.test(
+            error.message,
+          )
+        if (isStaleChunk && !sessionStorage.getItem(STALE_CHUNK_RELOADED_KEY)) {
+          sessionStorage.setItem(STALE_CHUNK_RELOADED_KEY, '1')
+          window.location.reload()
+        }
+        throw error
+      },
+    ),
+  )
+}
+
+const Login = lazyRoute(() => import('@/pages/auth/Login'))
+const Register = lazyRoute(() => import('@/pages/auth/Register'))
+const Verify = lazyRoute(() => import('@/pages/auth/Verify'))
+const ResetPassword = lazyRoute(() => import('@/pages/auth/ResetPassword'))
+const RepositoryList = lazyRoute(() => import('@/pages/RepositoryList'))
+const NewRepository = lazyRoute(() => import('@/pages/NewRepository'))
+const NewRepositoryFork = lazyRoute(() => import('@/pages/NewRepositoryFork'))
+const GroupList = lazyRoute(() => import('@/pages/GroupList'))
+const NewGroup = lazyRoute(() => import('@/pages/NewGroup'))
+const NewMergeRequest = lazyRoute(() => import('@/pages/NewMergeRequest'))
+const FileTree = lazyRoute(() => import('@/pages/repository/FileTree'))
+const CreateBranch = lazyRoute(() => import('@/pages/repository/CreateBranch'))
+const CreateTag = lazyRoute(() => import('@/pages/repository/CreateTag'))
+const SettingsProfile = lazyRoute(() => import('@/pages/settings/Profile'))
+const SettingsSSHKey = lazyRoute(() => import('@/pages/settings/SSHKey'))
+const SettingsNotification = lazyRoute(() => import('@/pages/settings/Notification'))
+const SettingsTokens = lazyRoute(() => import('@/pages/settings/Tokens'))
+const SettingsAppearance = lazyRoute(() => import('@/pages/settings/Appearance'))
+const RepoSettingsGeneral = lazyRoute(() => import('@/pages/repository/SettingsGeneral'))
+const RepoSettingsMembers = lazyRoute(() => import('@/pages/repository/SettingsMembers'))
+const RepoSettingsBranch = lazyRoute(() => import('@/pages/repository/SettingsBranch'))
+const RepoSettingsWebhook = lazyRoute(() => import('@/pages/repository/SettingsWebhook'))
+const RepoSettingsAdvanced = lazyRoute(() => import('@/pages/repository/SettingsAdvanced'))
+const MergeRequestList = lazyRoute(() => import('@/pages/repository/MergeRequestList'))
+const MergeRequestDetailPage = lazyRoute(() => import('@/pages/repository/MergeRequestDetail'))
+const MergeRequestCreate = lazyRoute(() => import('@/pages/repository/MergeRequestCreate'))
+const GlobalMergeRequestBoard = lazyRoute(() =>
   import('@/pages/MergeRequestBoard').then((m) => ({ default: m.GlobalMergeRequestBoard })),
 )
-const GroupMergeRequestBoard = lazy(() =>
+const GroupMergeRequestBoard = lazyRoute(() =>
   import('@/pages/MergeRequestBoard').then((m) => ({ default: m.GroupMergeRequestBoard })),
 )
-const RepositoryActivityList = lazy(() => import('@/pages/repository/ActivityList'))
-const GroupActivityList = lazy(() => import('@/pages/group/ActivityList'))
-const AdminDashboard = lazy(() => import('@/pages/admin/Dashboard'))
-const AdminUsers = lazy(() => import('@/pages/admin/Users'))
-const AdminGroups = lazy(() => import('@/pages/admin/Groups'))
-const AdminRepositories = lazy(() => import('@/pages/admin/Repositories'))
-const Doc = lazy(() => import('@/pages/Doc'))
-const GroupSettingsGeneral = lazy(() => import('@/pages/group/SettingsGeneral'))
-const GroupSettingsMembers = lazy(() => import('@/pages/group/SettingsMembers'))
-const GroupSettingsAdvanced = lazy(() => import('@/pages/group/SettingsAdvanced'))
-const CommitList = lazy(() => import('@/pages/repository/CommitList'))
-const CommitDetail = lazy(() => import('@/pages/repository/CommitDetail'))
-const BranchList = lazy(() => import('@/pages/repository/BranchList'))
-const TagList = lazy(() => import('@/pages/repository/TagList'))
-const NotFound = lazy(() => import('@/pages/NotFound'))
+const RepositoryActivityList = lazyRoute(() => import('@/pages/repository/ActivityList'))
+const GroupActivityList = lazyRoute(() => import('@/pages/group/ActivityList'))
+const AdminDashboard = lazyRoute(() => import('@/pages/admin/Dashboard'))
+const AdminUsers = lazyRoute(() => import('@/pages/admin/Users'))
+const AdminGroups = lazyRoute(() => import('@/pages/admin/Groups'))
+const AdminRepositories = lazyRoute(() => import('@/pages/admin/Repositories'))
+const Doc = lazyRoute(() => import('@/pages/Doc'))
+const GroupSettingsGeneral = lazyRoute(() => import('@/pages/group/SettingsGeneral'))
+const GroupSettingsMembers = lazyRoute(() => import('@/pages/group/SettingsMembers'))
+const GroupSettingsAdvanced = lazyRoute(() => import('@/pages/group/SettingsAdvanced'))
+const CommitList = lazyRoute(() => import('@/pages/repository/CommitList'))
+const CommitDetail = lazyRoute(() => import('@/pages/repository/CommitDetail'))
+const BranchList = lazyRoute(() => import('@/pages/repository/BranchList'))
+const TagList = lazyRoute(() => import('@/pages/repository/TagList'))
+const NotFound = lazyRoute(() => import('@/pages/NotFound'))
 
 function suspense(node: ReactNode): ReactNode {
   return <Suspense fallback={<PageLoading />}>{node}</Suspense>
