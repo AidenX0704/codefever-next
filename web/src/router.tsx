@@ -123,11 +123,8 @@ export const router = createBrowserRouter([
     path: '/',
     element: <AppShell />,
     children: [
-      // 落地页：仓库列表。2026-11-22 减负起 /home 展示首页下线，第一屏回到核心闭环。
+      // 落地页：仓库列表。
       { index: true, element: <Navigate to="/repositories" replace /> },
-      // /home 保留为纯重定向存根：后端 `/` 仍 302 到 /home（handlers/web.go，本轮后端不动），
-      // 由前端在此收口到 /repositories；后端将来改 302 目标后可删除本条。
-      { path: 'home', element: <Navigate to="/repositories" replace /> },
       { path: 'repositories', element: suspense(<RepositoryList />) },
       { path: 'repositories/new', element: suspense(<NewRepository />) },
       { path: 'repositories/fork/:repositoryId', element: suspense(<NewRepositoryFork />) },

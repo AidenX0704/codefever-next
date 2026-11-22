@@ -1,8 +1,7 @@
 # AGENTS.md
 
 本文件是本仓库对 AI 协作代理（Agent）的**工作约定**。它描述的是"怎么做事"，
-不是"项目是什么"——后者见 `README.md`、`docs/ARCHITECTURE_ANALYSIS.md`、
-`PROJECT_MAP.md`。
+不是"项目是什么"——后者见 `README.md`、`PROJECT_MAP.md`。
 
 适用范围：任何人（或代理）在本仓库做代码变更时都适用。规则是**默认约定**，
 不是铁律，例外处理方式见 §7。
@@ -71,13 +70,11 @@
    - 某个模块的**职责**发生变化（不只是改实现）；
    - **接口签名**变化（导出函数、HTTP 端点、组件 props、Redux action/state 字段）；
    - **调用链**变化（谁调用谁、经过哪几层、异步/事务边界变化）。
-2. 同时同步相关说明文档：`docs/ARCHITECTURE_ANALYSIS.md`、
-   `docs/IMPLEMENTATION_STATUS.md`（如涉及迁移进度）。
-3. **保留历史**：废弃或迁移掉的条目**不要直接删除**，改为标注
+2. **保留历史**：废弃或迁移掉的条目**不要直接删除**，改为标注
    `（已废弃 YYYY-MM-DD：原因）` 或 `（已迁移至 X）`。
-4. **保留人工备注**：`PROJECT_MAP.md` 里的"人工备注"段落由人维护，
+3. **保留人工备注**：`PROJECT_MAP.md` 里的"人工备注"段落由人维护，
    代理只能追加，不得重写或删改既有内容。
-5. 文件不存在时创建（当前已有初始版本）。
+4. 文件不存在时创建（当前已有初始版本）。
 
 ---
 
@@ -116,8 +113,7 @@
 
 2. 本项目的事实标准：**自研设计令牌 + 自研组件库**（2026-10 前端重写后：
    不再使用任何 UI 框架，MUI 已随旧 `www/view` 一起删除）。
-   令牌基线与取值见 `docs/design-v5/DESIGN.md`（格·代码 Cell Code v1.0，2026-11 起；
-   v4 落地注记 `docs/design-v4/DESIGN_NOTES.md` 及 v3 令牌保留作为历史参考）。
+   令牌基线与取值见 `docs/design-v5/DESIGN.md`（格·代码 Cell Code v1.0，2026-11 起）。
    **过渡状态**：`web/src` 实现尚未迁移到 v5（仍为 v4 令牌与 Phosphor 图标），
    前端重写完成前，界面改动以 v5 为设计目标、以 theme.css 现行令牌为实现约束；
    图标体系目标为 v5 §8 自研线性族，现有 `@phosphor-icons/react` 白名单
@@ -313,7 +309,7 @@
 | 用 `view.type === 'tree'` 判断目录 | `repository/object` 在 `parent` 是**提交**时返回 `type: 'commit'`（最常见），只有 tree SHA 才返回 `'tree'`。判目录请用 `api/types.ts` 的 `isDirectoryView()`，否则文件列表会是空的（2026-10 真实踩过） |
 | 壳被缓存导致发布白屏 | 壳必须 `Cache-Control: no-cache`（引用的是带哈希的资源名）；`/static/js|css` 才是一年 immutable |
 | 把新索引写进 `backend/deploy/sql/db_structure.sql` | 该文件只在**全新安装**时导入；对已部署实例无效。新迁移必须放 `backend/internal/db/migrations/*.sql` |
-| 想改 `testdata/pages/php-*.html` 让页面测试通过 | 该快照与 `pages_test.go` 已随 SSR 页面在 2026-10 前端重写中删除（`（已废弃 2026-10-24：前端重写）`）。API 契约基线仍在 `backend/internal/contract` + `testdata/contract*`，那才是现在的功能回归网，不要动它 |
+| 想改 `testdata/pages/php-*.html` 让页面测试通过 | 该快照、`pages_test.go` 与历史契约快照 `backend/testdata/contract*` 均已移除；请通过 `go test ./internal/...` 维护功能回归网 |
 | 用 `curl` 单点采样当性能基线 | 用 `backend/cmd/stress`；且必须先关 `general_log`（开启会把延迟放大 4–8 倍） |
 | 在事务里做 git / 网络 / 大文件 IO | 会独占连接池（`MaxOpenConns=25`）导致全站阻塞；耗时操作必须在事务外 |
 | 直接使用用户传入的 `pagesize` | 必须经 `domain.ClampPaging` 收敛（上限 100），否则可能拼出无上限 `LIMIT` |

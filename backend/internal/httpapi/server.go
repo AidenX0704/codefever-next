@@ -33,13 +33,6 @@ const (
 	AuthAdminWebUser AuthLevel = "web_admin_user"
 	// AuthInternalGateway 要求内部网关令牌。
 	AuthInternalGateway AuthLevel = "internal_gateway"
-
-	// AuthPublic 匿名可访问（站点统计、更新日志、公告这类公开信息）。
-	//
-	// PHP 侧没有这个级别（所有 /api/* 都要登录），它只为**新增**端点存在；
-	// 带着有效会话来的请求仍会把用户解析进 req.User，方便端点按
-	// "已登录 / 匿名"微调输出，但解析失败不再拒绝请求。
-	AuthPublic AuthLevel = "public"
 )
 
 // ActionHandler 处理一个具体端点。

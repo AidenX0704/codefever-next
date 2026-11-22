@@ -1,11 +1,10 @@
-<#
+﻿<#
 .SYNOPSIS
     CodeFever Next 本地质量门禁（编译 / 格式 / vet / 单测 / Compose 校验 / 可选镜像构建）。
 
 .DESCRIPTION
     这是维护者与 CI 共用的最小门禁，不依赖运行中的数据库、浏览器或外部服务。
-    契约回归、截图比对、写操作冒烟属于**有前置条件**的深度验证，见
-    docs/IMPLEMENTATION_STATUS.md 与 backend/cmd/ 下的工具，不在本脚本内自动执行。
+    写操作冒烟与压测工具位于 backend/cmd/，有额外环境前置，不在本脚本内自动执行。
 
 .EXAMPLE
     pwsh -File scripts/verify.ps1

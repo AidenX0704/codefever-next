@@ -137,6 +137,24 @@
 
 ### 移除
 
+- **开源仓库精简与前后端死代码清理（2026-11-22）**：
+  - **废弃脚本与历史残留**：移除 `web/public/sitemap.xml`（上游遗留）、
+    `web/scripts/extract-{icons,lang}.mjs`、`scripts/shot.mjs`、`scripts/shotcmp.py`、
+    根目录 `package.json` 与 `yarn.lock`。
+  - **历史过程文档与契约快照**：`docs/` 仅保留现行设计基线 `docs/design-v5/DESIGN.md`，
+    移除其余 15 份过程计划/审计/旧设计稿；移除 `backend/testdata/`（615 份历史契约快照）、
+    `backend/contract/`、`backend/cmd/contract-{collect,compare}` 与 `repository_contract_test.go`。
+  - **后端已下线功能孤儿代码**（约 2,850 行）：移除随前端减负已无消费者的
+    `/api/home/overview`、`/api/search/all`、`/api/site/*`、`/api/admin/{changelog,announcement}*`、
+    `GET /api/user/profile`、`/api/web-vitals` 与 `/home` `/help` 页面路由；
+    将 `/`、`/user/login`、`/user/register` 的登录后落地目标统一归位 `/repositories`
+    （并移除前端 `/home` 重定向存根）；数据库迁移 `011`–`016` 保持完整不动。
+  - **前端死代码与无用资源**：移除未引用的 `Stat` 组件、`theme/tokens.ts`、
+    `helpers/recentRepos.ts`、5 张无用静态图片、51 个未用图标导出、约 19 个无调用 API
+    导出、`.cf-stat*`/`.cf-skeleton*` 死样式及 `supplement.ts` 25 个孤儿文案键，并重建 `web/build`。
+  - 同步清理 `README.md`、`README_EN.md`、`CONTRIBUTING.md`、`SECURITY.md`、`AGENTS.md`、
+    `PROJECT_MAP.md` 与 `scripts/verify.ps1` 中的历史死链。
+
 - **前端减负第一批（2026-11-22，后端与 123 条契约基线不动）**：围绕"登录 → 建仓 →
   推代码 → 评审合并 → 权限管理"核心闭环做减法，下线 8 组非核心页面/入口，
   源码净减约 5,400 行；落地页统一为 `/repositories`。

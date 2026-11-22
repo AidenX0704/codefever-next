@@ -1,23 +1,14 @@
 /**
- * 补充词表：**新前端需要、但旧词表里没有**的少量文案。
- *
- * 为什么单独一份：`zh-cn.ts` / `en-us.ts` 是 `scripts/extract-lang.mjs` 自动生成的
- * （来源是 Go SSR 词表 + 旧 SPA 词表），手改会被下次生成覆盖。这里集中放
- * "旧版没有这个说法、但新代码需要"的键，运行时优先级高于自动生成的表。
- *
- * 约定：只在旧词表确实没有等价表达时才加；有等价键就用旧键（信息不会丢失）。
+ * 补充词表：主词表（`zh-cn.ts` / `en-us.ts`）里缺失的补充文案，运行时优先级高于主词表。
  */
 export const supplement = {
   'zh-cn': {
-    // 批 2（列表页）
+    // 列表与代码浏览
     'label.search': '搜索',
-    'label.commitDetail': '提交详情',
-    'label.file_pl': '文件',
     'label.loading': '加载中…',
     'message.noFileChanged': '本次提交没有文件变更',
     'message.fileDiffOversize': '文件过大，无法展示差异',
-    'message.repoNotFound': '仓库不存在或无权访问',
-    // 批 4（设置页）
+    // 设置与操作提示
     'message.updateSuccess': '更新成功',
     'message.addSuccess': '添加成功',
     'message.deleteSuccess': '删除成功',
@@ -30,8 +21,6 @@ export const supplement = {
     'label.open': '恢复',
     'label.addWebhook': '添加 Webhook',
     'label.webhookEvents': 'Webhook 事件',
-    'label.pushRole': '推送角色',
-    'label.mergeRole': '合并角色',
     'label.roleID_6': '无权限',
     'label.updateName': '修改名称',
     'label.advanced': '高级设置',
@@ -41,7 +30,6 @@ export const supplement = {
     'label.mrStatusPending': '待合并',
     'label.mrStatusMerged': '已合并',
     'label.mrStatusClosed': '已关闭',
-    'label.reviewed': '已评审',
     'label.review': '评审',
     'label.sourceBranch': '源分支',
     'label.targetBranch': '目标分支',
@@ -53,78 +41,32 @@ export const supplement = {
     'label.mentionMe': '提及我',
     'label.setAdministrator': '设为管理员',
     'label.removeAdministrator': '取消管理员',
-    'label.memory': '内存',
     'label.service': '服务状态',
     'label.running': '运行中',
     'label.stopped': '已停止',
-    'message.invalidJSON': '不是合法的 JSON 对象，请检查格式',
-    'message.configEditorHint': '整份 config.yaml 的 JSON 视图：保存时服务端会做浅合并、结构校验与原子写。',
-    // MR 版本对比（后端 mergeRequestVersionList）
+    // MR 版本对比
     'label.sourceRepository': '源仓库',
     'label.targetRepository': '目标仓库',
-    'label.version': '版本',
-    'label.latestVersion': '最近修改',
     'label.baseVersion': '基线版本',
-    // 对齐旧版补回的字段标签
+    // 通用字段标签
     'label.updatedAt': '更新时间',
-    'label.updateUser': '更新者',
     'label.webhookSecretTip': '签名密钥：后端必填，用于校验 Webhook 请求来源',
-    'label.createGroup': '新建仓库组',
-    'label.cloneUrl': '克隆地址',
-    'label.https': 'HTTPS',
-    'label.repoSize': '仓库体积',
-    'label.mergeRequestCount': '未合并 MR',
     'label.memberCount': '成员数',
-    'label.activityAll': '全部动态',
-    'label.useTime': '耗时',
-    'label.deliveryId': '投递 ID',
-    'label.requestHeader': '请求头',
     'label.requestBody': '请求体',
     'label.responseBody': '响应体',
     'label.usingSquash': '使用 Squash',
     'message.error.sameBranch': '源分支与目标分支不能相同',
-    // 设置族（SSH 公钥 / 通知矩阵）
+    // 设置（SSH 公钥 / 通知矩阵）
     'label.fingerprint': '指纹',
     'label.collapse': '收起',
-    'message.sshKeyFormatHint': '可粘贴整行公钥（如 ssh-rsa AAAA... user@host），注释会自动作为名称',
-    // 仓库浏览页（blame / 分支删除 / diff 布局）
+    // 仓库浏览（blame / 分支删除）
     'label.blame': '溯源',
     'label.normal': '普通视图',
     'message.error.branchProtected': '分支受保护，不能删除',
-    'label.inline': '单列',
-    'label.sideBySide': '双列对照',
-    // 提交列表分组标题（自动表里是 react-intl 的 ICU 复数串，轻量 t() 无法渲染）
+    // 提交列表分组标题
     'label._N_commit': '{n} 提交',
-    // 帮助中心（/help）：站内帮助落点 + 公开 API 说明。
-    // 入口标题复用自动表里已有的 label.support / label.feedback / label.contribute /
-    // label.about，这里只补"站内没有的"文案。
-
-    // 命名口径：home.* 只服务于 web/src/pages/Home.tsx 及其 view/home/* 子组件；
-    // 能复用旧词表的一律复用（label.repository / label.group / label.ICreated …），
-    // 这里只放"旧版没有这个说法"的键。
-
-    // ---------- 访问令牌设置 /settings/tokens（2026-10-27） ----------
+    // 访问令牌设置 /settings/tokens
     'tokens.title': '访问令牌',
-    // ---------- 外观设置 /settings/appearance（DESIGN.md） ----------
-    'appearance.title': '外观与语言',
-    'appearance.light': '浅色',
-    'appearance.dark': '深色',
-    'appearance.system': '跟随系统',
-    'appearance.theme': '主题',
-    'appearance.themeNote': '选择会持久化；清除后跟随系统偏好。',
-    // ---------- 仓库星标（DESIGN.md §7.5） ----------
-    'star.star': '标星',
-    'star.unstar': '取消标星',
-    'star.failed': '星标操作失败，请重试',
-    'star.filter': '已标星',
-    'label.moreActions': '更多操作',
-    // ---------- MR 讨论（DESIGN.md §7.5） ----------
-    'label.discussion': '讨论',
-    'label.deleteSourceBranch': '合并后删除源分支',
-    'discussion.empty': '还没有讨论，发表第一条意见。',
-    'discussion.placeholder': '写下你的意见（Ctrl+Enter 发送）',
-    'discussion.submit': '评论',
-    'discussion.ctrlEnter': 'Ctrl+Enter 快速发送；评论会通知创建者与评审人。',
     'tokens.listTitle': '我的访问令牌',
     'tokens.listNotice': '令牌用于让 CI / 脚本以你的身份调用公开 API（/api/v1）。令牌等同于你的账号权限，请勿写入仓库。',
     'tokens.lastUsed': '最后使用',
@@ -139,32 +81,44 @@ export const supplement = {
     'tokens.docLink': '公开 API 文档',
     'tokens.createdTitle': '令牌已创建',
     'tokens.createdNotice': '这是令牌明文，**只显示这一次**，关闭后无法再次查看。请立刻复制并保存到安全的地方；如果丢失，只能吊销后重新创建。',
-
-    // ---------- 平台侧栏（v5 §4.2） ----------
+    // 外观设置 /settings/appearance
+    'appearance.title': '外观与语言',
+    'appearance.light': '浅色',
+    'appearance.dark': '深色',
+    'appearance.system': '跟随系统',
+    'appearance.theme': '主题',
+    'appearance.themeNote': '选择会持久化；清除后跟随系统偏好。',
+    // 仓库星标
+    'star.star': '标星',
+    'star.unstar': '取消标星',
+    'star.failed': '星标操作失败，请重试',
+    'label.moreActions': '更多操作',
+    // MR 讨论
+    'label.discussion': '讨论',
+    'label.deleteSourceBranch': '合并后删除源分支',
+    'discussion.empty': '还没有讨论，发表第一条意见。',
+    'discussion.placeholder': '写下你的意见（Ctrl+Enter 发送）',
+    'discussion.submit': '评论',
+    'discussion.ctrlEnter': 'Ctrl+Enter 快速发送；评论会通知创建者与评审人。',
+    // 平台侧栏
     'nav.code': '代码',
     'nav.collab': '协作',
     'nav.admin': '管理',
     'nav.adminConsole': '管理后台',
     'nav.collapseRail': '收起侧栏',
     'nav.expandRail': '展开侧栏',
-
-    // ---------- 页头计数（v5 §6 页头） ----------
+    // 页头计数
     'label._N_user': '{n} 名用户',
-
-    // ---------- MR 合并框（v5 §6 G9） ----------
+    // MR 合并框
     'message.mergeBlocked': '还有 {n} 位评审人未通过，暂不能合并',
     'message.mergeReady': '评审已通过，可以合并',
   },
   'en-us': {
     'label.search': 'Search',
-    'label.commitDetail': 'Commit',
-    'label.file_pl': 'Files',
     'label.loading': 'Loading…',
-    // 提交列表分组标题；旧词表是 ICU 复数串，这里放弃单复数区分（n=1 显示 "1 commits"）
     'label._N_commit': '{n} commits',
     'message.noFileChanged': 'No file changed in this commit',
     'message.fileDiffOversize': 'File too large to show diff',
-    'message.repoNotFound': 'Repository not found or access denied',
     'message.updateSuccess': 'Updated',
     'message.addSuccess': 'Added',
     'message.deleteSuccess': 'Deleted',
@@ -177,8 +131,6 @@ export const supplement = {
     'label.open': 'Restore',
     'label.addWebhook': 'Add webhook',
     'label.webhookEvents': 'Webhook events',
-    'label.pushRole': 'Push role',
-    'label.mergeRole': 'Merge role',
     'label.roleID_6': 'No access',
     'label.updateName': 'Rename',
     'label.advanced': 'Advanced',
@@ -188,7 +140,6 @@ export const supplement = {
     'label.mrStatusPending': 'Open',
     'label.mrStatusMerged': 'Merged',
     'label.mrStatusClosed': 'Closed',
-    'label.reviewed': 'Reviewed',
     'label.review': 'Review',
     'label.sourceBranch': 'Source branch',
     'label.targetBranch': 'Target branch',
@@ -200,72 +151,25 @@ export const supplement = {
     'label.mentionMe': 'Mentions',
     'label.setAdministrator': 'Grant admin',
     'label.removeAdministrator': 'Revoke admin',
-    'label.memory': 'Memory',
     'label.service': 'Services',
     'label.running': 'Running',
     'label.stopped': 'Stopped',
-    'message.invalidJSON': 'Not a valid JSON object',
-    'message.configEditorHint': 'JSON view of config.yaml; the server shallow-merges, validates and writes atomically.',
-    // MR version comparison (mergeRequestVersionList)
     'label.sourceRepository': 'Source repository',
     'label.targetRepository': 'Target repository',
-    'label.version': 'Version',
-    'label.latestVersion': 'Latest change',
     'label.baseVersion': 'Base version',
-    // Restored to match the legacy field set
     'label.updatedAt': 'Updated',
-    'label.updateUser': 'Updated by',
     'label.webhookSecretTip': 'Signing secret: required by the server to verify webhook sources',
-    'label.createGroup': 'New group',
-    'label.cloneUrl': 'Clone URL',
-    'label.https': 'HTTPS',
-    'label.repoSize': 'Repository size',
-    'label.mergeRequestCount': 'Open MRs',
     'label.memberCount': 'Members',
-    'label.activityAll': 'All activity',
-    'label.useTime': 'Duration',
-    'label.deliveryId': 'Delivery ID',
-    'label.requestHeader': 'Request headers',
     'label.requestBody': 'Request body',
     'label.responseBody': 'Response body',
     'label.usingSquash': 'Use squash',
     'message.error.sameBranch': 'Source and target branches must differ',
-    // Settings (SSH public key / notification matrix)
     'label.fingerprint': 'Fingerprint',
     'label.collapse': 'Collapse',
-    'message.sshKeyFormatHint': 'You can paste a whole key line (e.g. ssh-rsa AAAA... user@host); the comment becomes the name',
-    // Repository browsing (blame / branch deletion / diff layout)
     'label.blame': 'Blame',
     'label.normal': 'Normal',
     'message.error.branchProtected': 'Branch is protected and cannot be deleted',
-    'label.inline': 'Inline',
-    'label.sideBySide': 'Side-by-side',
-    // Help center (/help): in-app landing point plus public API reference.
-    // Entry titles reuse label.support / label.feedback / label.contribute / label.about
-    // from the generated table; only the in-app-only strings live here.
-
-    // ---------- Access tokens /settings/tokens (2026-10-27) ----------
     'tokens.title': 'Access tokens',
-    // ---------- Appearance /settings/appearance (DESIGN.md) ----------
-    'appearance.title': 'Appearance & language',
-    'appearance.light': 'Light',
-    'appearance.dark': 'Dark',
-    'appearance.system': 'System',
-    'appearance.theme': 'Theme',
-    'appearance.themeNote': 'Your choice is persisted; clear it to follow the system preference.',
-    // ---------- Repository stars (DESIGN.md §7.5) ----------
-    'star.star': 'Star',
-    'star.unstar': 'Unstar',
-    'star.failed': 'Failed to update star, please retry',
-    'star.filter': 'Starred',
-    'label.moreActions': 'More actions',
-    // ---------- MR discussion (DESIGN.md §7.5) ----------
-    'label.discussion': 'Discussion',
-    'label.deleteSourceBranch': 'Delete source branch after merge',
-    'discussion.empty': 'No discussion yet. Start the conversation.',
-    'discussion.placeholder': 'Write your comment (Ctrl+Enter to send)',
-    'discussion.submit': 'Comment',
-    'discussion.ctrlEnter': 'Ctrl+Enter to send; the author and reviewers will be notified.',
     'tokens.listTitle': 'My access tokens',
     'tokens.listNotice': 'Tokens let CI jobs and scripts call the public API (/api/v1) as you. A token carries your permissions — never commit it.',
     'tokens.lastUsed': 'Last used',
@@ -280,18 +184,29 @@ export const supplement = {
     'tokens.docLink': 'public API docs',
     'tokens.createdTitle': 'Token created',
     'tokens.createdNotice': 'This is the token in plaintext and it is shown **once**. Copy it now — you cannot view it again; if you lose it, revoke and create a new one.',
-
-    // ---------- Platform sidebar (v5 §4.2) ----------
-
+    'appearance.title': 'Appearance & language',
+    'appearance.light': 'Light',
+    'appearance.dark': 'Dark',
+    'appearance.system': 'System',
+    'appearance.theme': 'Theme',
+    'appearance.themeNote': 'Your choice is persisted; clear it to follow the system preference.',
+    'star.star': 'Star',
+    'star.unstar': 'Unstar',
+    'star.failed': 'Failed to update star, please retry',
+    'label.moreActions': 'More actions',
+    'label.discussion': 'Discussion',
+    'label.deleteSourceBranch': 'Delete source branch after merge',
+    'discussion.empty': 'No discussion yet. Start the conversation.',
+    'discussion.placeholder': 'Write your comment (Ctrl+Enter to send)',
+    'discussion.submit': 'Comment',
+    'discussion.ctrlEnter': 'Ctrl+Enter to send; the author and reviewers will be notified.',
     'nav.code': 'Code',
     'nav.collab': 'Collaborate',
     'nav.admin': 'Administration',
     'nav.adminConsole': 'Admin console',
     'nav.collapseRail': 'Collapse sidebar',
     'nav.expandRail': 'Expand sidebar',
-
     'label._N_user': '{n} users',
-
     'message.mergeBlocked': '{n} reviewer(s) have not approved yet — merge is blocked',
     'message.mergeReady': 'All reviews passed — ready to merge',
   },

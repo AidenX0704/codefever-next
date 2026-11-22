@@ -9,7 +9,7 @@
 - 废弃内容**只标注不删除**（`（已废弃 YYYY-MM-DD：原因）` / `（已迁移至 X）`）；
 - 末尾的「人工备注」由人维护，代理只可追加，不得重写既有内容。
 
-> 最后核对：2026-11-22（前端减负第一批：展示首页 / 个人主页 / 帮助中心 / 全局搜索 / 命令面板等非核心页面下线后）
+> 最后核对：2026-11-22（开源仓库精简：移除历史过程文档/契约快照/废弃脚本、前后端死代码与已下线功能孤儿端点，登录与 `/` 302 归位 `/repositories`）
 
 ---
 
@@ -22,7 +22,7 @@
 | `web/` | **唯一前端**（React 19 + TypeScript + Vite，自研设计令牌 + 组件库，零 UI 框架依赖）；产物 `web/build` 入库，Dockerfile 只 COPY；方案与进度见 `docs/FRONTEND_REWRITE_PLAN.md` |
 | `backend/deploy/` | nginx vhost 模板、supervisor 配置、SQL 初始化脚本 |
 | `codefever-data/` | 运行时数据（MySQL、裸仓库、附件、配置软链），可用 `CODEFEVER_DATA_DIR` 覆盖 |
-| `docs/` | 架构分析、迁移计划与实施状态、性能审查与整改方案 |
+| `docs/` | 设计规范（`docs/design-v5/DESIGN.md`）；历史重写计划、审计报告、design-v2/v3/v4 **已移除 2026-11-22（开源仓库精简）** |
 | `doc/` | **站内文档中心内容**（`zh-cn` / `en-us` 双语 Markdown，含 2026-10-26 新增的 `api/` 公开 API 文档）；由 `/doc/*`（SPA 渲染）与 `/api/doc/{tree,content}` 提供 |
 | `.github/workflows/ci.yml` | CI：gofmt / build / 交叉编译 / vet / test + compose 校验 |
 
@@ -44,7 +44,7 @@
 
 | 工具 | 用途 |
 |---|---|
-| `contract-collect` / `contract-compare` | HTTP 契约基线采集与比对（保证 PHP→Go 语义一致） |
+| ~~`contract-collect` / `contract-compare`~~ | ~~HTTP 契约基线采集与比对（保证 PHP→Go 语义一致）~~（**已删除 2026-11-22**：开源仓库精简，连同 `backend/contract/`、`backend/testdata/` 一并移除） |
 | ~~`page-compare` / `pagediff`~~ | ~~服务端渲染页面的 PHP 产物比对~~（**已删除 2026-10-24**：SSR 页面被 SPA 取代，比较对象不复存在） |
 | `smoke-write` | 以 multipart 驱动**写端点成功路径**并断言，需隔离环境 |
 | `stress` | 稳定性/性能门禁：QPS、p50/p95/p99、按端点分布、pprof 采样 |
@@ -118,7 +118,7 @@ nginx (vhost-go.conf-template)
 > `normalizeAPIPath` 另有 `publicapi.IsPublicAPIPath(path)` 豁免，
 > 属**纵深防御**（分流在截断之外，公开路径本就不会被截断）。
 
-### 4.1.2 首页聚合 `/api/home/overview`（2026-10-27 新增）
+### 4.1.2 首页聚合 `/api/home/overview`（已废弃 2026-11-22：随前端 `/home` 下线移除，后端 `/` 与登录/注册落地归位 `/repositories`）
 
 ```
 请求 /api/home/overview（AuthWebUser，会话 Cookie）
@@ -140,7 +140,7 @@ nginx (vhost-go.conf-template)
 > （5 条待办 = 5 次子进程），填 `reviewers` 要多一次批量查询。首页是导航层，
 > 前端用 `MergeRequestRow` 的 `compact` 变体渲染。
 
-### 4.1.3 全局搜索 `/api/search/all`（2026-10-27 新增，阶段一）
+### 4.1.3 全局搜索 `/api/search/all`（已废弃 2026-11-22：随前端 `/search` 下线移除）
 
 ```
 请求 /api/search/all?keyword=…（AuthWebUser）
@@ -197,7 +197,7 @@ handler（业务写）
 |---|---|
 | `vite.config.ts` | 构建配置：产物 `web/build`、`assetsDir=static/js`（对齐 nginx 一年 immutable）、现代目标 es2022、`/api` 等路径 dev 代理到 Go 9001 |
 | `src/theme/theme.css` | **全仓库唯一的视觉字面值来源**。2026-10-28 重写为 v3 三层令牌：原始层 `--p-*`（唯一色值处）→ 语义层（`--bg-*` / `--fg-*` / `--bd-*` / `--ac-*` / `--st-*` / `--code-*` / `--diff-*` / `--tok-*` / `--chart-*` / `--shadow-*` / `--scrim` / `--chrome-*`，浅深两套共 95 键一一对应）→ 尺寸层（`--sp-*` / `--r-*` / `--fs-*` / `--ctl-*` / `--row-*` / `--layout-*` / `--dur-*` / `--z-*` / `--focus-*`）。基线见 `docs/design-v3/DESIGN_TOKENS_V3.md`。（已废弃 2026-10-28：旧版是逐项抄自 `@pgyer/mui-theme-preset` 与 `theme1.js` 的单层 `--cf-*` 令牌，历史见 `docs/design-v2/`） |
-| `src/theme/tokens.ts` | 令牌的类型化引用 + `space(n)`（等价旧 `theme.spacing`，仍是 n × 8px）。2026-10-28 扩充为 `color` / `surface` / `fg` / `border` / `status` / `font` / `radius` / `shadow` / `size` / `motion` / `z` / `space()` / `density` 十三组 |
+| `src/theme/tokens.ts` | （**已删除 2026-11-22**：开源仓库精简，零引用）原令牌类型化引用与 `space(n)` |
 | `src/helpers/theme.ts` | **主题（浅色 / 深色）唯一入口**（2026-10-28 新增）：`initTheme()` 在 `createRoot` 之前把 `data-theme` 落到 `<html>`（首屏不闪白），优先级「用户选择（localStorage `cf-theme`）> 系统 `prefers-color-scheme`」；`applyTheme()` / `getTheme()` / `getStoredTheme()` 供切换入口使用 |
 | `src/styles/markdown-body.dark.css` | `markdown-body.css`（GitHub README 样式 vendored 副本）的**深色覆盖层**（2026-10-28 新增）：30 余条映射到 `--fg-*` / `--tok-*` / `--diff-*`，不动 vendored 文件本身；其中 3 条工具类因 vendored 文件自带 `!important` 必须同用 `!important`（偏离理由见文件头） |
 | `scripts/check-ui.mjs` | **设计体系静态检查**（2026-10-28 新增，`npm run check:ui`，已并入 `npm run verify`）：硬编码色值 / 原始层外泄 / 浅深主题键一致 / 同规则内文字与背景对比度 ≥ 4.5:1 |
@@ -230,7 +230,7 @@ handler（业务写）
 | `src/api/home.ts` | **（已废弃 2026-11-22：前端减负）** 原 `fetchHomeOverview()`（`GET /api/home/overview`）；`api/site.ts` / `api/search.ts` 同批废弃删除 |
 | `src/helpers/cloneUrl.ts` | 克隆地址拼装（HTTPS/SSH，三种 `ssh` 写法都正确）；仓库页头与首页共用 |
 | `src/helpers/docUrl.ts` | 文档中心 URL（`zh-cn`/`en-us` → URL 段 `cn`/`en`）；页头帮助菜单、公开 API 文档、首页规范链接共用 |
-| `src/helpers/recentRepos.ts` | 最近访问仓库（localStorage，LRU 6 条，容错解析）；由 `RepositoryLayout` 写入、首页读取 |
+| `src/helpers/recentRepos.ts` | （**已删除 2026-11-22**：开源仓库精简，首页下线后只写不读）原最近访问仓库 localStorage 工具 |
 | `src/config/homeLinks.ts` | **（已废弃 2026-11-22：前端减负）** 原首页「平台能力」8 项 + 「快捷入口」6 项（含未就绪标记）的唯一数据源 |
 | `src/config/homeOnboarding.ts` | **（已废弃 2026-11-22：前端减负）** 原首页「四步上手」4 步 + 「团队规范」3 条（全部指向文档中心真实存在的文件） |
 | `src/styles/pages-home.css` | **（已废弃 2026-11-22：前端减负）** 原首页布局样式；`pages-profile.css` / `pages-help.css` / `pages-search.css` 同批删除 |
@@ -254,7 +254,7 @@ handler（业务写）
 | `src/pages/` | 路由页面：`DesignSystem`（`/__design` 预览页）、`NotFound` |
 | `src/router.tsx` | 路由表；全部页面 `lazy`；react-router 8 不支持路径正则，业务校验下沉到页面 |
 | `src/assets/images/` | 复用素材（16 张，来自 `www/static/images`，图名保持原样） |
-| `scripts/extract-lang.mjs` | 从 Go 语言表 + 旧 SPA 词表抽取 i18n（批 7 随旧前端退役） |
+| `scripts/extract-lang.mjs` | （**已删除 2026-11-22**：开源仓库精简，原依赖已删除的旧前端与 `pages.go`） |
 | `scripts/extract-icons.mjs` | （已删除 2026-11：随 `src/assets/icons/` 退役） |
 | `scripts/serve-preview.mjs` | 视觉验证用静态服务器 + 最小 mock API（`vite preview` 会把 `/api`、`/user` 代理到后端导致 502） |
 
@@ -411,3 +411,24 @@ Dockerfile（两阶段）
   4 个页面 CSS、serve-preview 对应 mock。源码净变化 -5,395 行。门禁四项全绿。
   存量死条目未动（icons 白名单另有 ~50 个 v4 时代无消费者图标、supplement 存量孤儿键），
   留待后续批次。
+
+- 2026-11-22（代理追加）：**开源仓库全量精简与清理** ——
+  ① 废弃脚本与残留：移除 `web/public/sitemap.xml`（2018 年上游遗留）、
+  `web/scripts/extract-{icons,lang}.mjs`、`scripts/shot.{mjs}` / `scripts/shotcmp.py`、
+  根目录 `package.json` 与 `yarn.lock`；
+  ② 历史文档与契约快照：`docs/` 仅保留现行设计规范 `docs/design-v5/DESIGN.md`，
+  移除其余 15 个过程文档与旧设计稿（design-v2/v3/v4、重写计划、审计报告等）；
+  移除 `backend/testdata/`（615 个历史快照）、`backend/contract/`、
+  `backend/cmd/contract-{collect,compare}` 与 `repository_contract_test.go`；
+  ③ 前端死代码与资源：移除 `components/unit/Stat`、`theme/tokens.ts`、
+  `helpers/recentRepos.ts`（含 `RepositoryLayout` 写入调用）、`/home` 路由存根、
+  5 张无用图片、51 个无消费者图标导出、约 19 个无调用 API 导出、`publicApi.ts`
+  端点表、`components.css` 中的 `.cf-stat*`/`.cf-skeleton*`、`supplement.ts` 25 个孤儿键，
+  并重建 `web/build`；
+  ④ 后端已下线功能清理：移除 `home` / `search` / `site` / `site_admin` / `webvitals`
+  及相关 repo/domain/test、`GET /api/user/profile`（保留 `user_profile.go` 内 SSH/资料/密码/MFA）、
+  `AuthPublic` 与 `/home` `/help` 页面路由；`bodyParamBool` 迁入 `repository_write.go`；
+  后端 `/`、登录与注册落地统一归位 `/repositories`；迁移文件 `011`–`016` 与
+  `backend/deploy/sql/db_update_20220215.sql`（新建库 webhook 建表必需）保持不动；
+  ⑤ 同步修正 `README.md`、`README_EN.md`、`CONTRIBUTING.md`、`SECURITY.md`、
+  `AGENTS.md`、`scripts/verify.ps1` 中的历史引用。

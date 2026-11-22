@@ -64,9 +64,6 @@ type AdminHandler struct {
 	Disk *storage.Disk
 	// Sessions 用于禁用账号/重置口令后吊销会话（可选）。
 	Sessions *session.Store
-	// Site 负责站点公开内容（更新日志 / 公告）的管理端点（可选）。
-	// 未注入时这四个动作不注册（见 site_admin.go 的 registerSiteActions）。
-	Site *repo.SiteRepo
 
 	// site 是当前生效的 config.yaml 文档。
 	//
@@ -132,10 +129,6 @@ func (h *AdminHandler) Register(s *httpapi.Server) {
 		"systemStatus":           {"GET": h.systemStatus},
 		"config":                 {"GET": h.configGet, "POST": h.configPost},
 	}
-
-	// 站点内容管理端点（changelog / announcement）：Site 注入齐备才注册
-	// （在 s.Register 之前挂进 actions，保证注册的就是完整动作表）。
-	h.registerSiteActions(actions)
 
 	s.Register(&httpapi.Controller{
 		Name:    "admin",

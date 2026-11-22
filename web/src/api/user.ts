@@ -48,33 +48,6 @@ export function removeSSHKey(id: string) {
   return post('/api/user/removeSSHKey', { id })
 }
 
-/** 发送"更改主邮箱"验证码（需当前口令）。 */
-export function requestEmailCode(email: string, password: string) {
-  return post('/api/user/getEmailCode', { email, password })
-}
-
-/** 用验证码更换主邮箱。 */
-export function changeEmail(email: string, code: string, password: string) {
-  return post('/api/user/changeEmail', { email, code, password })
-}
-
-/** 添加提交邮箱（会发验证码到该邮箱）。 */
-export function addCommitEmail(email: string) {
-  return post('/api/user/addCommitEmail', { email })
-}
-
-export function resendCommitEmailCode(email: string) {
-  return post('/api/user/resentCommitEmailCode', { email })
-}
-
-export function deleteCommitEmail(id: string) {
-  return post('/api/user/deleteCommitEmail', { id })
-}
-
-export function validateCommitEmailCode(id: string, email: string, code: string) {
-  return post('/api/user/validationCommitEmailCode', { id, email, code })
-}
-
 /** MFA 数据（GET）。 */
 export async function getMFAData(): Promise<MFAData> {
   const { data } = await get<MFAData>('/api/user/getMFAData')
