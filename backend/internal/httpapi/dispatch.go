@@ -242,16 +242,6 @@ func (s *Server) authenticateWithUser(ctx context.Context, level AuthLevel, p *c
 		req.User = user
 		return nil
 
-	case AuthPublic:
-		// 匿名级别：解析得到用户就用，解析不到照样放行。
-		//
-		// 故意吞掉 currentUser 的错误 —— 未登录、会话过期、账号被禁用
-		// 对公开端点都是"匿名"的同义词，不能因此返回 0x0101。
-		if user, err := s.currentUser(ctx, p, r); err == nil {
-			req.User = user
-		}
-		return nil
-
 	default:
 		return contract.NewError(contract.CodeInvalidCredential)
 	}

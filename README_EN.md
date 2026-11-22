@@ -1,11 +1,6 @@
 <div align="center">
-
-> **注意（2026-10-24）**：本文档中出现的 `www/view/`、`www/static/` 与 MUI v4 相关描述
-> 属于**历史记录**——旧前端已在 2026-10 前端重写中删除。当前前端为 `web/`
-> （React 19 + TypeScript + Vite + 自研令牌与组件库），见 `docs/FRONTEND_REWRITE_PLAN.md`。
-
   <br />
-  <img src="www/static/images/logo-community.png" alt="CodeFever" height="42" />
+  <img src="web/src/assets/images/logo-community.png" alt="CodeFever" height="42" />
   <br /><br />
   <p>
     <b>
@@ -17,7 +12,7 @@
 [![Contributions welcome](https://img.shields.io/badge/Contributions-welcome-brightgreen?logo=github)](CONTRIBUTING.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/backend-Go-00ADD8?logo=go&logoColor=white)](backend/)
-[![PHP](https://img.shields.io/badge/PHP-removed-8892B0?logo=php&logoColor=white)](docs/PHP_REMOVAL.md)
+[![PHP](https://img.shields.io/badge/PHP-removed-8892B0?logo=php&logoColor=white)](backend/)
 [![Docker](https://img.shields.io/badge/Docker-supported-2496ED?logo=docker&logoColor=white)](doc/en-us/installation/install_via_docker_compose.md)
 
   </p>
@@ -55,18 +50,12 @@ been merged into the same Go module (`backend/`).
 | Area | Status |
 | --- | --- |
 | Backend | Go (`backend/`), replacing the former CodeIgniter 2.1.1 + PHP 7.4 implementation |
-| API contract | 108 `/api/*` endpoints + 4 `/apiv1/internal` callbacks; **123/123 is a historical acceptance record**, see [implementation notes](docs/IMPLEMENTATION_STATUS.md) for how to re-run |
-| Web routes | 43 server-rendered routes + 5 pages; **43/43 is a historical comparison record** (one brand string is a deliberate change) |
-| Front-end | React 17 + MUI v4; the bundle `www/view/build` is committed, so the build does not need Node.js |
+| Front-end | React 19 + TypeScript + Vite, custom design tokens & component library (no UI framework); the bundle `web/build` is committed, so the image build does not need Node.js |
 | Runtime | **No PHP, no php-fpm, no crond** in the image |
 | Images | The application image is built from local source; two base images still have to be pulled (see *Quick start*) |
-| Front-end size | `www/static/vendor` is about 3.7 MB / 27 files (historical comparison: 23.2 MB / 2072 files) |
+| Front-end size | Initial JS + CSS ~150 KB gzip; all pages are route-level lazy loaded |
 
-> The full dependency surface, stability gate and historical verification data are
-> documented in [`docs/PHP_REMOVAL.md`](docs/PHP_REMOVAL.md). The image contains `doc/` (the
-> in-app documentation centre) and `LICENSE`; `docs/` is rewrite history and is not shipped.
-> The contract numbers above are a snapshot of one acceptance run, not a guarantee for the
-> current environment; re-running them requires a working instance and database.
+> The image contains `doc/` (the in-app documentation centre) and `LICENSE`; `docs/` holds design specifications and is not shipped in the image.
 
 ## Features
 
@@ -353,16 +342,11 @@ pwsh -File scripts/verify.ps1
 > or write-path smoke tests. Those deeper checks have extra prerequisites; see
 > [CONTRIBUTING.md](CONTRIBUTING.md#测试与验证). Normal deployments only need Compose.
 
-Rebuilding the front-end bundle (do not reinstall dependencies during a normal deployment —
-`@pgyer/mui-theme-preset` is declared as `latest` and would drift):
+Rebuilding the front-end bundle (only needed after modifying `web/src`; image builds do not run Node.js):
 
 ```shell
-cd www/view && NODE_OPTIONS=--openssl-legacy-provider yarn build
+cd web && npm ci && npm run verify   # typecheck + lint + check:ui + build (outputs to web/build)
 ```
-
-The contract baseline lives in `backend/testdata/contract/`; collection and comparison are
-historical acceptance tools, not runtime requirements. See
-[CONTRIBUTING.md](CONTRIBUTING.md#契约回归).
 
 > Line endings are normalised to LF by `.gitattributes`; editor conventions are declared in
 > `.editorconfig`.

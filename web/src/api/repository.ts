@@ -189,14 +189,6 @@ export async function fetchWebhooks(repositoryKey: string): Promise<RepositoryWe
   return data ?? []
 }
 
-export async function fetchWebhook(repositoryKey: string, webhookKey: string): Promise<RepositoryWebhook | null> {
-  const { data } = await post<RepositoryWebhook>('/api/repository/getWebhook', {
-    repository: repositoryKey,
-    rwKey: webhookKey,
-  })
-  return data ?? null
-}
-
 /** 新建（不传 rwKey）或更新 webhook；`active` 必须是 1 或 2。 */
 export function saveWebhook(params: {
   repositoryKey: string
@@ -394,12 +386,6 @@ export async function fetchMergeRequestCommits(params: {
     targetBranch: params.targetBranch,
   })
   return data ?? []
-}
-
-/** 目标仓库信息（跨仓库 MR 用）：`repository/targetRepository`。 */
-export async function fetchTargetRepository(repositoryKey: string): Promise<Repository | null> {
-  const { data } = await get<Repository>('/api/repository/targetRepository', { repository: repositoryKey })
-  return data ?? null
 }
 
 /** 创建合并请求（返回 `{ id }` —— 即业务编号，用于跳详情）。 */
@@ -606,24 +592,4 @@ export async function fetchMergeRequestComments(mergeRequestKey: string): Promis
 /** 发表 MR 讨论（1–10000 字）。成功后向创建者与评审人投递站内通知。 */
 export function addMergeRequestComment(mergeRequestKey: string, body: string) {
   return post('/api/repository/addMergeRequestComment', { mergeRequestId: mergeRequestKey, body })
-}
-
-/* ------------------------------ Webhook 重发（v4 新增） ------------------------------ */
-
-/** 重发一次 webhook 投递日志（复用投递器入队路径）。 */
-export function redeliverWebhookLog(logID: string) {
-  return post('/api/repository/redeliverWebhookLog', { logId: logID })
-}
-
-/* ------------------------------ 归档下载（v4 新增） ------------------------------ */
-
-/**
- * 归档下载地址（zip / tar.gz）。
- *
- * `archive` 是**二进制流**端点（Content-Disposition 附件下载），不能走 JSON 信封
- * 的 post 封装 —— 直接给 `<a download>` / `window.open` 用 URL。
- */
-export function archiveUrl(repositoryKey: string, ref: string, format: 'zip' | 'tar.gz'): string {
-  const query = new URLSearchParams({ repositoryId: repositoryKey, ref, format })
-  return `/api/repository/archive?${query.toString()}`
 }

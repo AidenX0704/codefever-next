@@ -166,8 +166,8 @@ func (h *WebUserHandler) registerPost(w http.ResponseWriter, r *http.Request) {
 	}
 	h.writeSessionCookie(w, r, sess.Key)
 
-	// 注册成功即已建立会话，落地 /home（平台主页），与登录后的口径一致。
-	_ = writeAjax(w, 0, "注册成功", httpapi.AjaxObject{{Key: "redirect", Value: "/home"}})
+	// 注册成功即已建立会话，落地 /repositories，与登录后的口径一致。
+	_ = writeAjax(w, 0, "注册成功", httpapi.AjaxObject{{Key: "redirect", Value: "/repositories"}})
 }
 
 // verify 实现 user/verify（2FA 二次验证）。

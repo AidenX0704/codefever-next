@@ -2918,3 +2918,36 @@ func boolToInt(v bool) int {
 func nowString() string {
 	return time.Now().Format("2006-01-02 15:04:05")
 }
+
+// bodyParamBool 读取布尔表单/JSON/查询参数；参数未传或为 nil 时返回 def。
+func bodyParamBool(p *contract.Parsed, key string, def bool) bool {
+	if !p.HasParam(key) {
+		return def
+	}
+	var raw any
+	if v, ok := p.Body[key]; ok {
+		raw = v
+	} else if v, ok := p.JSON[key]; ok {
+		raw = v
+	} else {
+		raw = p.Query[key]
+	}
+	switch t := raw.(type) {
+	case nil:
+		return def
+	case bool:
+		return t
+	case float64:
+		return t != 0
+	case string:
+		// 字符串按 JSON 的 true/false 与数字 1/0 判定；
+		// "0" / "false" / 空串为假，其余为真。
+		switch strings.TrimSpace(t) {
+		case "false", "0", "":
+			return false
+		}
+		return true
+	default:
+		return def
+	}
+}

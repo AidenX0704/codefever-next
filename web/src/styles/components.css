@@ -1068,41 +1068,6 @@ textarea.cf-field__input {
   gap: var(--sp-4);
 }
 
-/* ============================== Stat（指标） ============================== */
-/* 只有"数字 + 标签"两行，无外框无底色 —— 理由见 docs/HOME_PAGE_PLAN_2026-10-27.md §2.2。
-   数字字号取 --fs-h2（20px/700），不新造字号。 */
-.cf-stat {
-  display: flex;
-  flex-direction: column;
-  gap: var(--sp-2);
-  min-width: 0;
-  padding: 0;
-  border: 0;
-  background: none;
-  text-align: left;
-}
-
-.cf-stat__value {
-  color: var(--text-primary);
-  font-size: var(--fs-h2);
-  font-weight: var(--fw-bold);
-  line-height: var(--lh-tight);
-}
-
-.cf-stat__label {
-  color: var(--text-secondary);
-  font-size: var(--fs-caption);
-  white-space: nowrap;
-}
-
-.cf-stat--link {
-  cursor: pointer;
-}
-
-.cf-stat--link:hover .cf-stat__value {
-  color: var(--brand-text);
-}
-
 /* ============================== EmptyState / Loading ============================== */
 /* EmptyListNotice：图 160px、标题 bold、说明 text-light、maxWidth 480px */
 .cf-empty {
@@ -1420,41 +1385,6 @@ textarea.cf-field__input {
 /* data-density="compact" 时表格/列表行降为 40px；令牌只在容器内重绑，结构不动。 */
 [data-density='compact'] {
   --row-h: var(--row-h-compact);
-}
-
-/* ============================== Skeleton（DESIGN.md §6.11） ============================== */
-/* --bg-muted 块 + 轻微 shimmer；仅 opacity 动画（尊重 prefers-reduced-motion，见 theme.css）。 */
-.cf-skeleton {
-  border-radius: var(--skeleton-radius);
-  background: var(--bg-muted);
-  animation: cf-shimmer 1.4s ease-in-out infinite;
-}
-
-@keyframes cf-shimmer {
-  0% {
-    opacity: 1;
-  }
-
-  50% {
-    opacity: 0.55;
-  }
-
-  100% {
-    opacity: 1;
-  }
-}
-
-.cf-skeleton--text {
-  height: var(--fs-body);
-}
-
-.cf-skeleton--title {
-  height: var(--fs-h3);
-  width: 40%;
-}
-
-.cf-skeleton--block {
-  height: 64px;
 }
 
 /* ============================== CloneBox（DESIGN.md §6.12） ============================== */

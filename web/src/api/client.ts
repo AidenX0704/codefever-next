@@ -82,7 +82,7 @@ export type QueryParams = Record<string, string | number | boolean | null | unde
 const SAFE_SUFFIX = /_(SAFE|BINARY)$/
 
 /** 复刻旧版 makeFormData：嵌套对象 → `key[sub]`，数组 → `key[]`，剥掉 _SAFE/_BINARY 后缀。 */
-export function encodeFormData(body: PostBody): FormData {
+function encodeFormData(body: PostBody): FormData {
   const form = new FormData()
   for (const [rawKey, value] of Object.entries(body)) {
     if (value === undefined || value === null) {
@@ -109,7 +109,7 @@ export function encodeFormData(body: PostBody): FormData {
 }
 
 /** 复刻旧版 makeQueryString：跳过 undefined/null，值与键都做 encodeURIComponent。 */
-export function encodeQuery(query: QueryParams): string {
+function encodeQuery(query: QueryParams): string {
   const parts: string[] = []
   for (const [key, value] of Object.entries(query)) {
     if (value === undefined || value === null) {

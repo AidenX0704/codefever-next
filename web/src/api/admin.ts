@@ -92,11 +92,6 @@ export function setAdministrator(userKey: string, admin: boolean) {
   return post('/api/admin/setAdministrator', { user: userKey, admin: admin ? '1' : '0' })
 }
 
-/** 直接创建账号（`name` + `email`，口令由后端生成后发信）。 */
-export function addAdminUser(name: string, email: string) {
-  return post('/api/admin/addUser', { name, email })
-}
-
 /**
  * 新建账号后端会**明文返回初始口令**（`{"password": "..."}`），
  * 旧版是直接弹窗展示给管理员、并提供一键复制。
@@ -145,56 +140,4 @@ export function adminAddRepositoryMember(repositoryKey: string, email: string) {
 
 export function adminRemoveRepositoryMember(repositoryKey: string, userKey: string) {
   return post('/api/admin/repositoryRemoveMember', { repository: repositoryKey, user: userKey })
-}
-
-/* ------------------------------ 站点配置 ------------------------------ */
-
-/** 读取站点配置（整份 config.yaml 的快照，结构化对象）。 */
-export async function fetchAdminConfig(): Promise<Record<string, unknown>> {
-  const { data } = await get<Record<string, unknown>>('/api/admin/config')
-  if (!data) {
-    throw new ApiError(0x0200, errorMessage(0x0200))
-  }
-  return data
-}
-
-/**
- * 保存站点配置。
- *
- * 后端 body 字段是 `data`，值是**JSON 字符串**；服务端会做：
- * 必须是 JSON 对象 → 与现值浅合并 → 校验结构 → 备份 + 原子写 → 热更新。
- * 因此前端只需保证传的是合法 JSON 对象。
- */
-export function saveAdminConfig(payload: Record<string, unknown>) {
-  return post('/api/admin/config', { data: JSON.stringify(payload) })
-}
-
-/* ------------------------------ 公告与更新日志（v4 新增） ------------------------------ */
-
-/** 新建 / 更新更新日志（`id` 缺省即新建；releasedAt 为 "YYYY-MM-DD" 或空）。 */
-export function saveAdminChangelog(body: {
-  id?: number
-  version: string
-  title: string
-  body: string
-  releasedAt?: string
-}) {
-  return post('/api/admin/changelogSave', body)
-}
-
-export function deleteAdminChangelog(id: number) {
-  return post('/api/admin/changelogDelete', { id })
-}
-
-export function saveAdminAnnouncement(body: {
-  id?: number
-  type: 'security' | 'privacy' | 'support'
-  body: string
-  enabled: boolean
-}) {
-  return post('/api/admin/announcementSave', body)
-}
-
-export function deleteAdminAnnouncement(id: number) {
-  return post('/api/admin/announcementDelete', { id })
 }

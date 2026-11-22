@@ -103,7 +103,7 @@ CODEFEVER_SMTP_TLS=starttls
 
 ## 依赖安全
 
-前端依赖锁定在 `www/view/yarn.lock`，后端依赖锁定在 `backend/go.sum`。
+前端依赖锁定在 `web/package-lock.json`，后端依赖锁定在 `backend/go.sum`。
 仓库已恢复 CI（Go 门禁 + compose config），但仍未配置 Dependabot 等自动化依赖检查；
 升级依赖前请自行核对上游安全公告。
 

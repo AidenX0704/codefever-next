@@ -12,7 +12,7 @@
 [![Contributions welcome](https://img.shields.io/badge/Contributions-welcome-brightgreen?logo=github)](CONTRIBUTING.md)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/backend-Go-00ADD8?logo=go&logoColor=white)](backend/)
-[![PHP](https://img.shields.io/badge/PHP-removed-8892B0?logo=php&logoColor=white)](docs/PHP_REMOVAL.md)
+[![PHP](https://img.shields.io/badge/PHP-removed-8892B0?logo=php&logoColor=white)](backend/)
 [![Docker](https://img.shields.io/badge/Docker-supported-2496ED?logo=docker&logoColor=white)](doc/zh-cn/installation/install_via_docker_compose.md)
 
   </p>
@@ -48,16 +48,12 @@ PHP 进程、PHP 可执行文件与 PHP 配置；`http-gateway` 与 `ssh-gateway
 | 维度 | 状态 |
 | --- | --- |
 | 后端 | Go（`backend/`），替换原 CodeIgniter 2.1.1 + PHP 7.4 实现 |
-| API 契约 | 108 个 `/api/*` 端点 + 4 个 `/apiv1/internal` 回调；**123/123 为历史验收记录**，复跑方法见 [实施记录](docs/IMPLEMENTATION_STATUS.md) |
-| Web 路由 | 43 条服务端渲染路由 + 5 个页面；**43/43 为历史对照记录**（品牌文案属有意变更） |
 | 前端 | React 19 + TypeScript + Vite，自研设计令牌与组件库（无 UI 框架）；产物 `web/build` 随仓库提交，镜像构建期不需要 Node.js |
 | 运行时 | 镜像内 **无 PHP、无 php-fpm、无 crond** |
 | 镜像 | 应用镜像从本地源码构建；仍需拉取两个基础镜像（见“快速开始”） |
-| 前端体积 | 首屏 JS+CSS 约 150 KB gzip；全部页面按路由懒加载（历史对照：旧前端首屏 264 KB gzip） |
+| 前端体积 | 首屏 JS+CSS 约 150 KB gzip；全部页面按路由懒加载 |
 
-> 迁移的完整依赖面清单、稳定性门禁与历史验证数据见 [`docs/PHP_REMOVAL.md`](docs/PHP_REMOVAL.md)。
-> 镜像内包含 `doc/`（应用内文档中心）与 `LICENSE`；`docs/` 是重写记录，不进镜像。
-> 契约数字是当次验收结果，不是当前环境的自动保证；复跑需要可用的实例与数据库。
+> 镜像内包含 `doc/`（应用内文档中心）与 `LICENSE`；`docs/` 仅存放设计规范，不进镜像。
 
 ## 功能特性
 
@@ -336,11 +332,8 @@ pwsh -File scripts/verify.ps1
 前端产物重建（只在改了前端源码时需要；镜像构建期不跑前端构建）：
 
 ```bash
-cd web && npm ci && npm run typecheck && npm run lint && npm run build   # 产物在 web/build
+cd web && npm ci && npm run verify   # typecheck + lint + check:ui + build（产物在 web/build）
 ```
-
-契约基线在 `backend/testdata/contract/`，历史采集与比对命令见
-[贡献指南](CONTRIBUTING.md#契约回归)。这些是历史验收/回归工具，不是运行前提。
 
 > 行尾统一 LF，由 `.gitattributes` 保证；编辑器行为由 `.editorconfig` 约定。
 
