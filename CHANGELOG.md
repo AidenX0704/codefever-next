@@ -127,6 +127,15 @@
 
 ### 修复
 
+- **修复顶栏通知面板被 `backdrop-filter` 截断并改版为自适应高度弹出卡片**：v5 顶栏
+  （`.app-header`）启用 `backdrop-filter` 毛玻璃后成为后代 `position: fixed` 的包含块与
+  堆叠上下文（`z-index: 100`），原挂在 `<header>` 内的抽屉遮罩仅将顶栏染灰且面板塌陷。
+  现改用 `createPortal(..., document.body)` 挂载并移出 `<header>`，去掉全屏灰底遮罩与
+  右侧整高抽屉，改为锚定在铃铛按钮下方的弹出卡片（`--bg-sheet` / `--r-md` / `--shadow-3` /
+  `--z-dropdown`）：消息少时紧凑贴合内容，消息多时自动增高至视口剩余高度
+  （`calc(100vh - var(--layout-header) - var(--sp-8))`）并在卡片内滚动；支持再次点击铃铛、
+  点外部或按 `Escape` 关闭并归还焦点，未读项补充圆点标识。影响面：全局应用外壳顶栏通知入口。
+
 - **发布后旧标签页整页报 "Failed to fetch dynamically imported module"**：
   `web/build` 重建会清空旧 hash chunk（`/static/js` 一年 immutable），发布前
   打开的标签页内存里仍是旧路由表，访问未加载过的路由（如设置页）时 lazy 去

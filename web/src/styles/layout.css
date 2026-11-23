@@ -56,6 +56,10 @@
   gap: calc(var(--sp-4) * 2);
 }
 
+.app-header__anchor {
+  display: inline-flex;
+}
+
 /* 面包屑（v5 §4.3 左位）：当前平台分区，13px / 500。 */
 .app-header__crumb {
   color: var(--text-primary);
@@ -608,57 +612,129 @@
   border-radius: var(--r-sm);
 }
 
-/* ------------------------------ 通知抽屉 ------------------------------ */
-.notification-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-overlay);
-  background: var(--scrim);
-}
-
+/* ------------------------------ 通知弹出卡片 ------------------------------ */
+/* 必须通过 Portal 挂到 document.body：.app-header 开启了 backdrop-filter，
+   按 CSS Filter Effects 规范会同时创建 containing block 与独立堆叠上下文，
+   导致内部的 position: fixed 浮层被困在 56px 顶栏内。
+   采用锚定在铃铛按钮下方的弹出卡片（无全屏遮罩），高度随消息量自适应增长，
+   最多扩展到视口剩余高度后由列表区独立滚动。 */
 .notification-panel {
   position: fixed;
-  top: var(--layout-header);
-  right: 0;
-  bottom: 0;
-  z-index: var(--z-dialog);
+  top: calc(var(--layout-header) + var(--sp-2));
+  right: var(--layout-page-px);
+  z-index: var(--z-dropdown);
   display: flex;
   flex-direction: column;
-  width: calc(var(--sp-4) * 50);
-  max-width: 100%;
-  border-left: 1px solid var(--line);
-  background: var(--bg-canvas);
-  box-shadow: var(--shadow-2);
+  width: calc(var(--sp-4) * 55);
+  max-width: calc(100vw - var(--sp-6) * 2);
+  max-height: calc(100vh - var(--layout-header) - var(--sp-8));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--bg-sheet);
+  box-shadow: var(--shadow-3);
 }
 
 .notification-panel__head {
   display: flex;
+  flex: 0 0 auto;
   align-items: center;
   justify-content: space-between;
-  padding: var(--sp-4);
+  gap: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
   border-bottom: 1px solid var(--line);
+}
+
+.notification-panel__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.notification-panel__close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--ctl-h-sm);
+  height: var(--ctl-h-sm);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.notification-panel__close:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.notification-panel .cf-tabs {
+  flex: 0 0 auto;
+  padding: 0 var(--sp-4);
+}
+
+.notification-panel .cf-tab {
+  padding: 0 var(--sp-4);
+  white-space: nowrap;
 }
 
 .notification-panel__body {
   flex: 1 1 auto;
-  overflow: auto;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.notification-panel__loading {
+  padding: var(--sp-8) var(--sp-5);
+}
+
+.notification-panel .cf-empty {
+  padding: var(--sp-9) var(--sp-5);
 }
 
 .notification-item {
   display: flex;
   align-items: flex-start;
-  gap: var(--sp-4);
-  padding: var(--sp-4);
+  gap: var(--sp-3);
+  padding: var(--sp-4) var(--sp-5);
   border-bottom: 1px solid var(--line);
+  transition: background-color var(--dur-fast) var(--ease-standard);
+}
+
+.notification-item:last-child {
+  border-bottom: 0;
+}
+
+.notification-item:hover {
+  background: var(--bg-hover);
 }
 
 .notification-item--unread {
   background: var(--brand-subtle);
 }
 
+.notification-item--unread:hover {
+  background: var(--brand-subtle);
+}
+
+.notification-item__dot {
+  flex: 0 0 auto;
+  width: var(--sp-3);
+  height: var(--sp-3);
+  margin-top: calc(var(--sp-3) + var(--sp-1));
+  border-radius: var(--r-full);
+  background: var(--brand);
+}
+
 .notification-item__main {
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.notification-item__action {
+  flex: 0 0 auto;
 }
 
 .notification-item__text {

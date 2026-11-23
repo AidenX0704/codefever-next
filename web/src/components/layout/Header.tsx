@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from 'react'
+import { Suspense, lazy, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router'
 
 import { HELP_LINKS } from '@/config/helpLinks'
@@ -42,6 +42,7 @@ export function Header() {
   const { user } = useAppData()
   const { lang, setLang } = useI18n()
   const [notificationOpen, setNotificationOpen] = useState(false)
+  const notificationAnchorRef = useRef<HTMLSpanElement>(null)
   const [, setThemeTick] = useState(0) // 主题切换后重渲染菜单勾选态
 
   /** 路径是否落在 `base` 这一层（避免 `/g/repo` 误配 `/g/repo2`）。 */
@@ -120,37 +121,43 @@ export function Header() {
   ]
 
   return (
-    <header className="app-header">
-      <div className="app-header__left">
-        <span className="app-header__crumb">{t(crumbKey)}</span>
-      </div>
+    <>
+      <header className="app-header">
+        <div className="app-header__left">
+          <span className="app-header__crumb">{t(crumbKey)}</span>
+        </div>
 
-      <div className="app-header__right">
-        <Dropdown trigger={<SquareIconButton icon={plusIcon} label={t('label.create')} />} items={createItems} align="right" />
-        <SquareIconButton
-          icon={notificationIcon}
-          label={t('label.notification')}
-          badge={user?.unReadNotification ?? 0}
-          onClick={() => setNotificationOpen(true)}
-        />
-        <Dropdown trigger={<SquareIconButton icon={questionIcon} label={t('label.help')} />} items={helpItems} align="right" />
-        <Dropdown
-          align="right"
-          minWidth={240}
-          items={userItems}
-          trigger={
-            <span className="app-header__user">
-              {user?.icon ? <img className="app-header__avatar" src={`/file/fetch/avatar/${user.icon}`} alt="" /> : <span className="app-header__avatar" />}
-              <Icon icon={caretDownIcon} size={12} />
-            </span>
-          }
-        />
-      </div>
+        <div className="app-header__right">
+          <Dropdown trigger={<SquareIconButton icon={plusIcon} label={t('label.create')} />} items={createItems} align="right" />
+          <span ref={notificationAnchorRef} className="app-header__anchor">
+            <SquareIconButton
+              icon={notificationIcon}
+              label={t('label.notification')}
+              badge={user?.unReadNotification ?? 0}
+              aria-haspopup="dialog"
+              aria-expanded={notificationOpen}
+              onClick={() => setNotificationOpen((prev) => !prev)}
+            />
+          </span>
+          <Dropdown trigger={<SquareIconButton icon={questionIcon} label={t('label.help')} />} items={helpItems} align="right" />
+          <Dropdown
+            align="right"
+            minWidth={240}
+            items={userItems}
+            trigger={
+              <span className="app-header__user">
+                {user?.icon ? <img className="app-header__avatar" src={`/file/fetch/avatar/${user.icon}`} alt="" /> : <span className="app-header__avatar" />}
+                <Icon icon={caretDownIcon} size={12} />
+              </span>
+            }
+          />
+        </div>
+      </header>
       {notificationOpen ? (
         <Suspense fallback={null}>
-          <NotificationDrawer open onClose={() => setNotificationOpen(false)} />
+          <NotificationDrawer open anchorRef={notificationAnchorRef} onClose={() => setNotificationOpen(false)} />
         </Suspense>
       ) : null}
-    </header>
+    </>
   )
 }
