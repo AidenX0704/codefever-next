@@ -69,3 +69,11 @@ func (g *Guard) RepositoryRole(ctx context.Context, rKey, uKey string) (domain.R
 func (g *Guard) GroupRole(ctx context.Context, gKey, uKey string) (domain.Role, error) {
 	return g.access.GroupRole(ctx, gKey, uKey)
 }
+
+// GroupRolesFor 批量解析用户在一批仓库组上的角色。
+func (g *Guard) GroupRolesFor(ctx context.Context, gKeys []string, uKey string) (map[string]domain.Role, error) {
+	if g == nil || g.access == nil {
+		return map[string]domain.Role{}, nil
+	}
+	return g.access.GroupRolesFor(ctx, gKeys, uKey)
+}

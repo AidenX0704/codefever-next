@@ -244,11 +244,17 @@ type fakeGit struct {
 	removedPaths    []string
 	createdBranches []string
 	createdTags     []string
+	initWithFiles   []gitsvc.InitOptions
 }
 
 func (f *fakeGit) RepoPath(rPath string) (string, error) { return "/fake/storage" + rPath, nil }
 
 func (f *fakeGit) InitBare(ctx context.Context, repoPath string) error { return f.initErr }
+
+func (f *fakeGit) InitBareWithFiles(ctx context.Context, repoPath string, opts gitsvc.InitOptions) error {
+	f.initWithFiles = append(f.initWithFiles, opts)
+	return f.initErr
+}
 
 func (f *fakeGit) CloneBare(ctx context.Context, repoPath, sourcePath string) error {
 	return f.cloneErr
@@ -449,11 +455,8 @@ func errorCodeOf(t *testing.T, err error) int {
 // 用例
 // ---------------------------------------------------------------------------
 
-// TestCreateRollsBackAndCleansUpOnGitFailure 覆盖【PHP 缺陷修复 ③】：
-// 建仓失败必须回滚事务（不留数据库行）并清理磁盘目录。
-//
-// PHP 侧是"插库 → git init → 失败删行"的手工补偿，且不清理目录
-// （application/models/repository_model.php:929-935）。
+// TestCreateRollsBackAndCleansUpOnGitFailure 覆盖建仓 git 初始化失败：
+// git 初始化在事务外执行（不占用连接池），失败时不写库并清理磁盘目录。
 func TestCreateRollsBackAndCleansUpOnGitFailure(t *testing.T) {
 	store := defaultStore()
 	git := &fakeGit{initErr: errors.New("git init 失败")}
@@ -462,27 +465,78 @@ func TestCreateRollsBackAndCleansUpOnGitFailure(t *testing.T) {
 
 	_, err := h.create(context.Background(), newRequest(map[string]any{
 		"displayName": "New Repo",
-		"name":        "newrepo",
+		"name":        "new-repo",
 		"group":       testGroupKey,
 		"description": "desc",
 	}))
 	if got := errorCodeOf(t, err); got != int(contract.CodeOperateFail) {
 		t.Fatalf("错误码 = 0x%04X, want 0x%04X", got, int(contract.CodeOperateFail))
 	}
-	if !store.rolledBack {
-		t.Error("事务应当被回滚")
-	}
 	if store.committed {
 		t.Error("事务不应当被提交")
+	}
+	if len(store.created) != 0 {
+		t.Errorf("git 初始化失败时不应写入仓库行，实际 %d 条", len(store.created))
 	}
 	if len(git.removedPaths) != 1 {
 		t.Fatalf("应当清理 1 次磁盘目录，实际 %d 次", len(git.removedPaths))
 	}
-	if git.removedPaths[0] != "/fake/storage"+store.created[0].Path {
-		t.Errorf("清理的目录 = %q，期望与新建仓库一致", git.removedPaths[0])
-	}
 	if len(bus.events) != 0 {
-		t.Errorf("回滚后不应留下事件，实际 %d 条", len(bus.events))
+		t.Errorf("失败后不应留下事件，实际 %d 条", len(bus.events))
+	}
+}
+
+// TestCreateCleansUpOnTxFailure 覆盖建仓事务失败：
+// 必须回滚事务并清理已经初始化好的磁盘目录。
+func TestCreateCleansUpOnTxFailure(t *testing.T) {
+	store := defaultStore()
+	store.failCreate = errors.New("db 写入失败")
+	git := &fakeGit{}
+	bus := &fakeBus{store: store}
+	h := newTestHandler(store, git, bus, &fakeGuard{})
+
+	_, err := h.create(context.Background(), newRequest(map[string]any{
+		"displayName": "New Repo",
+		"name":        "new-repo",
+		"group":       testGroupKey,
+	}))
+	if got := errorCodeOf(t, err); got != int(contract.CodeOperateFail) {
+		t.Fatalf("错误码 = 0x%04X, want 0x%04X", got, int(contract.CodeOperateFail))
+	}
+	if !store.rolledBack || store.committed {
+		t.Error("写库失败应当回滚事务")
+	}
+	if len(git.removedPaths) != 1 {
+		t.Fatalf("应当清理 1 次磁盘目录，实际 %d 次", len(git.removedPaths))
+	}
+}
+
+// TestCreateWithInitOptions 覆盖建仓初始化 README / .gitignore / 默认分支与中划线 slug。
+func TestCreateWithInitOptions(t *testing.T) {
+	store := defaultStore()
+	git := &fakeGit{}
+	bus := &fakeBus{store: store}
+	h := newTestHandler(store, git, bus, &fakeGuard{})
+
+	_, err := h.create(context.Background(), newRequest(map[string]any{
+		"displayName":   "Web Console",
+		"name":          "web-console",
+		"group":         testGroupKey,
+		"initReadme":    "true",
+		"defaultBranch": "main",
+		"gitignore":     "go",
+	}))
+	if err != nil {
+		t.Fatalf("带初始化选项建仓失败: %v", err)
+	}
+	if len(git.initWithFiles) != 1 {
+		t.Fatalf("应当调用 1 次 InitBareWithFiles，实际 %d 次", len(git.initWithFiles))
+	}
+	if !git.initWithFiles[0].InitReadme || git.initWithFiles[0].Gitignore != "go" || git.initWithFiles[0].DefaultBranch != "main" {
+		t.Errorf("初始化参数不符: %+v", git.initWithFiles[0])
+	}
+	if len(store.created) != 1 || store.created[0].DefaultBranch == nil || *store.created[0].DefaultBranch != "main" {
+		t.Errorf("DB 默认分支未写入: %+v", store.created)
 	}
 }
 

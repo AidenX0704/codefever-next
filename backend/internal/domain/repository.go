@@ -269,10 +269,28 @@ func NormalizeRepository(r *Repository, group *RepositoryGroup, forkCount int, m
 // 还没有这两个键，重新采集基线前跑契约比对会在这两个端点报差异。
 type RepositoryListItem struct {
 	NormalizedRepository
-	Role      int                          `json:"role"`
-	Members   []NormalizedRepositoryMember `json:"members"`
-	StarCount int                          `json:"starCount"`
-	Starred   bool                         `json:"starred"`
+	Role        int                          `json:"role"`
+	Members     []NormalizedRepositoryMember `json:"members"`
+	MemberCount int                          `json:"memberCount"`
+	StarCount   int                          `json:"starCount"`
+	Starred     bool                         `json:"starred"`
+}
+
+// RepositoryScopeCounts 是仓库列表各页签的计数统计。
+type RepositoryScopeCounts struct {
+	All     int `json:"all"`
+	Joined  int `json:"joined"`
+	Created int `json:"created"`
+	Starred int `json:"starred"`
+}
+
+// RepositoryPageResult 是 GET /api/repository/page 的分页响应体。
+type RepositoryPageResult struct {
+	Total    int                   `json:"total"`
+	Page     int                   `json:"page"`
+	Pagesize int                   `json:"pagesize"`
+	Counts   RepositoryScopeCounts `json:"counts"`
+	List     []RepositoryListItem  `json:"list"`
 }
 
 // NormalizedRepositoryMember 是仓库成员的归一化输出。

@@ -1,30 +1,52 @@
 /*
  * 筛选工具条（`components/unit/FilterBar.tsx`）样式。
  *
- * 口径来源：旧版 `components/unit/RefFilter.js` —— TabHeader 左边、搜索框与
- * 排序按钮在右、新建按钮最右；搜索框宽 240px(spacing 30)。
  * 所有取值走语义令牌与尺寸令牌，不写字面值（AGENTS §5）。
  */
 
 .cf-filter-bar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
+  justify-content: space-between;
   gap: var(--sp-4);
-  padding: var(--sp-4) 0;
-  border-bottom: 1px solid var(--line);
+  padding: var(--sp-2) 0;
 }
 
 .cf-filter-bar__tools {
   display: flex;
   flex: 1 1 auto;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: flex-end;
-  gap: var(--sp-4);
+  gap: var(--sp-3);
   min-width: 0;
 }
 
 .cf-filter-bar__search {
-  width: calc(var(--sp-4) * 30);
+  width: calc(var(--sp-4) * 32);
+  max-width: 100%;
+}
+
+.cf-filter-bar__select {
+  width: calc(var(--sp-4) * 20);
+}
+
+.cf-filter-bar__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-1);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.cf-filter-bar__clear:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .cf-filter-bar__actions {
@@ -32,4 +54,49 @@
   flex: 0 0 auto;
   align-items: center;
   gap: var(--sp-4);
+}
+
+/* 视图分段切换（列表 | 卡片） */
+.segmented {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-1);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--bg-well);
+}
+
+.segmented__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--sp-4) * 3.5);
+  height: calc(var(--sp-4) * 3.5);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.segmented__btn:hover {
+  color: var(--text-primary);
+}
+
+.segmented__btn--active {
+  background: var(--bg-sheet);
+  color: var(--brand-text);
+}
+
+@media (max-width: 767px) {
+  .cf-filter-bar__tools {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .cf-filter-bar__search,
+  .cf-filter-bar__select {
+    width: 100%;
+  }
 }

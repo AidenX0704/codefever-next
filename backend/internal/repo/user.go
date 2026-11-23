@@ -10,6 +10,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"codefever-next/backend/internal/contract"
@@ -41,6 +42,75 @@ func (r *UserRepo) Get(ctx context.Context, uKey string) (*domain.User, error) {
 	row := r.db.QueryRowContext(ctx,
 		"SELECT "+userColumns+" FROM cc_users WHERE u_key = ?", uKey)
 	return scanUser(row)
+}
+
+// GetMany 批量按主键读取用户（消除 group/list 的逐人 N+1 查询）。
+func (r *UserRepo) GetMany(ctx context.Context, uKeys []string) (map[string]*domain.User, error) {
+	out := make(map[string]*domain.User, len(uKeys))
+	if len(uKeys) == 0 {
+		return out, nil
+	}
+	placeholders, args := inPlaceholders(uniqueStrings(uKeys))
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT "+userColumns+" FROM cc_users WHERE u_key IN ("+strings.Join(placeholders, ", ")+")",
+		args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		u, err := scanUser(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[u.Key] = u
+	}
+	return out, rows.Err()
+}
+
+// CommitEmailsMany 批量读取一批用户的提交邮箱（与 CommitEmails 口径一致）。
+func (r *UserRepo) CommitEmailsMany(ctx context.Context, uKeys []string, isCheck bool) (map[string][]domain.CommitEmail, error) {
+	out := make(map[string][]domain.CommitEmail, len(uKeys))
+	if len(uKeys) == 0 {
+		return out, nil
+	}
+	placeholders, args := inPlaceholders(uniqueStrings(uKeys))
+	q := "SELECT ce_key, u_key, ce_email, ce_is_check, ce_status FROM cc_commit_emails WHERE u_key IN (" +
+		strings.Join(placeholders, ", ") + ") AND ce_status = ?"
+	args = append(args, domain.CommonStatusNormal)
+	if isCheck {
+		q += " AND ce_is_check = ?"
+		args = append(args, 1)
+	}
+	rows, err := r.db.QueryContext(ctx, q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var e domain.CommitEmail
+		var checked int
+		if err := rows.Scan(&e.Key, &e.UKey, &e.Email, &checked, &e.Status); err != nil {
+			return nil, err
+		}
+		e.IsCheck = checked == 1
+		out[e.UKey] = append(out[e.UKey], e)
+	}
+	return out, rows.Err()
+}
+
+// uniqueStrings 去重非空字符串，保持首次出现顺序。
+func uniqueStrings(list []string) []string {
+	seen := make(map[string]bool, len(list))
+	out := make([]string, 0, len(list))
+	for _, s := range list {
+		if s == "" || seen[s] {
+			continue
+		}
+		seen[s] = true
+		out = append(out, s)
+	}
+	return out
 }
 
 // GetByEmail 按邮箱读取用户。

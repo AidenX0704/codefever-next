@@ -47,6 +47,14 @@ var branchNameRE = regexp.MustCompile(`^\w[\w/\.\-]{0,29}$`)
 // 语义：点号分隔的若干段，每段由 \w+ 组成（v1.0 合法，v1. 非法，.v1 非法）。
 var tagNameRE = regexp.MustCompile(`^\w+(\.\w+)*$`)
 
+// repoSlugRE 仓库 URL 标识名：字母/数字开头，允许字母、数字、下划线与中划线，总长 1~30。
+// 既兼容历史的下划线命名，又支持常见的短横线命名（如 my-service）；
+// 与 nginx / githttp 的 [A-Za-z0-9/._-]+ 路径正则完全兼容。
+var repoSlugRE = regexp.MustCompile(`^[0-9a-zA-Z][0-9a-zA-Z_-]{0,29}$`)
+
+// groupSlugRE 仓库组 URL 标识名：字母/数字开头，允许字母、数字、下划线与中划线，总长 5~30。
+var groupSlugRE = regexp.MustCompile(`^[0-9a-zA-Z][0-9a-zA-Z_-]{4,29}$`)
+
 // BranchNameValid 判断分支名是否合法。
 //
 // 不合法时 PHP 侧返回 0x0202（Missing Amount Or Amount Out Of Range ——
@@ -55,6 +63,12 @@ func BranchNameValid(name string) bool { return branchNameRE.MatchString(name) }
 
 // TagNameValid 判断标签名是否合法（不合法时同样返回 0x0202）。
 func TagNameValid(name string) bool { return tagNameRE.MatchString(name) }
+
+// RepoSlugValid 判断仓库标识名（r_name）是否合法。
+func RepoSlugValid(name string) bool { return repoSlugRE.MatchString(name) }
+
+// GroupSlugValid 判断仓库组标识名（g_name）是否合法。
+func GroupSlugValid(name string) bool { return groupSlugRE.MatchString(name) }
 
 // PHPTrim 复刻 PHP 的 trim() 默认字符集：空格、制表符、换行、回车、NUL、垂直制表符。
 //

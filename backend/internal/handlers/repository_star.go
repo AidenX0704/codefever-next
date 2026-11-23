@@ -44,15 +44,28 @@ func (h *RepositoryWriteHandler) registerStarActions(actions map[string]map[stri
 	actions["unstar"] = map[string]httpapi.ActionHandler{"POST": h.unstar}
 }
 
+// starRepoKey 读取标星端点的仓库主键参数。
+//
+// 同时兼容 repositoryId 与 repository 两种键名：避免前后端历史字段名不一致导致 0x0201。
+func starRepoKey(p *contract.Parsed) string {
+	if v, ok := phpBodyArg(p, "repositoryId"); ok && domain.PHPTruthy(v) {
+		return v
+	}
+	if v, ok := phpBodyArg(p, "repository"); ok && domain.PHPTruthy(v) {
+		return v
+	}
+	return ""
+}
+
 // star 实现 POST /api/repository/star。
 //
-// 入参：{repositoryId}。幂等：重复标星返回成功。
+// 入参：{repositoryId}（兼容 {repository}）。幂等：重复标星返回成功。
 func (h *RepositoryWriteHandler) star(ctx context.Context, req *httpapi.Request) (any, error) {
 	uKey := req.UserKey()
 	if uKey == "" {
 		return nil, contract.NewError(contract.CodeInvalidCredential)
 	}
-	rKey, _ := phpBodyArg(req.Parsed, "repositoryId")
+	rKey := starRepoKey(req.Parsed)
 	if !domain.PHPTruthy(rKey) {
 		return nil, contract.NewError(contract.CodeMissingParameter)
 	}
@@ -68,13 +81,13 @@ func (h *RepositoryWriteHandler) star(ctx context.Context, req *httpapi.Request)
 
 // unstar 实现 POST /api/repository/unstar。
 //
-// 入参：{repositoryId}。幂等：没标过星同样返回成功。
+// 入参：{repositoryId}（兼容 {repository}）。幂等：没标过星同样返回成功。
 func (h *RepositoryWriteHandler) unstar(ctx context.Context, req *httpapi.Request) (any, error) {
 	uKey := req.UserKey()
 	if uKey == "" {
 		return nil, contract.NewError(contract.CodeInvalidCredential)
 	}
-	rKey, _ := phpBodyArg(req.Parsed, "repositoryId")
+	rKey := starRepoKey(req.Parsed)
 	if !domain.PHPTruthy(rKey) {
 		return nil, contract.NewError(contract.CodeMissingParameter)
 	}

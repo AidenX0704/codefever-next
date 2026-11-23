@@ -1,7 +1,7 @@
 # 公开 API 概览
 
 `/api/v1` 是 `CodeFever Next` 面向外部脚本、CI/CD 与第三方集成的公开 REST API：
-只读、裸 JSON 响应、访问令牌鉴权。当前实现了 4 个只读端点，本文档只描述**已实现**的行为。
+只读、裸 JSON 响应、访问令牌鉴权。当前实现了 7 个只读端点（用户 / 仓库 / 仓库组），本文档只描述**已实现**的行为。
 
 > 文中示例统一使用 `https://git.example.com`，请替换为你自己的部署地址。
 
@@ -45,9 +45,12 @@ curl -s -H "Authorization: token $TOKEN" "$API/api/v1/repos/dev/hello-world"
 | 方法与路径 | 鉴权 | 说明 |
 |---|---|---|
 | `GET /api/v1/user` | 必须带令牌 | 返回当前令牌所属用户 |
-| `GET /api/v1/user/repos` | 必须带令牌 | 返回该用户已加入的仓库，不分页，返回 JSON 数组 |
+| `GET /api/v1/user/repos` | 必须带令牌 | 返回该用户可见的仓库列表（支持可选 `?q=&sort=&page=&per_page=`） |
 | `GET /api/v1/users/{username}` | 匿名可读 | 按用户名读取用户基本资料，不存在返回 `404` |
 | `GET /api/v1/repos/{owner}/{repo}` | 令牌可选 | 读取单个仓库；无读权限的私有仓库返回 `404` 而非 `403` |
+| `GET /api/v1/groups` | 必须带令牌 | 返回该用户可见的仓库组列表（支持可选 `?q=&page=&per_page=`） |
+| `GET /api/v1/groups/{group}` | 令牌可选 | 按仓库组路径读取详情；无读权限返回 `404` |
+| `GET /api/v1/groups/{group}/repos` | 令牌可选 | 列出指定仓库组下的仓库（支持可选 `?q=&sort=&page=&per_page=`）；无权限返回 `404` |
 
 成功响应的头部固定为 `Content-Type: application/json; charset=utf-8` 与
 `Cache-Control: no-cache, must-revalidate`。

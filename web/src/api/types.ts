@@ -96,11 +96,36 @@ export interface Repository {
 export interface RepositoryListItem extends Repository {
   role: number
   members: RepositoryMember[]
+  /** 有效成员数（不含已移除成员 deleteFlag=true）。 */
+  memberCount?: number
+}
+
+export interface RepositoryScopeCounts {
+  all: number
+  joined: number
+  created: number
+  starred: number
+}
+
+export interface RepositoryPageResult {
+  total: number
+  page: number
+  pagesize: number
+  counts: RepositoryScopeCounts
+  list: RepositoryListItem[]
+}
+
+export interface NameCheckResult {
+  available: boolean
+  reason?: string
 }
 
 export interface Group extends RepositoryGroup {
   role: number
   members: RepositoryMember[]
+  memberCount?: number
+  repositoryCount?: number
+  openMergeRequestCount?: number
 }
 
 export interface CommitEmail {
@@ -360,7 +385,7 @@ export interface ProtectedBranchRule {
 export interface GroupConfig {
   group: RepositoryGroup
   members: RepositoryMember[]
-  count: { member: number }
+  count: { member: number; repository?: number; openMergeRequest?: number }
 }
 
 /* ------------------------------ 合并请求 ------------------------------ */

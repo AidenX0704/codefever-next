@@ -52,6 +52,9 @@ func (r *Router) register() {
 	r.mux.HandleFunc("/api/v1/user/repos", requireGet(r.server.requireUser(r.server.GetMyRepos)))
 	r.mux.HandleFunc("/api/v1/users/{username}", requireGet(r.server.GetUserByName))
 	r.mux.HandleFunc("/api/v1/repos/{owner}/{repo}", requireGet(r.server.GetRepo))
+	r.mux.HandleFunc("/api/v1/groups", requireGet(r.server.requireUser(r.server.GetMyGroups)))
+	r.mux.HandleFunc("/api/v1/groups/{group}", requireGet(r.server.GetGroup))
+	r.mux.HandleFunc("/api/v1/groups/{group}/repos", requireGet(r.server.GetGroupRepos))
 
 	// 兜底：未命中的公开 API 路径返回 JSON 404。
 	//

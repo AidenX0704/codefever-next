@@ -7,9 +7,11 @@ import type {
   MergeRequestListItem,
   MergeRequestVersionList,
   MergeType,
+  NameCheckResult,
   ProtectedBranchRule,
   RefListContainSHA,
   Repository,
+  RepositoryPageResult,
   RepositoryWebhook,
   RepositoryWebhookLog,
   RepositoryWebhookLogData,
@@ -46,6 +48,44 @@ function requireData<T>(data: T | undefined): T {
 export async function fetchRepositoryList(): Promise<RepositoryListItem[]> {
   const { data } = await get<RepositoryListItem[]>('/api/repository/list')
   return requireData(data)
+}
+
+/** 服务端分页/筛选/排序的仓库列表（`GET /api/repository/page`）。 */
+export async function fetchRepositoryPage(params: {
+  groupKey?: string
+  scope?: 'all' | 'joined' | 'created' | 'starred'
+  keyword?: string
+  sort?: 'updated' | 'created' | 'name' | 'stars' | 'openMr'
+  order?: 'desc' | 'asc'
+  page?: number
+  pagesize?: number
+}): Promise<RepositoryPageResult> {
+  const { data } = await get<RepositoryPageResult>('/api/repository/page', {
+    group: params.groupKey,
+    scope: params.scope ?? 'all',
+    keyword: params.keyword ?? '',
+    sort: params.sort ?? 'updated',
+    order: params.order ?? 'desc',
+    page: params.page ?? 1,
+    pagesize: params.pagesize ?? 20,
+  })
+  return requireData(data)
+}
+
+/** 实时校验仓库名称 / 标识名是否可用（`GET /api/repository/checkName`）。 */
+export async function checkRepositoryName(params: {
+  groupKey: string
+  name?: string
+  displayName?: string
+  exclude?: string
+}): Promise<NameCheckResult> {
+  const { data } = await get<NameCheckResult>('/api/repository/checkName', {
+    group: params.groupKey,
+    name: params.name,
+    displayName: params.displayName,
+    exclude: params.exclude,
+  })
+  return data ?? { available: true }
 }
 
 /** 仓库详情 + 成员 + 分支/标签引用 + 计数（进入仓库页时拉一次）。 */
@@ -497,18 +537,24 @@ export async function fetchBlameInfo(params: {
 
 /* ------------------------------ 创建 / 派生 / 分支标签 ------------------------------ */
 
-/** 新建仓库（`group` + `name`(slug) + `displayName` + `description`）。 */
+/** 新建仓库（`group` + `name`(slug) + `displayName` + `description` + 可选初始化选项）。 */
 export async function createRepository(params: {
   groupKey: string
   name: string
   displayName: string
   description: string
+  initReadme?: boolean
+  defaultBranch?: string
+  gitignore?: string
 }): Promise<Repository> {
   const { data } = await post<Repository>('/api/repository/create', {
     group: params.groupKey,
     name: params.name,
     displayName: params.displayName,
     description: params.description,
+    initReadme: params.initReadme ? 'true' : undefined,
+    defaultBranch: params.defaultBranch || undefined,
+    gitignore: params.gitignore || undefined,
   })
   return requireData(data)
 }
@@ -555,12 +601,12 @@ export function deleteTag(repositoryKey: string, tag: string) {
 
 /** 标星仓库（幂等；重复调用返回成功）。 */
 export function starRepository(repositoryKey: string) {
-  return post('/api/repository/star', { repository: repositoryKey })
+  return post('/api/repository/star', { repositoryId: repositoryKey })
 }
 
 /** 取消标星（幂等）。 */
 export function unstarRepository(repositoryKey: string) {
-  return post('/api/repository/unstar', { repository: repositoryKey })
+  return post('/api/repository/unstar', { repositoryId: repositoryKey })
 }
 
 /* ------------------------------ MR 讨论（v4 新增） ------------------------------ */

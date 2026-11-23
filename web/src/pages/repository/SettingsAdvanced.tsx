@@ -44,11 +44,15 @@ export default function RepositorySettingsAdvanced() {
       deleteSecondConfirm={{
         title: t('label.dangerOperationConfirm'),
         message: t('message.repositoryDeleteRepositoryConfirmNotice'),
+        requireInput: config ? `${config.group.name}/${config.repository.name}` : undefined,
+        requireInputPrompt: config
+          ? t('repo.deleteConfirmInput', { s: `${config.group.name}/${config.repository.name}` })
+          : undefined,
       }}
       owner={{
         label: t('label.updateCreator'),
         currentId: config?.repository.owner ?? '',
-        options: (config?.members ?? []).map((member) => ({ value: member.id, label: member.name })),
+        options: (config?.members ?? []).filter((m) => !m.deleteFlag).map((member) => ({ value: member.id, label: member.name })),
         onChange: async (userID) => {
           if (!summary) {
             return false
@@ -66,7 +70,7 @@ export default function RepositorySettingsAdvanced() {
             await changeRepositoryOwner(summary.id, userID)
             toast.success(t('message.updateSuccess'))
             refresh()
-            refreshAppData()
+            await refreshAppData()
             return true
           } catch (error) {
             toast.error(error instanceof Error ? error.message : t('base_error_message'))
@@ -75,18 +79,19 @@ export default function RepositorySettingsAdvanced() {
         },
       }}
       onRename={async (name) => {
-        if (!summary) {
+        if (!summary || !config) {
           return
         }
         await updateRepositoryName(summary.id, name)
-        refresh()
-        refreshAppData()
+        await refreshAppData()
+        navigate(`/${config.group.name}/${name}/settings/advanced`, { replace: true })
       }}
       onDelete={async () => {
         if (!summary) {
           return
         }
         await deleteRepository(summary.id)
+        await refreshAppData()
         navigate('/repositories', { replace: true })
       }}
     />

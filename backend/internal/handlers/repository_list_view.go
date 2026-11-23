@@ -59,13 +59,21 @@ func repositoryListView(
 	out := make([]domain.RepositoryListItem, 0, len(list))
 	for i := range list {
 		r := list[i]
+		mems := members[r.Key]
+		activeMembers := 0
+		for _, m := range mems {
+			if !m.DeleteFlag {
+				activeMembers++
+			}
+		}
 		out = append(out, domain.RepositoryListItem{
 			NormalizedRepository: domain.NormalizeRepository(
 				&r, groups[r.GroupKey], forkCounts[r.Key], mrCounts[r.Key]),
-			Role:      roles[r.Key],
-			Members:   members[r.Key],
-			StarCount: starFields.count[r.Key],
-			Starred:   starFields.starred[r.Key],
+			Role:        roles[r.Key],
+			Members:     mems,
+			MemberCount: activeMembers,
+			StarCount:   starFields.count[r.Key],
+			Starred:     starFields.starred[r.Key],
 		})
 	}
 	return out, nil

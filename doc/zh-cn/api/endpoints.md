@@ -1,6 +1,6 @@
 # 端点参考
 
-当前共 4 个端点，全部只读。示例中 `$API` 指部署地址（如 `https://git.example.com`），
+当前共 7 个端点，全部只读。示例中 `$API` 指部署地址（如 `https://git.example.com`），
 `$TOKEN` 为访问令牌明文（见 [认证与访问令牌](auth.md)）。
 
 ### 通用约定
@@ -9,7 +9,7 @@
 - 成功响应是**裸 JSON**：单个对象或数组，没有信封包装；
 - 响应头固定为 `Content-Type: application/json; charset=utf-8` 与 `Cache-Control: no-cache, must-revalidate`；
 - 出错时状态码非 `200`，响应体为 `{"message": "...", "url": "..."}`（见 [错误、限制与约定](errors.md)）；
-- 所有端点**都不分页**，也没有 `Link` 头。
+- 列表端点默认返回全量数组（向后兼容）；传入 `?page=&per_page=` 时按分页切片（`per_page` 上限 100），支持 `?q=` 关键字过滤。
 
 ### GET /api/v1/user
 
@@ -117,12 +117,47 @@ curl -s "$API/api/v1/repos/dev/hello-world"
 |---|---|---|
 | `id` | 数字 | 同上，由仓库主键推导，跨请求稳定 |
 | `owner` | 字符串 | 仓库组名；取不到所属组时**回退为仓库名** |
-| `name` | 字符串 | 仓库名 |
+| `name` | 字符串 | 仓库标识名（slug） |
+| `display_name` | 字符串 | 仓库显示名 |
 | `full_name` | 字符串 | `owner/name` |
 | `description` | 字符串 | 仓库描述，可为空串 |
 | `private` | 布尔 | 当前**恒为 `true`**：数据表还没有可见性列，所有仓库都按私有处理 |
 | `fork` | 布尔 | 是否为 `Fork` 出来的仓库 |
-| `empty` | 布尔 | 当前**恒为 `false`** |
+| `empty` | 布尔 | 是否为空仓库（按默认分支是否存在真实判定） |
 | `default_branch` | 字符串 | 默认分支名，**可能为空串**（例如还没有任何提交） |
+| `fork_count` | 数字 | 被 Fork 次数 |
+| `open_mr_count` | 数字 | 开放中的合并请求数量 |
+| `updated_at` | 数字 | 最近更新时间戳（秒） |
 | `html_url` | 字符串 | 仓库网页地址 `<站点地址>/<owner>/<name>` |
 | `clone_url` | 字符串 | Git 克隆地址 `<站点地址>/<owner>/<name>.git` |
+
+### GET /api/v1/groups
+
+需要令牌，返回当前用户可见的仓库组列表（支持 `?q=&page=&per_page=`）。
+
+```bash
+curl -s -H "Authorization: token $TOKEN" "$API/api/v1/groups?page=1&per_page=20"
+```
+
+### GET /api/v1/groups/{group}
+
+令牌可选，按仓库组路径读取单个仓库组详情；不存在或无读权限一律返回 `404`。
+
+### GET /api/v1/groups/{group}/repos
+
+令牌可选，列出指定仓库组下的仓库列表（支持 `?q=&sort=&page=&per_page=`）；组不存在或无读权限一律返回 `404`。
+
+### 对象字段：仓库组
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | 数字 | 由仓库组主键推导的稳定数字 ID |
+| `name` | 字符串 | 仓库组路径（slug） |
+| `display_name` | 字符串 | 仓库组显示名 |
+| `description` | 字符串 | 仓库组简介 |
+| `type` | 数字 | `1` = 团队组，`2` = 个人默认组 |
+| `repository_count` | 数字 | 组内仓库数 |
+| `member_count` | 数字 | 组内有效成员数 |
+| `html_url` | 字符串 | 仓库组网页地址 `<站点地址>/groups/<name>` |
+| `created_at` | 数字 | 创建时间戳（秒） |
+| `updated_at` | 数字 | 更新时间戳（秒） |

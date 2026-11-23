@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"strings"
 
 	"codefever-next/backend/internal/domain"
 )
@@ -57,6 +58,65 @@ func (r *AccessRepo) GroupRole(ctx context.Context, gKey, uKey string) (domain.R
 		return domain.RoleNoPermission, err
 	}
 	return domain.Role(role), nil
+}
+
+// GroupRolesFor 批量解析用户在一批仓库组上的角色（消除 group/list 的 N+1 查询）。
+//
+// 语义与单条 GroupRole 完全一致：组创建者恒为 RoleOwner，否则取正常状态成员行
+// 的 gm_role，均无命中则 RoleNoPermission。
+func (r *AccessRepo) GroupRolesFor(ctx context.Context, gKeys []string, uKey string) (map[string]domain.Role, error) {
+	out := make(map[string]domain.Role, len(gKeys))
+	if len(gKeys) == 0 || uKey == "" {
+		return out, nil
+	}
+
+	keys := uniqueStrings(gKeys)
+	placeholders, keyArgs := inPlaceholders(keys)
+	in := strings.Join(placeholders, ", ")
+
+	// 1. 查组成员角色
+	memberArgs := make([]any, 0, len(keyArgs)+2)
+	memberArgs = append(memberArgs, keyArgs...)
+	memberArgs = append(memberArgs, uKey, domain.CommonStatusNormal)
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT g_key, gm_role FROM cc_group_members WHERE g_key IN ("+in+") AND u_key = ? AND gm_status = ?",
+		memberArgs...)
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		var gk string
+		var role int
+		if err := rows.Scan(&gk, &role); err != nil {
+			rows.Close()
+			return nil, err
+		}
+		out[gk] = domain.Role(role)
+	}
+	if err := rows.Err(); err != nil {
+		rows.Close()
+		return nil, err
+	}
+	rows.Close()
+
+	// 2. 查组创建者（Owner 优先级高于成员表）
+	ownerRows, err := r.db.QueryContext(ctx,
+		"SELECT g_key, u_key FROM cc_groups WHERE g_key IN ("+in+")", keyArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer ownerRows.Close()
+	for ownerRows.Next() {
+		var gk string
+		var owner sql.NullString
+		if err := ownerRows.Scan(&gk, &owner); err != nil {
+			return nil, err
+		}
+		if owner.Valid && owner.String == uKey {
+			out[gk] = domain.RoleOwner
+		}
+	}
+	return out, ownerRows.Err()
 }
 
 // RepositoryRole 解析用户在仓库上的角色。

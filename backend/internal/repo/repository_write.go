@@ -144,10 +144,10 @@ func (r *RepositoryWriteRepo) Create(ctx context.Context, repo *domain.Repositor
 	_, err := r.runner().ExecContext(ctx, `
 		INSERT INTO cc_repositories
 			(r_key, u_key, g_key, r_fork_r_key, r_display_name, r_name, r_path,
-			 r_description, r_avatar, r_updated)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+			 r_description, r_avatar, r_default_branch_name, r_updated)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
 		repo.Key, repo.OwnerKey, repo.GroupKey, repo.ForkFromKey,
-		repo.DisplayName, repo.Name, repo.Path, repo.Description, repo.Avatar)
+		repo.DisplayName, repo.Name, repo.Path, repo.Description, repo.Avatar, repo.DefaultBranch)
 	return err
 }
 

@@ -11,7 +11,9 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
+	"strings"
 
 	"codefever-next/backend/internal/config"
 	"codefever-next/backend/internal/contract"
@@ -109,6 +111,7 @@ func NewGroupHandler(groups *repo.GroupRepo, guard *Guard, opts ...GroupOption) 
 func (h *GroupHandler) Register(s *httpapi.Server) {
 	actions := map[string]map[string]httpapi.ActionHandler{
 		"list":             {"GET": h.list},
+		"checkName":        {"GET": h.checkName},
 		"create":           {"POST": h.create},
 		"config":           {"GET": h.config},
 		"mergeRequests":    {"GET": h.mergeRequests},
@@ -131,11 +134,14 @@ func (h *GroupHandler) Register(s *httpapi.Server) {
 }
 
 // groupListItem 是 group/list 的单条记录：仓库组归一化形态 +
-// 当前用户在该组的角色 + 成员列表。
+// 当前用户在该组的角色 + 成员列表 + 统计计数。
 type groupListItem struct {
 	domain.NormalizedGroup
-	Role    int                            `json:"role"`
-	Members []domain.NormalizedGroupMember `json:"members"`
+	Role                  int                            `json:"role"`
+	Members               []domain.NormalizedGroupMember `json:"members"`
+	MemberCount           int                            `json:"memberCount"`
+	RepositoryCount       int                            `json:"repositoryCount"`
+	OpenMergeRequestCount int                            `json:"openMergeRequestCount"`
 }
 
 // groupConfig 是 group/config 的响应体。
@@ -147,7 +153,26 @@ type groupConfig struct {
 
 // groupCount 是 group/config 的计数字段。
 type groupCount struct {
-	Member int `json:"member"`
+	Member           int `json:"member"`
+	Repository       int `json:"repository"`
+	OpenMergeRequest int `json:"openMergeRequest"`
+}
+
+// 可选批量查询接口：生产仓储实现批量 IN 查询，单测假实现优雅回退。
+type groupBatchStore interface {
+	ListMembersByGroups(ctx context.Context, gKeys []string) (map[string][]domain.GroupMember, error)
+	RepoCountsByGroups(ctx context.Context, gKeys []string) (map[string]int, error)
+	OpenMRCountsByGroups(ctx context.Context, gKeys []string) (map[string]int, error)
+	OpenMRCountInGroup(ctx context.Context, gKey string) (int, error)
+}
+
+type groupBatchGuard interface {
+	GroupRolesFor(ctx context.Context, gKeys []string, uKey string) (map[string]domain.Role, error)
+}
+
+type groupBatchUsers interface {
+	GetMany(ctx context.Context, uKeys []string) (map[string]*domain.User, error)
+	CommitEmailsMany(ctx context.Context, uKeys []string, isCheck bool) (map[string][]domain.CommitEmail, error)
 }
 
 // groupPaging 读取并列归一化 group 域的分页参数。
@@ -162,9 +187,9 @@ func groupPaging(p *contract.Parsed) (int, int) {
 
 // list 实现 GET /api/group/list。
 //
-// 逐字对应 application/controllers/api/group.php:22-40：
-//  1. 取"我创建的组"与"我加入的组"，按 g_key 去重
-//  2. 逐个归一化，补上我在该组的角色（role）与成员列表（members）
+//  1. 取"我创建的组"与"我加入的组"，按 g_key 去重；
+//  2. 使用批量 IN 查询补齐角色、成员、用户/邮箱、仓库数与开放 MR 数（消除 N+1）；
+//  3. 支持可选的 keyword / scope / sort / order 筛选排序参数（缺省保持原顺序）。
 func (h *GroupHandler) list(ctx context.Context, req *httpapi.Request) (any, error) {
 	u := req.User
 	if u == nil {
@@ -180,27 +205,235 @@ func (h *GroupHandler) list(ctx context.Context, req *httpapi.Request) (any, err
 		return nil, err
 	}
 	groups := uniqueGroups(append(owned, joined...))
+	if len(groups) == 0 {
+		return []groupListItem{}, nil
+	}
 
+	gKeys := make([]string, 0, len(groups))
+	for i := range groups {
+		gKeys = append(gKeys, groups[i].Key)
+	}
+
+	// 1. 批量角色
+	roles := map[string]domain.Role{}
+	if bg, ok := h.Guard.(groupBatchGuard); ok {
+		rMap, err := bg.GroupRolesFor(ctx, gKeys, u.Key)
+		if err != nil {
+			return nil, err
+		}
+		roles = rMap
+	} else {
+		for _, gk := range gKeys {
+			r, err := h.Guard.GroupRole(ctx, gk, u.Key)
+			if err != nil {
+				return nil, err
+			}
+			roles[gk] = r
+		}
+	}
+
+	// 2. 批量成员行 + 统计计数
+	var membersByGroup map[string][]domain.GroupMember
+	repoCounts := map[string]int{}
+	openMRCounts := map[string]int{}
+	if bs, ok := h.Groups.(groupBatchStore); ok {
+		mMap, err := bs.ListMembersByGroups(ctx, gKeys)
+		if err != nil {
+			return nil, err
+		}
+		membersByGroup = mMap
+		if rc, err := bs.RepoCountsByGroups(ctx, gKeys); err == nil {
+			repoCounts = rc
+		}
+		if mc, err := bs.OpenMRCountsByGroups(ctx, gKeys); err == nil {
+			openMRCounts = mc
+		}
+	}
+
+	// 3. 批量预热用户与提交邮箱缓存
 	cache := newMemberCache(h.Users)
-	out := make([]any, 0, len(groups))
+	if membersByGroup != nil {
+		if bu, ok := h.Users.(groupBatchUsers); ok {
+			uKeys := make([]string, 0, len(groups)*2)
+			for i := range groups {
+				uKeys = append(uKeys, groups[i].OwnerKey)
+				for _, m := range membersByGroup[groups[i].Key] {
+					uKeys = append(uKeys, m.UKey)
+				}
+			}
+			if uMap, err := bu.GetMany(ctx, uKeys); err == nil {
+				for k, v := range uMap {
+					cache.users[k] = v
+				}
+			}
+			if eMap, err := bu.CommitEmailsMany(ctx, uKeys, true); err == nil {
+				for k, v := range eMap {
+					cache.emails[k] = v
+				}
+			}
+		}
+	}
+
+	items := make([]groupListItem, 0, len(groups))
 	for i := range groups {
 		g := &groups[i]
-
-		role, err := h.Guard.GroupRole(ctx, g.Key, u.Key)
+		var members []domain.NormalizedGroupMember
+		if membersByGroup != nil {
+			members, err = h.normalizeGroupMembers(ctx, g, membersByGroup[g.Key], cache)
+		} else {
+			members, err = h.groupMembers(ctx, g, cache)
+		}
 		if err != nil {
 			return nil, err
 		}
-		members, err := h.groupMembers(ctx, g, cache)
-		if err != nil {
-			return nil, err
+		activeMembers := countActiveGroupMembers(members)
+		repoCount := repoCounts[g.Key]
+		if _, isBatch := h.Groups.(groupBatchStore); !isBatch {
+			if n, rerr := h.Groups.RepositoriesInGroup(ctx, g.Key); rerr == nil {
+				repoCount = n
+			}
 		}
-		out = append(out, groupListItem{
-			NormalizedGroup: domain.NormalizeGroup(g),
-			Role:            int(role),
-			Members:         members,
+		items = append(items, groupListItem{
+			NormalizedGroup:       domain.NormalizeGroup(g),
+			Role:                  int(roles[g.Key]),
+			Members:               members,
+			MemberCount:           activeMembers,
+			RepositoryCount:       repoCount,
+			OpenMergeRequestCount: openMRCounts[g.Key],
 		})
 	}
-	return out, nil
+
+	scope := strings.TrimSpace(req.Parsed.QueryString("scope"))
+	keyword := strings.TrimSpace(req.Parsed.QueryString("keyword"))
+	sortBy := strings.TrimSpace(req.Parsed.QueryString("sort"))
+	order := strings.TrimSpace(req.Parsed.QueryString("order"))
+	if scope != "" || keyword != "" || sortBy != "" {
+		items = filterAndSortGroups(items, u.Key, scope, keyword, sortBy, order)
+	}
+	return items, nil
+}
+
+// filterAndSortGroups 对仓库组列表按范围、关键字过滤并排序。
+func filterAndSortGroups(items []groupListItem, uKey, scope, keyword, sortBy, order string) []groupListItem {
+	kw := strings.ToLower(strings.TrimSpace(keyword))
+	out := make([]groupListItem, 0, len(items))
+	for _, it := range items {
+		switch scope {
+		case "joined":
+			if it.Owner == uKey {
+				continue
+			}
+		case "created":
+			if it.Owner != uKey {
+				continue
+			}
+		}
+		if kw != "" {
+			if !strings.Contains(strings.ToLower(it.DisplayName), kw) &&
+				!strings.Contains(strings.ToLower(it.Name), kw) &&
+				!strings.Contains(strings.ToLower(it.Description), kw) {
+				continue
+			}
+		}
+		out = append(out, it)
+	}
+	if sortBy != "" {
+		asc := strings.EqualFold(order, "asc")
+		sort.SliceStable(out, func(i, j int) bool {
+			a, b := out[i], out[j]
+			var less bool
+			switch sortBy {
+			case "name":
+				la, lb := strings.ToLower(a.DisplayName), strings.ToLower(b.DisplayName)
+				if la == lb {
+					return a.ID < b.ID
+				}
+				less = la < lb
+			case "created":
+				if a.Created == b.Created {
+					return a.ID < b.ID
+				}
+				less = a.Created < b.Created
+			case "repositories":
+				if a.RepositoryCount == b.RepositoryCount {
+					return a.Updated > b.Updated
+				}
+				less = a.RepositoryCount < b.RepositoryCount
+			case "members":
+				if a.MemberCount == b.MemberCount {
+					return a.Updated > b.Updated
+				}
+				less = a.MemberCount < b.MemberCount
+			default: // updated
+				if a.Updated == b.Updated {
+					return a.ID < b.ID
+				}
+				less = a.Updated < b.Updated
+			}
+			if asc {
+				return less
+			}
+			return !less
+		})
+	}
+	return out
+}
+
+// countActiveGroupMembers 统计未移除的有效组成员数。
+func countActiveGroupMembers(members []domain.NormalizedGroupMember) int {
+	n := 0
+	for _, m := range members {
+		if !m.DeleteFlag {
+			n++
+		}
+	}
+	return n
+}
+
+// checkName 实现 GET /api/group/checkName。
+//
+// 供新建仓库组 / 修改组名表单做失焦实时校验（重名、格式、保留字）。
+func (h *GroupHandler) checkName(ctx context.Context, req *httpapi.Request) (any, error) {
+	u := req.User
+	if u == nil {
+		return nil, contract.NewError(contract.CodeInvalidCredential)
+	}
+	name := strings.TrimSpace(req.Parsed.QueryString("name"))
+	displayName := strings.TrimSpace(req.Parsed.QueryString("displayName"))
+	exclude := strings.TrimSpace(req.Parsed.QueryString("exclude"))
+
+	if name == "" && displayName == "" {
+		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+
+	if name != "" {
+		if !domain.GroupSlugValid(name) {
+			return map[string]any{"available": false, "reason": "invalid_slug"}, nil
+		}
+		if domain.GroupNameIsPreserved(name) {
+			return map[string]any{"available": false, "reason": "preserved"}, nil
+		}
+		dup, err := h.Groups.SearchByName(ctx, name)
+		if err != nil && !errors.Is(err, repo.ErrNotFound) {
+			return nil, err
+		}
+		if dup != nil && dup.Key != exclude {
+			return map[string]any{"available": false, "reason": "duplicate_slug"}, nil
+		}
+	}
+	if displayName != "" {
+		if len([]rune(displayName)) > 30 {
+			return map[string]any{"available": false, "reason": "invalid_display_name"}, nil
+		}
+		dup, err := h.Groups.SearchByDisplayName(ctx, displayName)
+		if err != nil && !errors.Is(err, repo.ErrNotFound) {
+			return nil, err
+		}
+		if dup != nil && dup.Key != exclude {
+			return map[string]any{"available": false, "reason": "duplicate_display_name"}, nil
+		}
+	}
+	return map[string]any{"available": true}, nil
 }
 
 // create 实现 POST /api/group/create。
@@ -222,9 +455,15 @@ func (h *GroupHandler) create(ctx context.Context, req *httpapi.Request) (any, e
 	name, _ := phpBodyArg(p, "name")
 	typeRaw, typePresent := phpBodyArg(p, "type")
 
+	displayName = strings.TrimSpace(displayName)
+	name = strings.TrimSpace(name)
+
 	if !domain.PHPTruthy(displayName) || !domain.PHPTruthy(name) ||
 		!domain.GroupTypeAllowed(typeRaw, typePresent) {
 		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+	if !domain.GroupSlugValid(name) || len([]rune(displayName)) > 30 {
+		return nil, contract.NewError(contract.CodeAmountOutOfRange)
 	}
 
 	if _, err := h.Groups.SearchByName(ctx, name); err == nil {
@@ -241,12 +480,9 @@ func (h *GroupHandler) create(ctx context.Context, req *httpapi.Request) (any, e
 		return nil, contract.NewError(contract.CodeDuplicateGroupSlug)
 	}
 
-	// PHP 的 Group_model::create(string $displayName, string $name,
-	// string $description, int $type, string $uKey) 收不到 description 时
-	// 会拿到 null → TypeError（致命错误 → HTTP 500 空响应体）。
-	description, hasDescription := phpBodyArg(p, "description")
-	if !hasDescription {
-		return nil, phpFatalError()
+	description, _ := phpBodyArg(p, "description")
+	if len([]rune(description)) > 200 {
+		return nil, contract.NewError(contract.CodeAmountOutOfRange)
 	}
 
 	groupType, _ := domain.PHPIntArg(typeRaw, typePresent)
@@ -307,10 +543,22 @@ func (h *GroupHandler) config(ctx context.Context, req *httpapi.Request) (any, e
 		return nil, err
 	}
 
+	repoCount, _ := h.Groups.RepositoriesInGroup(ctx, gKey)
+	openMRCount := 0
+	if bs, ok := h.Groups.(groupBatchStore); ok {
+		if n, merr := bs.OpenMRCountInGroup(ctx, gKey); merr == nil {
+			openMRCount = n
+		}
+	}
+
 	return groupConfig{
 		Group:   domain.NormalizeGroup(g),
 		Members: members,
-		Count:   groupCount{Member: len(members)},
+		Count: groupCount{
+			Member:           countActiveGroupMembers(members),
+			Repository:       repoCount,
+			OpenMergeRequest: openMRCount,
+		},
 	}, nil
 }
 
@@ -408,12 +656,9 @@ func (h *GroupHandler) mrCommit(ctx context.Context, sourceRKey, sourceBranch st
 
 // activities 实现 GET /api/group/activities。
 //
-// 逐字对应 application/controllers/api/group.php:163-182：
 //  1. group 缺失 / category 非法 → 0x0201
-//  2. 返回该组的动态列表
-//
-// 注意：PHP 侧**不做任何权限校验**（docs/ARCHITECTURE_ANALYSIS.md
-// 把它列为越权读取缺口之一），因此不存在的组也会返回 200 + 空数组。
+//  2. 无仓库组读权限 → 0x0106（封堵 PHP 侧越权读取缺口）
+//  3. keyword / page / pagesize 缺省走默认值（"" / 1 / 20），经 ClampPaging 收敛
 func (h *GroupHandler) activities(ctx context.Context, req *httpapi.Request) (any, error) {
 	u := req.User
 	if u == nil {
@@ -427,25 +672,19 @@ func (h *GroupHandler) activities(ctx context.Context, req *httpapi.Request) (an
 	if !domain.PHPTruthy(gKey) || !domain.GroupActivityCategoryAllowed(categoryRaw, categoryPresent) {
 		return nil, contract.NewError(contract.CodeMissingParameter)
 	}
-
-	// PHP 的 Group_model::listActivities(string $gKey, int $category,
-	// string $keyword, int $page, int $pagesize)：客户端没传的参数是 null，
-	// 传给带类型的形参会抛 TypeError（致命错误 → HTTP 500 空响应体）。
-	category, ok := domain.PHPIntArg(categoryRaw, categoryPresent)
-	if !ok {
-		return nil, phpFatalError()
-	}
-	keyword, ok := domain.PHPStringArg(phpQueryArg(p, "keyword"))
-	if !ok {
-		return nil, phpFatalError()
-	}
-	if _, ok := domain.PHPIntArg(phpQueryArg(p, "page")); !ok {
-		return nil, phpFatalError()
-	}
-	if _, ok := domain.PHPIntArg(phpQueryArg(p, "pagesize")); !ok {
-		return nil, phpFatalError()
+	if err := h.Guard.RequireGroup(ctx, gKey, u.Key, domain.UACRepoRead); err != nil {
+		return nil, err
 	}
 
+	category := 0
+	if categoryPresent && domain.PHPTruthy(categoryRaw) {
+		v, ok := domain.PHPIntArg(categoryRaw, categoryPresent)
+		if !ok {
+			return nil, contract.NewError(contract.CodeMissingParameter)
+		}
+		category = v
+	}
+	keyword := p.QueryString("keyword")
 	page, pagesize := groupPaging(p)
 	acts, err := h.Groups.Activities(ctx, gKey, category, keyword, page, pagesize)
 	if err != nil {
@@ -541,11 +780,9 @@ func (h *GroupHandler) update(ctx context.Context, req *httpapi.Request) (any, e
 		return nil, err
 	}
 
-	// PHP 侧 g_description 是 NOT NULL 列，缺参数时会把 NULL 写进去 →
-	// MySQL 报错 → CI 的 db_debug 展示错误页（HTTP 500）。
-	description, hasDescription := phpBodyArg(p, "description")
-	if !hasDescription {
-		return nil, phpFatalError()
+	description, _ := phpBodyArg(p, "description")
+	if len([]rune(displayName)) > 30 || len([]rune(description)) > 200 {
+		return nil, contract.NewError(contract.CodeAmountOutOfRange)
 	}
 
 	if g.DisplayName != displayName {
@@ -852,9 +1089,13 @@ func (h *GroupHandler) updateName(ctx context.Context, req *httpapi.Request) (an
 
 	groupKey, _ := phpBodyArg(p, "group")
 	name, _ := phpBodyArg(p, "name")
+	name = strings.TrimSpace(name)
 
 	if !domain.PHPTruthy(groupKey) || !domain.PHPTruthy(name) {
 		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+	if !domain.GroupSlugValid(name) {
+		return nil, contract.NewError(contract.CodeAmountOutOfRange)
 	}
 	if err := h.Guard.RequireGroup(ctx, groupKey, u.Key, domain.UACGroupChangeURL); err != nil {
 		return nil, err
@@ -963,15 +1204,16 @@ func (h *GroupHandler) groupOrEmpty(ctx context.Context, gKey string) (*domain.G
 }
 
 // groupMembers 组装仓库组成员列表。
-//
-// 逐字对应 application/controllers/api/group.php:33-37（list）
-// 与 :115-120（config）：成员行归一化 + 组创建者归一化，合并后按 id 去重。
 func (h *GroupHandler) groupMembers(ctx context.Context, g *domain.Group, cache *memberCache) ([]domain.NormalizedGroupMember, error) {
 	members, err := h.Groups.ListMembers(ctx, g.Key)
 	if err != nil {
 		return nil, err
 	}
+	return h.normalizeGroupMembers(ctx, g, members, cache)
+}
 
+// normalizeGroupMembers 把给定的成员行切片与组创建者归一化为前端结构。
+func (h *GroupHandler) normalizeGroupMembers(ctx context.Context, g *domain.Group, members []domain.GroupMember, cache *memberCache) ([]domain.NormalizedGroupMember, error) {
 	out := make([]domain.NormalizedGroupMember, 0, len(members)+1)
 	for i := range members {
 		m := &members[i]

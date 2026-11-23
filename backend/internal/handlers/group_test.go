@@ -792,3 +792,84 @@ func TestGroupWriteFailureDoesNotEmitEvent(t *testing.T) {
 		t.Errorf("业务写入失败时不应发出事件，实际 %d 条", len(bus.events))
 	}
 }
+
+// TestGroupActivitiesRequiresPermissionAndDefaultsPaging 覆盖组动态的权限校验与缺参兜底。
+func TestGroupActivitiesRequiresPermissionAndDefaultsPaging(t *testing.T) {
+	store := defaultGroupStore()
+	h := &GroupHandler{
+		Groups: store,
+		Guard:  &fakeGroupGuard{denied: true},
+		Users:  &fakeGroupUsers{member: store.member},
+	}
+
+	req := &httpapi.Request{
+		Parsed: &contract.Parsed{
+			ID:       "TEST-ACT-1",
+			Method:   "GET",
+			Query:    map[string]any{"group": testGroupKey},
+			RawQuery: map[string][]string{"group": {testGroupKey}},
+		},
+		User: &domain.User{Key: testUserKey, Email: "root@codefever.cn", Name: "root"},
+	}
+	if _, err := h.activities(context.Background(), req); errorCodeOf(t, err) != int(contract.CodeActionNotAllowed) {
+		t.Fatalf("无权限读取组动态应返回 0x0106，实际: %v", err)
+	}
+
+	// 有权限时即使省略 category / keyword / page / pagesize 也不应再报 500。
+	h.Guard = &fakeGroupGuard{denied: false}
+	res, err := h.activities(context.Background(), req)
+	if err != nil {
+		t.Fatalf("缺省分页参数的组动态查询不应失败: %v", err)
+	}
+	if _, ok := res.([]any); !ok {
+		t.Fatalf("响应应为数组，实际 %T", res)
+	}
+}
+
+// TestGroupCheckName 覆盖组名/slug 校验（非法、保留字、重复、可用）。
+func TestGroupCheckName(t *testing.T) {
+	store := defaultGroupStore()
+	h := newGroupTestHandler(store, &fakeGroupBus{store: store})
+
+	call := func(q map[string]any) map[string]any {
+		res, err := h.checkName(context.Background(), &httpapi.Request{
+			Parsed: &contract.Parsed{Method: "GET", Query: q},
+			User:   &domain.User{Key: testUserKey},
+		})
+		if err != nil {
+			t.Fatalf("checkName(%v) 失败: %v", q, err)
+		}
+		return res.(map[string]any)
+	}
+
+	if got := call(map[string]any{"name": "ab"}); got["available"] != false || got["reason"] != "invalid_slug" {
+		t.Errorf("过短 slug = %v, want invalid_slug", got)
+	}
+	if got := call(map[string]any{"name": "groups"}); got["available"] != false || got["reason"] != "preserved" {
+		t.Errorf("保留字 = %v, want preserved", got)
+	}
+	if got := call(map[string]any{"name": "rootteam"}); got["available"] != false || got["reason"] != "duplicate_slug" {
+		t.Errorf("重复 slug = %v, want duplicate_slug", got)
+	}
+	if got := call(map[string]any{"name": "backend-team"}); got["available"] != true {
+		t.Errorf("合法中划线 slug = %v, want available=true", got)
+	}
+}
+
+// TestGroupCreateSupportsHyphenAndOptionalDescription 覆盖中划线 slug 与缺省描述。
+func TestGroupCreateSupportsHyphenAndOptionalDescription(t *testing.T) {
+	store := defaultGroupStore()
+	bus := &fakeGroupBus{store: store}
+	h := newGroupTestHandler(store, bus)
+
+	if _, err := h.create(context.Background(), newGroupRequest(map[string]any{
+		"displayName": "后端研发组",
+		"name":        "backend-team",
+		"type":        "1",
+	})); err != nil {
+		t.Fatalf("合法中划线组创建失败: %v", err)
+	}
+	if len(store.created) != 1 || store.created[0].Name != "backend-team" {
+		t.Errorf("创建的组不符: %+v", store.created)
+	}
+}

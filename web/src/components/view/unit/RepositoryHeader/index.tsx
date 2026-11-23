@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 
 import type { CurrentUser, RepositoryConfig, RepositoryListItem } from '@/api/types'
@@ -10,6 +10,7 @@ import { CloneBox } from '@/components/unit/CloneBox'
 import { Icon } from '@/components/unit/Icon'
 import { useToast } from '@/components/unit/Toast'
 import { forkIcon, starIcon } from '@/config/icons'
+import { useAppData } from '@/features/app-data/AppDataProvider'
 import { useT } from '@/i18n'
 
 
@@ -44,20 +45,28 @@ export function RepositoryHeader({ config, user, forkSource, children }: Reposit
   const t = useT()
   const navigate = useNavigate()
   const toast = useToast()
+  const { updateRepositoryStar } = useAppData()
   const [cloneOpen, setCloneOpen] = useState(false)
   // 星标字段在 config **顶层**（与 list 的列表项不同层级，见 types.ts 注记）。
   const [starred, setStarred] = useState(Boolean(config.starred))
   const [starCount, setStarCount] = useState(config.starCount ?? 0)
 
+  useEffect(() => {
+    setStarred(Boolean(config.starred))
+    setStarCount(config.starCount ?? 0)
+  }, [config.repository.id, config.starred, config.starCount])
+
   const toggleStar = async () => {
     const next = !starred
+    const nextCount = Math.max(0, starCount + (next ? 1 : -1))
     setStarred(next)
-    setStarCount((count) => count + (next ? 1 : -1))
+    setStarCount(nextCount)
     try {
       await (next ? starRepository(config.repository.id) : unstarRepository(config.repository.id))
+      updateRepositoryStar(config.repository.id, next, nextCount)
     } catch {
       setStarred(!next)
-      setStarCount((count) => count + (next ? -1 : 1))
+      setStarCount(starCount)
       toast.error(t('star.failed'))
     }
   }

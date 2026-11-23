@@ -90,6 +90,8 @@ export {
   Moon as moonIcon,
   Sun as sunIcon,
   ShieldCheck as shieldCheckIcon,
+  List as listViewIcon,
+  SquaresFour as gridViewIcon,
 
   /* —— 兼容别名（旧 pl / ps 前缀） —— */
   SignOut as plExit,

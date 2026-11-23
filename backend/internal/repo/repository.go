@@ -72,6 +72,59 @@ func (r *RepositoryRepo) Get(ctx context.Context, rKey string) (*domain.Reposito
 	return scanRepository(row)
 }
 
+// SearchByName 在指定仓库组内按标识名查找未删除的仓库。
+func (r *RepositoryRepo) SearchByName(ctx context.Context, name, gKey string) (*domain.Repository, error) {
+	if name == "" || gKey == "" {
+		return nil, nil
+	}
+	row := r.db.QueryRowContext(ctx,
+		"SELECT "+repoCols(repositoryColumnsTpl, "")+
+			" FROM cc_repositories WHERE r_name = ? AND g_key = ? AND r_status = ? LIMIT 1",
+		name, gKey, domain.CommonStatusNormal)
+	item, err := scanRepository(row)
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+// SearchByDisplayName 在指定仓库组内按显示名查找未删除的仓库。
+func (r *RepositoryRepo) SearchByDisplayName(ctx context.Context, displayName, gKey string) (*domain.Repository, error) {
+	if displayName == "" || gKey == "" {
+		return nil, nil
+	}
+	row := r.db.QueryRowContext(ctx,
+		"SELECT "+repoCols(repositoryColumnsTpl, "")+
+			" FROM cc_repositories WHERE r_display_name = ? AND g_key = ? AND r_status = ? LIMIT 1",
+		displayName, gKey, domain.CommonStatusNormal)
+	item, err := scanRepository(row)
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return item, nil
+}
+
+// ListInGroup 列出指定仓库组下全部未删除的仓库。
+func (r *RepositoryRepo) ListInGroup(ctx context.Context, gKey string) ([]domain.Repository, error) {
+	if gKey == "" {
+		return []domain.Repository{}, nil
+	}
+	rows, err := r.db.QueryContext(ctx,
+		"SELECT "+repoCols(repositoryColumnsTpl, "")+
+			" FROM cc_repositories WHERE g_key = ? AND r_status = ? ORDER BY r_updated DESC, r_key ASC",
+		gKey, domain.CommonStatusNormal)
+	if err != nil {
+		return nil, err
+	}
+	return scanRepositories(rows)
+}
+
 // RepositoryPath 返回仓库在 git-storage 下的相对路径（r_path）。
 //
 // 逐字对应 cc_repositories.r_path，形如 "/de7347a84f6236f06b0356ce6668c27d"。

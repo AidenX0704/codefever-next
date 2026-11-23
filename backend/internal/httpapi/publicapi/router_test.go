@@ -52,6 +52,9 @@ func TestRouterRejectsNonGet(t *testing.T) {
 				"/api/v1/user/repos",
 				"/api/v1/users/someone",
 				"/api/v1/repos/dev/hello",
+				"/api/v1/groups",
+				"/api/v1/groups/dev",
+				"/api/v1/groups/dev/repos",
 			} {
 				rec := httptest.NewRecorder()
 				r.ServeHTTP(rec, httptest.NewRequest(method, path, nil))

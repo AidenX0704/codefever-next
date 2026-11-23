@@ -161,6 +161,26 @@ func (s *repoGroupStore) RepositoriesInGroup(ctx context.Context, gKey string) (
 	return s.groups.RepositoriesInGroup(ctx, gKey)
 }
 
+// ListMembersByGroups 批量读取多个组的成员行（消除 group/list N+1）。
+func (s *repoGroupStore) ListMembersByGroups(ctx context.Context, gKeys []string) (map[string][]domain.GroupMember, error) {
+	return s.groups.ListMembersByGroups(ctx, gKeys)
+}
+
+// RepoCountsByGroups 批量统计各组未删除仓库数。
+func (s *repoGroupStore) RepoCountsByGroups(ctx context.Context, gKeys []string) (map[string]int, error) {
+	return s.groups.RepoCountsByGroups(ctx, gKeys)
+}
+
+// OpenMRCountsByGroups 批量统计各组开放 MR 数。
+func (s *repoGroupStore) OpenMRCountsByGroups(ctx context.Context, gKeys []string) (map[string]int, error) {
+	return s.groups.OpenMRCountsByGroups(ctx, gKeys)
+}
+
+// OpenMRCountInGroup 统计单个组的开放 MR 数。
+func (s *repoGroupStore) OpenMRCountInGroup(ctx context.Context, gKey string) (int, error) {
+	return s.groups.OpenMRCountInGroup(ctx, gKey)
+}
+
 // repoGroupTx 把事务内的 repo.GroupRepo 适配成 GroupTx。
 type repoGroupTx struct {
 	groups *repo.GroupRepo

@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 
 import { ApiError } from '@/api/client'
 import { Button } from '@/components/unit/Button'
@@ -7,11 +7,9 @@ import { Form, FormActions, FormGrid, FormItem } from '@/components/unit/Form'
 import { SelectField } from '@/components/unit/SelectField'
 import { TextField } from '@/components/unit/TextField'
 import { useToast } from '@/components/unit/Toast'
+import { REPO_SLUG_RE, makeSlug } from '@/helpers/slug'
 import { useT } from '@/i18n'
 
-
-/** 标识名（slug）长度上限（旧版 `RepositorySettingAdvanced.js` 的校验器）。 */
-const NAME_MAX = 30
 
 export interface AdvancedSettingsProps {
   /** 当前标识名（用于"改名"表单的初始值）。 */
@@ -24,16 +22,20 @@ export interface AdvancedSettingsProps {
   deleteMessage: string
   /** 删除按钮文案。 */
   deleteLabel: string
+  /** 禁止删除时的说明（存在时删除按钮禁用，如个人组或非空仓库组）。 */
+  deleteBlockedReason?: string
   /** 名称字段的标签（仓库 slug / 组 slug），用于校验错误文案。 */
   nameLabel?: string
   /** 名称输入框的前缀提示（如 `https://host/group/`）。 */
   namePrefix?: string
+  /** 自定义 slug 校验器（返回错误文案或 null）。 */
+  validateSlug?: (value: string) => string | null
   /** 改名前的确认（给了就弹；取消则不提交）。 */
   renameConfirm?: { title: string; message: string }
   /** 删除前的第一级确认（给了就弹第一级）。 */
-  deleteConfirm?: { title: string; message: string }
-  /** 删除前的第二级确认（给了就弹第二级 —— 旧版仓库删除是两级确认）。 */
-  deleteSecondConfirm?: { title: string; message: string }
+  deleteConfirm?: { title: string; message: string; requireInput?: string; requireInputPrompt?: ReactNode }
+  /** 删除前的第二级确认（给了就弹第二级）。 */
+  deleteSecondConfirm?: { title: string; message: string; requireInput?: string; requireInputPrompt?: ReactNode }
   /** 创建者下拉（仓库有，组没有）。`onChange` 返回 false 表示用户取消。 */
   owner?: {
     label: string
@@ -46,8 +48,8 @@ export interface AdvancedSettingsProps {
 /**
  * 高级设置（改标识名 + 创建者 + 危险操作区）。
  *
- * 仓库与仓库组的高级页结构一致（AGENTS §4 的第二处重复），抽成组件；
- * 页面只注入端点与文案。删除按传入的确认文案走**一级或两级**确认。
+ * 仓库与仓库组的高级页结构一致（AGENTS §4），抽成共用组件；
+ * 支持异步同步 `currentName`、中划线 slug 校验、禁止删除提示与输入路径确认（DESIGN.md G9）。
  */
 export function AdvancedSettings({
   currentName,
@@ -55,8 +57,10 @@ export function AdvancedSettings({
   onDelete,
   deleteMessage,
   deleteLabel,
+  deleteBlockedReason,
   nameLabel,
   namePrefix,
+  validateSlug,
   renameConfirm,
   deleteConfirm,
   deleteSecondConfirm,
@@ -70,21 +74,29 @@ export function AdvancedSettings({
   const [nameError, setNameError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    setName(currentName)
+    setNameError(null)
+  }, [currentName])
+
   const rename = async () => {
     const label = nameLabel ?? t('label.name')
-    if (!name.trim()) {
+    const trimmed = name.trim()
+    if (!trimmed) {
       setNameError(t('message.error._S_empty', { s: label }))
       return
     }
-    if (!/^[0-9a-zA-Z_]+$/.test(name.trim())) {
-      setNameError(t('message.error.requireCombinationOfCharactersNumbersAndUnderscore'))
+    if (validateSlug) {
+      const err = validateSlug(trimmed)
+      if (err) {
+        setNameError(err)
+        return
+      }
+    } else if (!REPO_SLUG_RE.test(trimmed)) {
+      setNameError(t('repo.slugRule'))
       return
     }
-    if (name.trim().length > NAME_MAX) {
-      setNameError(t('message.error.noMoreThan_N_characters', { n: NAME_MAX }))
-      return
-    }
-    if (name.trim() === currentName) {
+    if (trimmed === currentName) {
       return
     }
     if (renameConfirm) {
@@ -101,12 +113,11 @@ export function AdvancedSettings({
     setNameError(null)
     setSaving(true)
     try {
-      await onRename(name.trim())
+      await onRename(trimmed)
       toast.success(t('message.updateSuccess'))
     } catch (error) {
-      // 0x0401：仓库标识串重复。
-      if (error instanceof ApiError && error.code === 0x0401) {
-        setNameError(t('message.error._S_duplicate', { s: label }))
+      if (error instanceof ApiError && (error.code === 0x0401 || error.code === 0x0403)) {
+        setNameError(error.code === 0x0403 ? t('group.slugDuplicate') : t('repo.slugDuplicate'))
       } else {
         toast.error(error instanceof Error ? error.message : t('base_error_message'))
       }
@@ -116,12 +127,17 @@ export function AdvancedSettings({
   }
 
   const remove = async () => {
+    if (deleteBlockedReason) {
+      return
+    }
     if (deleteConfirm) {
       const first = await confirm({
         title: deleteConfirm.title,
         message: deleteConfirm.message,
         tone: 'danger',
         confirmText: t('base_confirm'),
+        requireInput: deleteConfirm.requireInput,
+        requireInputPrompt: deleteConfirm.requireInputPrompt,
       })
       if (!first) {
         return
@@ -133,6 +149,8 @@ export function AdvancedSettings({
         message: deleteSecondConfirm.message,
         tone: 'danger',
         confirmText: t('base_confirm'),
+        requireInput: deleteSecondConfirm.requireInput,
+        requireInputPrompt: deleteSecondConfirm.requireInputPrompt,
       })
       if (!second) {
         return
@@ -169,7 +187,7 @@ export function AdvancedSettings({
             <SelectField
               options={owner.options}
               value={owner.currentId}
-              onChange={(event) => changeOwner(event.target.value)}
+              onChange={(event) => void changeOwner(event.target.value)}
             />
           </FormGrid>
         </section>
@@ -183,24 +201,27 @@ export function AdvancedSettings({
               value={name}
               startAdornment={namePrefix ? <span className="muted">{namePrefix}</span> : undefined}
               onChange={(event) => {
-                setName(event.target.value)
+                setName(makeSlug(event.target.value))
                 setNameError(null)
               }}
             />
           </FormItem>
           <FormActions>
-            <Button type="submit" loading={saving}>
+            <Button type="submit" loading={saving} disabled={name.trim() === currentName}>
               {t('label.save')}
             </Button>
           </FormActions>
         </Form>
       </section>
 
-      <section className="section">
-        <div className="section__title">{t('label.advanced')}</div>
-        <div className="row">
-          <span className="muted">{deleteMessage}</span>
-          <Button tone="danger" variant="outlined" onClick={remove}>
+      <section className="section danger-zone">
+        <div className="section__title danger-zone__title">{t('label.dangerOperation')}</div>
+        <div className="danger-zone__row">
+          <div className="danger-zone__text">
+            <div>{deleteMessage}</div>
+            {deleteBlockedReason ? <div className="danger-zone__blocked">{deleteBlockedReason}</div> : null}
+          </div>
+          <Button tone="danger" variant="outlined" disabled={Boolean(deleteBlockedReason)} onClick={remove}>
             {deleteLabel}
           </Button>
         </div>

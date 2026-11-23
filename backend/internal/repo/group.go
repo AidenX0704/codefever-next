@@ -297,6 +297,100 @@ func (r *GroupRepo) RepositoriesInGroup(ctx context.Context, gKey string) (int, 
 	return n, err
 }
 
+// ListMembersByGroups 批量列出多个仓库组的成员行（消除 group/list 的 N+1 查询）。
+func (r *GroupRepo) ListMembersByGroups(ctx context.Context, gKeys []string) (map[string][]domain.GroupMember, error) {
+	out := make(map[string][]domain.GroupMember, len(gKeys))
+	if len(gKeys) == 0 {
+		return out, nil
+	}
+	placeholders, args := inPlaceholders(uniqueStrings(gKeys))
+	rows, err := r.runner().QueryContext(ctx, `
+		SELECT gm_key, g_key, u_key, gm_role, gm_created, gm_status
+		FROM cc_group_members WHERE g_key IN (`+strings.Join(placeholders, ", ")+`)`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var m domain.GroupMember
+		var created sql.NullTime
+		if err := rows.Scan(&m.Key, &m.GKey, &m.UKey, &m.Role, &created, &m.Status); err != nil {
+			return nil, err
+		}
+		m.Created = phpTime(created)
+		out[m.GKey] = append(out[m.GKey], m)
+	}
+	return out, rows.Err()
+}
+
+// RepoCountsByGroups 批量统计多个仓库组内未删除的仓库数。
+func (r *GroupRepo) RepoCountsByGroups(ctx context.Context, gKeys []string) (map[string]int, error) {
+	out := make(map[string]int, len(gKeys))
+	if len(gKeys) == 0 {
+		return out, nil
+	}
+	placeholders, args := inPlaceholders(uniqueStrings(gKeys))
+	args = append(args, domain.CommonStatusNormal)
+	rows, err := r.runner().QueryContext(ctx, `
+		SELECT g_key, COUNT(*) FROM cc_repositories
+		WHERE g_key IN (`+strings.Join(placeholders, ", ")+`) AND r_status = ?
+		GROUP BY g_key`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var gk string
+		var cnt int
+		if err := rows.Scan(&gk, &cnt); err != nil {
+			return nil, err
+		}
+		out[gk] = cnt
+	}
+	return out, rows.Err()
+}
+
+// OpenMRCountsByGroups 批量统计多个仓库组内开放中的合并请求数。
+func (r *GroupRepo) OpenMRCountsByGroups(ctx context.Context, gKeys []string) (map[string]int, error) {
+	out := make(map[string]int, len(gKeys))
+	if len(gKeys) == 0 {
+		return out, nil
+	}
+	placeholders, args := inPlaceholders(uniqueStrings(gKeys))
+	args = append(args, domain.CommonStatusNormal, domain.CommonStatusNormal, domain.MergeRequestStatusOpen)
+	rows, err := r.runner().QueryContext(ctx, `
+		SELECT rp.g_key, COUNT(*)
+		FROM cc_merge_requests mr
+		JOIN cc_repositories rp ON mr.mr_target_r_key = rp.r_key
+		WHERE rp.g_key IN (`+strings.Join(placeholders, ", ")+`)
+		  AND rp.r_status = ?
+		  AND mr.mr_status = ?
+		  AND mr.mr_proceed_status = ?
+		GROUP BY rp.g_key`, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var gk string
+		var cnt int
+		if err := rows.Scan(&gk, &cnt); err != nil {
+			return nil, err
+		}
+		out[gk] = cnt
+	}
+	return out, rows.Err()
+}
+
+// OpenMRCountInGroup 统计单个仓库组内开放中的合并请求数。
+func (r *GroupRepo) OpenMRCountInGroup(ctx context.Context, gKey string) (int, error) {
+	counts, err := r.OpenMRCountsByGroups(ctx, []string{gKey})
+	if err != nil {
+		return 0, err
+	}
+	return counts[gKey], nil
+}
+
 // MergeRequests 列出仓库组内的合并请求。
 //
 // 逐字对应 application/models/group_model.php:197-224 的 getMergeRequests()：

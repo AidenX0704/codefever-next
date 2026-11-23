@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -68,6 +69,8 @@ func NewRepositoryHandler(repos *repo.RepositoryRepo, git *gitsvc.Service, guard
 func (h *RepositoryHandler) Register(s *httpapi.Server) {
 	actions := map[string]map[string]httpapi.ActionHandler{
 		"list":                    {"GET": h.list},
+		"page":                    {"GET": h.page},
+		"checkName":               {"GET": h.checkName},
 		"config":                  {"GET": h.config},
 		"commitList":              {"GET": h.commitList},
 		"commitDetail":            {"GET": h.commitDetail},
@@ -166,9 +169,18 @@ func (h *RepositoryHandler) list(ctx context.Context, req *httpapi.Request) (any
 	}
 
 	mode := req.Parsed.QueryString("mode")
+	scope := strings.TrimSpace(req.Parsed.QueryString("scope"))
+	if scope == "" && mode == "starred" {
+		scope = "starred"
+	}
 	switch mode {
 	case "", "starred":
 		// 合法取值：缺省 = 全部可见仓库；starred = 只看我标过星的。
+	default:
+		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+	switch scope {
+	case "", "all", "joined", "created", "starred":
 	default:
 		return nil, contract.NewError(contract.CodeMissingParameter)
 	}
@@ -177,14 +189,238 @@ func (h *RepositoryHandler) list(ctx context.Context, req *httpapi.Request) (any
 	if err != nil {
 		return nil, err
 	}
-	if mode == "starred" {
+	if scope == "starred" {
 		repos = h.listStarredFilter(ctx, uKey, repos)
 	}
 
-	// 字段补齐（role / members / 计数 / 标星）抽成了共享函数：
-	// 个人主页（GET /api/user/profile）输出"该用户创建的仓库"时
-	// 必须是同一份口径（见 repository_list_view.go）。
-	return repositoryListView(ctx, h.Repos, h.Stars, uKey, repos, h.host(), h.ssh())
+	items, err := repositoryListView(ctx, h.Repos, h.Stars, uKey, repos, h.host(), h.ssh())
+	if err != nil {
+		return nil, err
+	}
+
+	groupKey := strings.TrimSpace(req.Parsed.QueryString("group"))
+	keyword := strings.TrimSpace(req.Parsed.QueryString("keyword"))
+	sortBy := strings.TrimSpace(req.Parsed.QueryString("sort"))
+	order := strings.TrimSpace(req.Parsed.QueryString("order"))
+
+	if groupKey != "" || scope == "joined" || scope == "created" || keyword != "" || sortBy != "" {
+		items = filterAndSortRepositories(items, uKey, groupKey, scope, keyword, sortBy, order)
+	}
+	return items, nil
+}
+
+// page 实现 GET /api/repository/page。
+//
+// 为仓库列表页提供服务端筛选、排序、分页与页签计数，同时保留 repository/list
+// 的向后兼容数组契约。
+func (h *RepositoryHandler) page(ctx context.Context, req *httpapi.Request) (any, error) {
+	uKey := req.UserKey()
+	if uKey == "" {
+		return nil, contract.NewError(contract.CodeInvalidCredential)
+	}
+
+	scope := strings.TrimSpace(req.Parsed.QueryString("scope"))
+	if scope == "" {
+		scope = "all"
+	}
+	switch scope {
+	case "all", "joined", "created", "starred":
+	default:
+		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+
+	groupKey := strings.TrimSpace(req.Parsed.QueryString("group"))
+	keyword := strings.TrimSpace(req.Parsed.QueryString("keyword"))
+	sortBy := strings.TrimSpace(req.Parsed.QueryString("sort"))
+	if sortBy == "" {
+		sortBy = "updated"
+	}
+	order := strings.TrimSpace(req.Parsed.QueryString("order"))
+	if order == "" {
+		order = "desc"
+	}
+	page, pagesize := paging(req)
+
+	repos, err := h.Repos.ListJoined(ctx, uKey)
+	if err != nil {
+		return nil, err
+	}
+	items, err := repositoryListView(ctx, h.Repos, h.Stars, uKey, repos, h.host(), h.ssh())
+	if err != nil {
+		return nil, err
+	}
+
+	// 只保留有读权限且满足 group 上下文的仓库，在此基础上计算各页签计数。
+	readable := make([]domain.RepositoryListItem, 0, len(items))
+	var counts domain.RepositoryScopeCounts
+	for _, it := range items {
+		if !domain.CheckPermission(domain.UACRepoRead, domain.Role(it.Role)) {
+			continue
+		}
+		if groupKey != "" && it.Group.ID != groupKey {
+			continue
+		}
+		readable = append(readable, it)
+		counts.All++
+		if it.Owner == uKey {
+			counts.Created++
+		} else {
+			counts.Joined++
+		}
+		if it.Starred {
+			counts.Starred++
+		}
+	}
+
+	filtered := filterAndSortRepositories(readable, uKey, "", scope, keyword, sortBy, order)
+	total := len(filtered)
+	start := (page - 1) * pagesize
+	if start >= total {
+		return domain.RepositoryPageResult{
+			Total:    total,
+			Page:     page,
+			Pagesize: pagesize,
+			Counts:   counts,
+			List:     []domain.RepositoryListItem{},
+		}, nil
+	}
+	end := start + pagesize
+	if end > total {
+		end = total
+	}
+	return domain.RepositoryPageResult{
+		Total:    total,
+		Page:     page,
+		Pagesize: pagesize,
+		Counts:   counts,
+		List:     filtered[start:end],
+	}, nil
+}
+
+// filterAndSortRepositories 对已补齐的仓库列表执行范围、关键字过滤与排序。
+func filterAndSortRepositories(
+	items []domain.RepositoryListItem,
+	uKey, groupKey, scope, keyword, sortBy, order string,
+) []domain.RepositoryListItem {
+	kw := strings.ToLower(strings.TrimSpace(keyword))
+	out := make([]domain.RepositoryListItem, 0, len(items))
+	for _, it := range items {
+		if groupKey != "" && it.Group.ID != groupKey {
+			continue
+		}
+		switch scope {
+		case "joined":
+			if it.Owner == uKey {
+				continue
+			}
+		case "created":
+			if it.Owner != uKey {
+				continue
+			}
+		case "starred":
+			if !it.Starred {
+				continue
+			}
+		}
+		if kw != "" {
+			if !strings.Contains(strings.ToLower(it.DisplayName), kw) &&
+				!strings.Contains(strings.ToLower(it.Name), kw) &&
+				!strings.Contains(strings.ToLower(it.Description), kw) &&
+				!strings.Contains(strings.ToLower(it.Group.DisplayName), kw) &&
+				!strings.Contains(strings.ToLower(it.Group.Name), kw) {
+				continue
+			}
+		}
+		out = append(out, it)
+	}
+
+	if sortBy != "" {
+		asc := strings.EqualFold(order, "asc")
+		sort.SliceStable(out, func(i, j int) bool {
+			a, b := out[i], out[j]
+			var less bool
+			switch sortBy {
+			case "name":
+				la, lb := strings.ToLower(a.DisplayName), strings.ToLower(b.DisplayName)
+				if la == lb {
+					return a.ID < b.ID
+				}
+				less = la < lb
+			case "created":
+				if a.Created == b.Created {
+					return a.ID < b.ID
+				}
+				less = a.Created < b.Created
+			case "stars":
+				if a.StarCount == b.StarCount {
+					return a.Updated > b.Updated
+				}
+				less = a.StarCount < b.StarCount
+			case "openMr":
+				if a.MergeRequestCount.Open == b.MergeRequestCount.Open {
+					return a.Updated > b.Updated
+				}
+				less = a.MergeRequestCount.Open < b.MergeRequestCount.Open
+			default: // updated
+				if a.Updated == b.Updated {
+					return a.ID < b.ID
+				}
+				less = a.Updated < b.Updated
+			}
+			if asc {
+				return less
+			}
+			return !less
+		})
+	}
+	return out
+}
+
+// checkName 实现 GET /api/repository/checkName。
+//
+// 供新建仓库 / Fork / 修改标识名表单做失焦实时校验。
+func (h *RepositoryHandler) checkName(ctx context.Context, req *httpapi.Request) (any, error) {
+	uKey := req.UserKey()
+	if uKey == "" {
+		return nil, contract.NewError(contract.CodeInvalidCredential)
+	}
+	groupKey := strings.TrimSpace(req.Parsed.QueryString("group"))
+	name := strings.TrimSpace(req.Parsed.QueryString("name"))
+	displayName := strings.TrimSpace(req.Parsed.QueryString("displayName"))
+	exclude := strings.TrimSpace(req.Parsed.QueryString("exclude"))
+
+	if groupKey == "" || (name == "" && displayName == "") {
+		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+	if err := h.Guard.RequireGroup(ctx, groupKey, uKey, domain.UACGroupCreateRepo); err != nil {
+		return nil, err
+	}
+
+	if name != "" {
+		if !domain.RepoSlugValid(name) {
+			return map[string]any{"available": false, "reason": "invalid_slug"}, nil
+		}
+		dup, err := h.Repos.SearchByName(ctx, name, groupKey)
+		if err != nil {
+			return nil, err
+		}
+		if dup != nil && dup.Key != exclude {
+			return map[string]any{"available": false, "reason": "duplicate_slug"}, nil
+		}
+	}
+	if displayName != "" {
+		if len([]rune(displayName)) > 30 {
+			return map[string]any{"available": false, "reason": "invalid_display_name"}, nil
+		}
+		dup, err := h.Repos.SearchByDisplayName(ctx, displayName, groupKey)
+		if err != nil {
+			return nil, err
+		}
+		if dup != nil && dup.Key != exclude {
+			return map[string]any{"available": false, "reason": "duplicate_display_name"}, nil
+		}
+	}
+	return map[string]any{"available": true}, nil
 }
 
 // ---------------------------------------------------------------------------

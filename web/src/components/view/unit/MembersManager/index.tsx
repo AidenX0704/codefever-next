@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 
 import type { RepositoryMember } from '@/api/types'
 import { Avatar } from '@/components/unit/Avatar'
 import { Button } from '@/components/unit/Button'
+import { Icon } from '@/components/unit/Icon'
 import { Marker } from '@/components/unit/Marker'
 import { SelectField } from '@/components/unit/SelectField'
 import { TextField } from '@/components/unit/TextField'
+import { plSearch } from '@/config/icons'
 import { Role } from '@/config/uac'
 import { useT } from '@/i18n'
 
@@ -18,22 +20,16 @@ export interface MembersManagerProps {
   onChangeRole: (userID: string, roleID: number) => Promise<void>
   onRemove: (userID: string, name: string) => Promise<void>
   onTransfer: (userID: string, name: string) => Promise<void>
+  /** 顶部提示信息（例如仓库组成员权限继承说明）。 */
+  hint?: ReactNode
   /**
    * 分两表展示（**仓库成员** / **仓库组成员**）。
    *
-   * 旧版 `MemberList.js` 就是两张表；组成员来自仓库组继承，
-   * 在仓库页**不可移除**（只能改角色），与旧版 `removeable` 语义一致。
+   * 组成员来自仓库组继承，在仓库页**不可移除**（只能改角色）。
    */
   splitGroupMembers?: boolean
 }
 
-/**
- * 成员列表管理器（仓库成员与仓库组成员共用）。
- *
- * AGENTS §4：同一套"列表 + 角色下拉 + 移除 + 转移所有权"在仓库与组两个页面都要出现，
- * 因此抽成一个组件；页面只负责注入各自的 API 调用与权限判定。
- * 视觉与 `ref-row` 行一致（头像 + 名称邮箱 + 角色徽标 + 操作区）。
- */
 export function MembersManager({
   members,
   canManage,
@@ -41,10 +37,12 @@ export function MembersManager({
   onChangeRole,
   onRemove,
   onTransfer,
+  hint,
   splitGroupMembers = false,
 }: MembersManagerProps) {
   const t = useT()
   const [email, setEmail] = useState('')
+  const [keyword, setKeyword] = useState('')
   const [adding, setAdding] = useState(false)
 
   const submitAdd = async () => {
@@ -60,31 +58,61 @@ export function MembersManager({
     }
   }
 
-  // 已删除成员（deleteFlag）不展示 —— 旧版 `FilterGenerator.notDeleted()`。
+  // 已删除成员（deleteFlag）不展示。
   const alive = members.filter((member) => !member.deleteFlag)
+  const kw = keyword.trim().toLowerCase()
+  const filtered = kw
+    ? alive.filter(
+        (member) =>
+          member.name.toLowerCase().includes(kw) || member.email.toLowerCase().includes(kw),
+      )
+    : alive
   const sections = splitGroupMembers
     ? [
-        { title: t('label.repositoryMember'), items: alive.filter((member) => !member.groupMember), removable: true },
-        { title: t('label.groupMember'), items: alive.filter((member) => member.groupMember), removable: false },
+        { title: t('label.repositoryMember'), items: filtered.filter((member) => !member.groupMember), removable: true },
+        { title: t('label.groupMember'), items: filtered.filter((member) => member.groupMember), removable: false },
       ]
-    : [{ title: '', items: alive, removable: true }]
+    : [{ title: '', items: filtered, removable: true }]
 
   return (
     <div className="page">
-      {canManage ? (
-        <div className="row">
-          <TextField placeholder={t('label.email')} value={email} onChange={(event) => setEmail(event.target.value)} />
-          <Button loading={adding} onClick={submitAdd}>
-            {t('label.addMember')}
-          </Button>
-        </div>
-      ) : null}
+      {hint ? <div className="form-banner">{hint}</div> : null}
+
+      <div className="members-toolbar">
+        {canManage ? (
+          <div className="row">
+            <TextField
+              placeholder={t('label.email')}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter') {
+                  void submitAdd()
+                }
+              }}
+            />
+            <Button loading={adding} onClick={submitAdd}>
+              {t('label.addMember')}
+            </Button>
+          </div>
+        ) : null}
+
+        {alive.length > 0 ? (
+          <TextField
+            containerClassName="cf-filter-bar__search"
+            placeholder={t('group.searchMembers')}
+            value={keyword}
+            startAdornment={<Icon icon={plSearch} size={16} />}
+            onChange={(event) => setKeyword(event.target.value)}
+          />
+        ) : null}
+      </div>
 
       {sections.map((section) =>
         section.title ? (
           <div className="section" key={section.title}>
             <div className="section__title">{section.title}</div>
-            <div className="list-body">
+            <div className="list-sheet">
               {section.items.map((member) => (
                 <MemberRow
                   key={member.id}
@@ -99,7 +127,7 @@ export function MembersManager({
             </div>
           </div>
         ) : (
-          <div className="list-body" key="members">
+          <div className="list-sheet" key="members">
             {section.items.map((member) => (
               <MemberRow
                 key={member.id}

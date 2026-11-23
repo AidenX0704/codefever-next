@@ -1,5 +1,5 @@
 import { ApiError, errorMessage, get, post } from './client'
-import type { ActivityItem, Group, GroupConfig, RepositoryGroup } from './types'
+import type { ActivityItem, Group, GroupConfig, NameCheckResult, RepositoryGroup } from './types'
 
 /**
  * 取当前用户可见的仓库组列表（含自己在组内的角色与成员）。
@@ -93,17 +93,35 @@ export async function createGroup(params: {
   return data
 }
 
+/** 实时校验仓库组名称 / URL 路径是否可用（`GET /api/group/checkName`）。 */
+export async function checkGroupName(params: {
+  name?: string
+  displayName?: string
+  exclude?: string
+}): Promise<NameCheckResult> {
+  const { data } = await get<NameCheckResult>('/api/group/checkName', {
+    name: params.name,
+    displayName: params.displayName,
+    exclude: params.exclude,
+  })
+  return data ?? { available: true }
+}
+
 /* ------------------------------ 活动流 ------------------------------ */
 
 export async function fetchGroupActivities(params: {
   groupKey: string
   category?: number
   keyword?: string
+  page?: number
+  pagesize?: number
 }): Promise<ActivityItem[]> {
   const { data } = await get<ActivityItem[]>('/api/group/activities', {
     group: params.groupKey,
     category: params.category ?? 0,
     keyword: params.keyword ?? '',
+    page: params.page ?? 1,
+    pagesize: params.pagesize ?? 20,
   })
   return data ?? []
 }

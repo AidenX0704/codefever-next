@@ -2,8 +2,8 @@
 
 `/api/v1` is the public REST API of `CodeFever Next`, built for external scripts, CI/CD
 pipelines and third-party integrations. It is read-only, returns plain JSON and authenticates
-with access tokens. Four read-only endpoints are implemented today, and this documentation
-describes **only what is actually implemented**.
+with access tokens. Seven read-only endpoints (users, repositories, and groups) are implemented
+today, and this documentation describes **only what is actually implemented**.
 
 > Examples use `https://git.example.com` throughout. Replace it with your own deployment URL.
 
@@ -50,9 +50,12 @@ curl -s -H "Authorization: token $TOKEN" "$API/api/v1/repos/dev/hello-world"
 | Method and path | Auth | Description |
 |---|---|---|
 | `GET /api/v1/user` | Token required | The user that owns the token |
-| `GET /api/v1/user/repos` | Token required | Repositories the user has joined, unpaginated, as a JSON array |
+| `GET /api/v1/user/repos` | Token required | Visible repositories (supports optional `?q=&sort=&page=&per_page=`) |
 | `GET /api/v1/users/{username}` | Anonymous | Public profile of a user by username; `404` if unknown |
 | `GET /api/v1/repos/{owner}/{repo}` | Token optional | A single repository; a private repository you cannot read returns `404`, not `403` |
+| `GET /api/v1/groups` | Token required | Visible repository groups (supports optional `?q=&page=&per_page=`) |
+| `GET /api/v1/groups/{group}` | Token optional | A single repository group by slug; returns `404` if unreadable |
+| `GET /api/v1/groups/{group}/repos` | Token optional | Repositories in a group (supports `?q=&sort=&page=&per_page=`); returns `404` if unreadable |
 
 Successful responses always carry `Content-Type: application/json; charset=utf-8` and
 `Cache-Control: no-cache, must-revalidate`.

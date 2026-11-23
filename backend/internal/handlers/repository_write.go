@@ -48,6 +48,8 @@ type RepositoryGit interface {
 	RepoPath(rPath string) (string, error)
 	// InitBare 初始化裸仓库并装好钩子软链接。
 	InitBare(ctx context.Context, repoPath string) error
+	// InitBareWithFiles 初始化裸仓库，并按需设置默认分支与初始提交（README / .gitignore）。
+	InitBareWithFiles(ctx context.Context, repoPath string, opts gitsvc.InitOptions) error
 	// CloneBare 从源裸仓库克隆一个裸仓库。
 	CloneBare(ctx context.Context, repoPath, sourcePath string) error
 	// InstallHooks 装钩子软链接。
@@ -406,8 +408,14 @@ func (h *RepositoryWriteHandler) create(ctx context.Context, req *httpapi.Reques
 	name, _ := phpBodyArg(p, "name")
 	groupKey, _ := phpBodyArg(p, "group")
 
+	displayName = strings.TrimSpace(displayName)
+	name = strings.TrimSpace(name)
+
 	if !domain.PHPTruthy(displayName) || !domain.PHPTruthy(groupKey) || !domain.PHPTruthy(name) {
 		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+	if !domain.RepoSlugValid(name) || len([]rune(displayName)) > 30 {
+		return nil, contract.NewError(contract.CodeAmountOutOfRange)
 	}
 
 	if err := h.Guard.RequireGroup(ctx, groupKey, uKey, domain.UACGroupCreateRepo); err != nil {
@@ -429,11 +437,25 @@ func (h *RepositoryWriteHandler) create(ctx context.Context, req *httpapi.Reques
 		return nil, contract.NewError(contract.CodeDuplicateRepoDisplayName)
 	}
 
-	// PHP 侧 Repository_model::create() 的 $description 形参是 string，
-	// 客户端没传时是 null → PHP 8 抛 TypeError（致命错误 → HTTP 500 空响应体）。
-	description, hasDescription := phpBodyArg(p, "description")
-	if !hasDescription {
-		return nil, phpFatalError()
+	description, _ := phpBodyArg(p, "description")
+	if len([]rune(description)) > 200 {
+		return nil, contract.NewError(contract.CodeAmountOutOfRange)
+	}
+
+	initReadmeRaw, _ := phpBodyArg(p, "initReadme")
+	initReadme := strings.EqualFold(strings.TrimSpace(initReadmeRaw), "true") || strings.TrimSpace(initReadmeRaw) == "1"
+	defaultBranchRaw, _ := phpBodyArg(p, "defaultBranch")
+	defaultBranch := strings.TrimSpace(defaultBranchRaw)
+	gitignoreRaw, _ := phpBodyArg(p, "gitignore")
+	gitignore := strings.TrimSpace(gitignoreRaw)
+
+	if defaultBranch != "" && !domain.BranchNameValid(defaultBranch) {
+		return nil, contract.NewError(contract.CodeAmountOutOfRange)
+	}
+	if gitignore != "" {
+		if _, ok := gitsvc.GitignoreTemplate(gitignore); !ok {
+			return nil, contract.NewError(contract.CodeAmountOutOfRange)
+		}
 	}
 
 	repoKey := contract.NewKey()
@@ -444,21 +466,51 @@ func (h *RepositoryWriteHandler) create(ctx context.Context, req *httpapi.Reques
 	}
 	groupName := h.groupDisplayName(ctx, groupKey)
 
+	var dbDefaultBranch *string
+	if initReadme || gitignore != "" {
+		branch := defaultBranch
+		if branch == "" {
+			branch = "main"
+		}
+		dbDefaultBranch = &branch
+	}
+
 	newRepo := &domain.Repository{
-		Key:         repoKey,
-		OwnerKey:    uKey,
-		GroupKey:    groupKey,
-		DisplayName: displayName,
-		Name:        name,
-		Path:        repoPath,
-		Description: description,
+		Key:           repoKey,
+		OwnerKey:      uKey,
+		GroupKey:      groupKey,
+		DisplayName:   displayName,
+		Name:          name,
+		Path:          repoPath,
+		Description:   description,
+		DefaultBranch: dbDefaultBranch,
+	}
+
+	// 将 git init / 初始提交放到事务外执行（与 fork 性能整改 C5 同口径），
+	// 避免 git 子进程 I/O 占用数据库连接池连接；任一步失败均清理磁盘目录。
+	if initReadme || gitignore != "" || defaultBranch != "" {
+		authorName, authorEmail := h.committer(ctx, uKey)
+		if err := h.Git.InitBareWithFiles(ctx, absPath, gitsvc.InitOptions{
+			DefaultBranch:   defaultBranch,
+			InitReadme:      initReadme,
+			RepoDisplayName: displayName,
+			RepoDescription: description,
+			Gitignore:       gitignore,
+			AuthorName:      authorName,
+			AuthorEmail:     authorEmail,
+		}); err != nil {
+			_ = h.Git.RemoveRepo(ctx, absPath)
+			return nil, contract.NewError(contract.CodeOperateFail)
+		}
+	} else {
+		if err := h.Git.InitBare(ctx, absPath); err != nil {
+			_ = h.Git.RemoveRepo(ctx, absPath)
+			return nil, contract.NewError(contract.CodeOperateFail)
+		}
 	}
 
 	if err := h.Repos.WithTx(ctx, func(tx repo.RepositoryTx, raw *sql.Tx) error {
 		if err := tx.Create(ctx, newRepo); err != nil {
-			return err
-		}
-		if err := h.Git.InitBare(ctx, absPath); err != nil {
 			return err
 		}
 		return h.emit(ctx, raw, domain.EventTypeREPO_CREATE, domain.EventDataDescREPO_CREATE_D, map[string]any{
@@ -467,7 +519,7 @@ func (h *RepositoryWriteHandler) create(ctx context.Context, req *httpapi.Reques
 			"name": groupName + "/" + displayName,
 		}, uKey)
 	}); err != nil {
-		// 建仓失败：事务已回滚（不会留下数据库行），再清理磁盘目录。
+		// 写库失败：事务已回滚，清理已初始化的磁盘目录，避免留下孤儿仓库。
 		_ = h.Git.RemoveRepo(ctx, absPath)
 		return nil, contract.NewError(contract.CodeOperateFail)
 	}
@@ -509,9 +561,15 @@ func (h *RepositoryWriteHandler) fork(ctx context.Context, req *httpapi.Request)
 	groupKey, _ := phpBodyArg(p, "group")
 	sourceKey, _ := phpBodyArg(p, "forkID")
 
+	displayName = strings.TrimSpace(displayName)
+	name = strings.TrimSpace(name)
+
 	if !domain.PHPTruthy(displayName) || !domain.PHPTruthy(groupKey) ||
 		!domain.PHPTruthy(name) || !domain.PHPTruthy(sourceKey) {
 		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+	if !domain.RepoSlugValid(name) || len([]rune(displayName)) > 30 {
+		return nil, contract.NewError(contract.CodeAmountOutOfRange)
 	}
 
 	if err := h.Guard.RequireRepository(ctx, sourceKey, uKey, domain.UACRepoRead); err != nil {
@@ -544,11 +602,9 @@ func (h *RepositoryWriteHandler) fork(ctx context.Context, req *httpapi.Request)
 		return nil, contract.NewError(contract.CodeActionNotAllowed)
 	}
 
-	// PHP 侧 Repository_model::fork() 的 $description 形参是 string，
-	// 缺参数 → TypeError → HTTP 500。
-	description, hasDescription := phpBodyArg(p, "description")
-	if !hasDescription {
-		return nil, phpFatalError()
+	description, _ := phpBodyArg(p, "description")
+	if len([]rune(description)) > 200 {
+		return nil, contract.NewError(contract.CodeAmountOutOfRange)
 	}
 
 	sourcePath, err := h.repoPath(ctx, sourceKey)
@@ -747,9 +803,13 @@ func (h *RepositoryWriteHandler) updateName(ctx context.Context, req *httpapi.Re
 
 	rKey, _ := phpBodyArg(p, "repository")
 	name, _ := phpBodyArg(p, "name")
+	name = strings.TrimSpace(name)
 
 	if !domain.PHPTruthy(rKey) || !domain.PHPTruthy(name) {
 		return nil, contract.NewError(contract.CodeMissingParameter)
+	}
+	if !domain.RepoSlugValid(name) {
+		return nil, contract.NewError(contract.CodeAmountOutOfRange)
 	}
 	if err := h.Guard.RequireRepository(ctx, rKey, uKey, domain.UACRepoChangeURL); err != nil {
 		return nil, err

@@ -96,6 +96,9 @@ func chmodRecursive(path string) error {
 	if err != nil {
 		return err
 	}
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil
+	}
 	if err := os.Chmod(path, 0o777); err != nil {
 		return err
 	}

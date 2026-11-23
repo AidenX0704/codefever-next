@@ -9,7 +9,7 @@
 - 废弃内容**只标注不删除**（`（已废弃 YYYY-MM-DD：原因）` / `（已迁移至 X）`）；
 - 末尾的「人工备注」由人维护，代理只可追加，不得重写既有内容。
 
-> 最后核对：2026-11-22（开源仓库精简：移除历史过程文档/契约快照/废弃脚本、前后端死代码与已下线功能孤儿端点，登录与 `/` 302 归位 `/repositories`）
+> 最后核对：2026-11-23（仓库列表、新建仓库/Fork、仓库组全链路 UI 与内部/公开 API 优化落地）
 
 ---
 
@@ -432,3 +432,9 @@ Dockerfile（两阶段）
   `backend/deploy/sql/db_update_20220215.sql`（新建库 webhook 建表必需）保持不动；
   ⑤ 同步修正 `README.md`、`README_EN.md`、`CONTRIBUTING.md`、`SECURITY.md`、
   `AGENTS.md`、`scripts/verify.ps1` 中的历史引用。
+
+- 2026-11-23（代理追加）：**仓库列表 · 新建仓库 · 仓库组 UI 与 API 全链路优化及界面重设计** ——
+  ① **实锤缺陷修复**：修复 `repository/star|unstar` 前后端参数名不匹配（`repository` vs `repositoryId`）并同步 `AppDataProvider` 星标状态；修复 `GET /api/group/activities` 缺少权限校验与缺分页参数 500；修复 `NewGroup` 首次预填在清空后反复回填 `root`；修复 `GroupLayout`「仓库」Tab 永久高亮与组高级设置无入口问题；修复组常规设置校验阻止中文显示名、仓库/组改 slug 后未跳新 URL、组内新建仓库直刷 `groupKey` 锁死为空与 `description` 缺省 500；补齐 `api/client.ts` `0x0401–0x040C` 错误码表；
+  ② **后端 API 与性能**：新增 `GET /api/repository/page`（服务端分页+多维筛选+页签计数）、`GET /api/repository/checkName`、`GET /api/group/checkName`；`POST /api/repository/create` 移出事务内 Git IO 并支持 `initReadme`/`defaultBranch`/`gitignore`（`gitsvc/init.go`）；`GET /api/group/list` 消除 O(N×M) N+1（批量角色/成员/用户/邮箱/仓库数/开放 MR 数）并补齐 `group/config` 统计；Slug 规则统一放宽支持中划线 `-`（`domain.RepoSlugValid`/`GroupSlugValid`）；
+  ③ **公开 API `/api/v1`**：新增 `GET /api/v1/groups`、`GET /api/v1/groups/{group}`、`GET /api/v1/groups/{group}/repos`，`GET /api/v1/user/repos` 消除 N+1 并支持 `?q=&sort=&page=&per_page=` 及真实 `empty`/统计字段，同步更新 `doc/{zh-cn,en-us}/api/`；
+  ④ **前端组件与界面重设计**：`SelectField` 升级为 Portal 定制下拉组件（键盘导航/翻转/搜索/描述/图标）；移除 `.cf-filter-bar` 底部边框并扩展筛选/排序/视图工具；新增 `unit/Skeleton`、`AvatarStack`、`Confirm.requireInput`、`view/unit/RepositoryCard`、`view/unit/GroupAvatar`、`view/unit/GroupRow`、`view/unit/RepositoryForm`；重设计 `RepositoryList`（4 格 Scope Deck + 列表/卡片双视图）、`GroupList`（默认空间门户卡网格 + 近期仓库芯片 + 胶囊切换）、`GroupLayout`（左 280px 粘性空间侧栏直出设置入口 + 右主舞台）、`NewGroup`/`NewRepository`/`NewRepositoryFork`（双栏实时预览创作台），同步升级 `group/{SettingsGeneral,SettingsAdvanced,SettingsMembers,ActivityList}`、`repository/SettingsAdvanced` 并重建 `web/build`。

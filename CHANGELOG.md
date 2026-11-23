@@ -13,6 +13,26 @@
 
 ### 新增
 
+- **仓库列表服务端分页与重设计工作台**：新增 `GET /api/repository/page`（支持按仓库组、范围 `all|joined|created|starred`、关键字、排序与分页，并返回四范围计数）与 `GET /api/repository/checkName` / `GET /api/group/checkName`（失焦实时查重与保留字校验）。仓库页重设计为「4 格范围统计切换卡（Scope Deck）+ 无底边框悬浮工具条 + 列表/卡片双视图（`RepositoryRow` / `RepositoryCard`）」，补齐「已标星」范围、搜索防抖、仓库组过滤、多维排序、URL 状态同步、分页、骨架屏、一键复制克隆地址与 `⋯` 快捷操作菜单。
+- **新建仓库初始化能力与双栏创作台**：`POST /api/repository/create` 新增可选参数 `initReadme`、`defaultBranch`、`gitignore`（内置 Go / Node / Python / Java / Rust / C++ 模板），通过 `gitsvc.InitBareWithFiles` 自动创建初始提交并配置默认分支 `HEAD`；抽取共用组件 `RepositoryForm` 供新建仓库与 Fork 复用，并与新建仓库组统一采用「左表单 + 右实时卡片/Git 地址预览与指引」双栏创作台布局，支持可写仓库组权限过滤、智能 Slug 联动与字段级行内报错。
+- **仓库组空间工作台全面重设计**：仓库组列表改为「空间门户卡片网格（默认）｜紧凑列表行」双视图与胶囊范围切换，每张门户卡（`GroupCard`）展示组身份、3 列指标内嵌条、近期活跃仓库直达芯片与有效成员 `AvatarStack`；仓库组详情页（`GroupLayout`）重设计为「左 280px 粘性空间侧栏（身份、3 项读数、新建仓库主按钮、仓库/MR/成员/动态 + 常规设置/高级设置纵向导航、核心成员预览）+ 右宽敞主舞台」双栏布局；补齐个人/非空组删除阻断提示、`Confirm.requireInput` 路径确认与组动态分类搜索分页。
+- **公开 REST API `/api/v1` 仓库组端点与列表增强**：新增只读端点 `GET /api/v1/groups`、`GET /api/v1/groups/{group}`、`GET /api/v1/groups/{group}/repos`；`GET /api/v1/user/repos` 消除逐仓库查组的 N+1 查询，支持 `?q=&sort=&page=&per_page=`，补充 `display_name`/`fork_count`/`open_mr_count`/`updated_at` 与真实 `empty` 判定，并同步更新中英文站内 API 文档。
+
+### 变更
+
+- **自研定制 `SelectField` 与无底线 `FilterBar`**：`SelectField` 由浏览器原生 `<select>` 升级为 Portal 挂载的自研下拉选择组件，支持键盘导航（↑↓/Home/End/Enter/Esc/Tab）、视口自动翻转、选项 ≥ 8 时内置搜索过滤、选项图标与副标题描述；移除 `.cf-filter-bar` 底部 `border-bottom` 分割线以消除工具条视觉割裂感。
+- **Slug 命名规则支持中划线**：仓库（1–30 位）与仓库组（5–30 位）标识名放宽为 `[0-9a-zA-Z][0-9a-zA-Z_-]*`（兼容历史下划线并支持 `my-service` 短横线命名），前后端校验与 `helpers/slug.ts` 保持一致；`POST /api/repository/create` 将 Git 裸仓初始化与初始提交移出数据库事务（与 `fork` 保持同一非阻塞口径，失败自动清理磁盘目录）。
+- **`GET /api/group/list` 性能优化与字段补齐**：消除 `group/list` 循环逐组查角色/成员/用户/邮箱的 O(N×M) N+1 查询，改为批量 IN 查询并补齐 `repositoryCount`、`memberCount`（仅计有效成员）、`openMergeRequestCount`；`group/config` 的 `count` 同步补齐 `repository` 与 `openMergeRequest`；`repository/list` 补齐有效成员数 `memberCount`。
+
+### 修复
+
+- **修复仓库标星 100% 失败缺陷**：统一前后端参数为 `repositoryId`（后端同时兼容旧键 `repository`），并在 `AppDataProvider` 中同步星标状态，解决标星必报 `0x0201` 回滚及切页状态还原问题。
+- **修复仓库组动态 500 报错与越权读取漏洞**：`GET /api/group/activities` 补齐 `Guard.RequireGroup(..., UACRepoRead)` 权限校验，并将缺省 `keyword`/`page`/`pagesize` 收敛为默认值；前端 `fetchGroupActivities` 补传分页参数。
+- **修复新建仓库组删除默认名后反复自动回填 `root` 缺陷**：`NewGroup` 改用一次性 `prefilledRef` 守卫首次邮箱前缀预填逻辑，避免清空 `displayName` 后触发 `useEffect` 重新把 `root` 填回输入框。
+- **修复仓库与仓库组链路多处交互缺陷**：修复组内新建仓库直刷页面 `groupKey` 锁死为空、仓库组详情「仓库」Tab 永久高亮、组设置中文显示名被 slug 正则误拦、仓库/组改名后未跳转新 URL 导致刷新 404、`AdvancedSettings` 异步加载 `currentName` 未同步、`group/create|update` 与 `repository/create|fork` 缺省 `description` 返回 500、以及 `api/client.ts` 缺失 `0x0401–0x040C` 业务错误码文案等问题。
+
+### 历史记录（原 Unreleased）
+
 - **个人主页 `/:username`（GitHub 口径）**：新端点 `GET /api/user/profile?name=`
   （公开资料 + 该用户创建且对请求者可见的仓库 + 该用户在可见仓库内的最近动态，
   越权数据不返回；停用用户按不存在处理）。页面为两栏：左栏公开资料卡

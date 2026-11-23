@@ -6,6 +6,8 @@ import (
 	"encoding/binary"
 	"errors"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 
 	"codefever-next/backend/internal/domain"
@@ -103,14 +105,32 @@ type RepositoryBrief struct {
 	ID            int64  `json:"id"`
 	Owner         string `json:"owner"`
 	Name          string `json:"name"`
+	DisplayName   string `json:"display_name"`
 	FullName      string `json:"full_name"`
 	Description   string `json:"description"`
 	Private       bool   `json:"private"`
 	Fork          bool   `json:"fork"`
 	Empty         bool   `json:"empty"`
 	DefaultBranch string `json:"default_branch"`
+	ForkCount     int    `json:"fork_count"`
+	OpenMRCount   int    `json:"open_mr_count"`
+	UpdatedAt     int64  `json:"updated_at"`
 	HTMLURL       string `json:"html_url"`
 	CloneURL      string `json:"clone_url"`
+}
+
+// GroupBrief 是公开 API 的仓库组简要信息。
+type GroupBrief struct {
+	ID              int64  `json:"id"`
+	Name            string `json:"name"`
+	DisplayName     string `json:"display_name"`
+	Description     string `json:"description"`
+	Type            int    `json:"type"`
+	RepositoryCount int    `json:"repository_count"`
+	MemberCount     int    `json:"member_count"`
+	HTMLURL         string `json:"html_url"`
+	CreatedAt       int64  `json:"created_at"`
+	UpdatedAt       int64  `json:"updated_at"`
 }
 
 // ---------------------------------------------------------------------------
@@ -151,17 +171,121 @@ func (s *Server) GetUserByName(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetMyRepos 处理 GET /api/v1/user/repos。
+//
+// 支持可选查询参数：q（关键字过滤）、sort（updated|created|name）、page / per_page（分页）。
+// 批量查询仓库组、fork 数与开放 MR 数，消除逐仓库 N+1。
 func (s *Server) GetMyRepos(w http.ResponseWriter, r *http.Request, u *domain.User) {
 	list, err := s.Repos.ListJoined(r.Context(), u.Key)
 	if err != nil {
 		WriteError(w, http.StatusInternalServerError, "读取仓库列表失败")
 		return
 	}
-	out := make([]RepositoryBrief, 0, len(list))
-	for i := range list {
-		out = append(out, s.repoBrief(r.Context(), &list[i]))
-	}
+	out := s.repoBriefsBatch(r.Context(), list)
+	out = filterAndPaginateRepoBriefs(out, r)
 	WriteJSON(w, http.StatusOK, out)
+}
+
+// GetMyGroups 处理 GET /api/v1/groups。
+//
+// 返回当前令牌可见的全部仓库组（自有 ∪ 加入），支持可选 q / page / per_page。
+func (s *Server) GetMyGroups(w http.ResponseWriter, r *http.Request, u *domain.User) {
+	if s.Groups == nil {
+		WriteJSON(w, http.StatusOK, []GroupBrief{})
+		return
+	}
+	owned, err := s.Groups.ListOwned(r.Context(), u.Key)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "读取仓库组列表失败")
+		return
+	}
+	joined, err := s.Groups.ListJoined(r.Context(), u.Key)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "读取仓库组列表失败")
+		return
+	}
+	seen := make(map[string]bool, len(owned)+len(joined))
+	merged := make([]domain.Group, 0, len(owned)+len(joined))
+	for _, g := range append(owned, joined...) {
+		if seen[g.Key] {
+			continue
+		}
+		seen[g.Key] = true
+		merged = append(merged, g)
+	}
+	out := s.groupBriefsBatch(r.Context(), merged)
+	out = filterAndPaginateGroupBriefs(out, r)
+	WriteJSON(w, http.StatusOK, out)
+}
+
+// GetGroup 处理 GET /api/v1/groups/{group}。
+//
+// 私有仓库组对无权限者一律返回 404（不泄露存在性）。
+func (s *Server) GetGroup(w http.ResponseWriter, r *http.Request) {
+	groupName := strings.TrimSpace(r.PathValue("group"))
+	if groupName == "" {
+		WriteError(w, http.StatusUnprocessableEntity, "仓库组名不能为空")
+		return
+	}
+	g, ok := s.resolveGroup(w, r, groupName)
+	if !ok {
+		return
+	}
+	briefs := s.groupBriefsBatch(r.Context(), []domain.Group{*g})
+	if len(briefs) == 0 {
+		WriteError(w, http.StatusNotFound, "仓库组不存在")
+		return
+	}
+	WriteJSON(w, http.StatusOK, briefs[0])
+}
+
+// GetGroupRepos 处理 GET /api/v1/groups/{group}/repos。
+//
+// 返回指定仓库组内当前调用者可读的仓库列表；无权限或组不存在均返回 404。
+func (s *Server) GetGroupRepos(w http.ResponseWriter, r *http.Request) {
+	groupName := strings.TrimSpace(r.PathValue("group"))
+	if groupName == "" {
+		WriteError(w, http.StatusUnprocessableEntity, "仓库组名不能为空")
+		return
+	}
+	g, ok := s.resolveGroup(w, r, groupName)
+	if !ok {
+		return
+	}
+	if s.Repos == nil {
+		WriteJSON(w, http.StatusOK, []RepositoryBrief{})
+		return
+	}
+	list, err := s.Repos.ListInGroup(r.Context(), g.Key)
+	if err != nil {
+		WriteError(w, http.StatusInternalServerError, "读取组内仓库失败")
+		return
+	}
+	out := s.repoBriefsBatch(r.Context(), list)
+	out = filterAndPaginateRepoBriefs(out, r)
+	WriteJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) resolveGroup(w http.ResponseWriter, r *http.Request, groupName string) (*domain.Group, bool) {
+	if s.Groups == nil || s.Access == nil {
+		WriteError(w, http.StatusNotFound, "仓库组不存在")
+		return nil, false
+	}
+	user := s.optionalUser(r)
+	if user == nil {
+		WriteError(w, http.StatusNotFound, "仓库组不存在")
+		return nil, false
+	}
+	g, err := s.Groups.SearchByName(r.Context(), groupName)
+	if err != nil || g == nil {
+		WriteError(w, http.StatusNotFound, "仓库组不存在")
+		return nil, false
+	}
+	role, err := s.Access.GroupRole(r.Context(), g.Key, user.Key)
+	if err != nil || !domain.CheckPermission(domain.UACRepoRead, role) {
+		WriteError(w, http.StatusNotFound, "仓库组不存在")
+		return nil, false
+	}
+	return g, true
 }
 
 // GetRepo 处理 GET /api/v1/repos/{owner}/{repo}。
@@ -270,33 +394,184 @@ func (s *Server) userBrief(u *domain.User) UserBrief {
 	}
 }
 
-// repoBrief 组装仓库简要信息。
+// repoBrief 组装单个仓库简要信息。
 func (s *Server) repoBrief(ctx context.Context, repository *domain.Repository) RepositoryBrief {
-	owner := ""
-	if g, err := s.Groups.Get(ctx, repository.GroupKey); err == nil && g != nil {
-		owner = g.Name
+	list := s.repoBriefsBatch(ctx, []domain.Repository{*repository})
+	if len(list) > 0 {
+		return list[0]
 	}
-	if owner == "" {
-		owner = repository.Name
+	return RepositoryBrief{}
+}
+
+// repoBriefsBatch 批量组装仓库简要信息（避免逐条查组 / fork / MR 的 N+1）。
+func (s *Server) repoBriefsBatch(ctx context.Context, list []domain.Repository) []RepositoryBrief {
+	if len(list) == 0 {
+		return []RepositoryBrief{}
 	}
-	defaultBranch := ""
-	if repository.DefaultBranch != nil {
-		defaultBranch = *repository.DefaultBranch
+	rKeys := make([]string, 0, len(list))
+	gKeys := make([]string, 0, len(list))
+	for i := range list {
+		rKeys = append(rKeys, list[i].Key)
+		gKeys = append(gKeys, list[i].GroupKey)
 	}
-	fullName := owner + "/" + repository.Name
-	return RepositoryBrief{
-		ID:            userNumericID(repository.Key),
-		Owner:         owner,
-		Name:          repository.Name,
-		FullName:      fullName,
-		Description:   repository.Description,
-		Private:       true,
-		Fork:          repository.ForkFromKey != nil,
-		Empty:         false,
-		DefaultBranch: defaultBranch,
-		HTMLURL:       strings.TrimSuffix(s.SiteURL, "/") + "/" + fullName,
-		CloneURL:      strings.TrimSuffix(s.SiteURL, "/") + "/" + fullName + ".git",
+	var groups map[string]*domain.RepositoryGroup
+	var forkCounts map[string]int
+	var mrCounts map[string]domain.RepositoryMergeRequestCount
+	if s.Repos != nil {
+		groups, _ = s.Repos.GroupsByKeys(ctx, gKeys)
+		forkCounts, _ = s.Repos.ForkCounts(ctx, rKeys)
+		mrCounts, _ = s.Repos.MergeRequestCounts(ctx, rKeys)
 	}
+
+	baseURL := strings.TrimSuffix(s.SiteURL, "/")
+	out := make([]RepositoryBrief, 0, len(list))
+	for i := range list {
+		r := &list[i]
+		owner := ""
+		if g, ok := groups[r.GroupKey]; ok && g != nil {
+			owner = g.Name
+		}
+		if owner == "" && s.Groups != nil {
+			if g, err := s.Groups.Get(ctx, r.GroupKey); err == nil && g != nil {
+				owner = g.Name
+			}
+		}
+		if owner == "" {
+			owner = r.Name
+		}
+		defaultBranch := ""
+		if r.DefaultBranch != nil {
+			defaultBranch = *r.DefaultBranch
+		}
+		fullName := owner + "/" + r.Name
+		out = append(out, RepositoryBrief{
+			ID:            userNumericID(r.Key),
+			Owner:         owner,
+			Name:          r.Name,
+			DisplayName:   r.DisplayName,
+			FullName:      fullName,
+			Description:   r.Description,
+			Private:       true,
+			Fork:          r.ForkFromKey != nil,
+			Empty:         defaultBranch == "",
+			DefaultBranch: defaultBranch,
+			ForkCount:     forkCounts[r.Key],
+			OpenMRCount:   mrCounts[r.Key].Open,
+			UpdatedAt:     domain.PhpTime(r.Updated),
+			HTMLURL:       baseURL + "/" + fullName,
+			CloneURL:      baseURL + "/" + fullName + ".git",
+		})
+	}
+	return out
+}
+
+// groupBriefsBatch 批量组装仓库组简要信息。
+func (s *Server) groupBriefsBatch(ctx context.Context, list []domain.Group) []GroupBrief {
+	if len(list) == 0 {
+		return []GroupBrief{}
+	}
+	gKeys := make([]string, 0, len(list))
+	for i := range list {
+		gKeys = append(gKeys, list[i].Key)
+	}
+	repoCounts := map[string]int{}
+	membersByGroup := map[string][]domain.GroupMember{}
+	if s.Groups != nil {
+		if rc, err := s.Groups.RepoCountsByGroups(ctx, gKeys); err == nil {
+			repoCounts = rc
+		}
+		if mb, err := s.Groups.ListMembersByGroups(ctx, gKeys); err == nil {
+			membersByGroup = mb
+		}
+	}
+
+	baseURL := strings.TrimSuffix(s.SiteURL, "/")
+	out := make([]GroupBrief, 0, len(list))
+	for i := range list {
+		g := &list[i]
+		// 成员数 = 创建者 + 未删除的去重成员
+		memberSet := map[string]bool{g.OwnerKey: true}
+		for _, m := range membersByGroup[g.Key] {
+			if m.Status == domain.CommonStatusNormal {
+				memberSet[m.UKey] = true
+			}
+		}
+		out = append(out, GroupBrief{
+			ID:              userNumericID(g.Key),
+			Name:            g.Name,
+			DisplayName:     g.DisplayName,
+			Description:     g.Description,
+			Type:            g.Type,
+			RepositoryCount: repoCounts[g.Key],
+			MemberCount:     len(memberSet),
+			HTMLURL:         baseURL + "/groups/" + g.Name,
+			CreatedAt:       g.Created.Unix(),
+			UpdatedAt:       g.Updated.Unix(),
+		})
+	}
+	return out
+}
+
+func filterAndPaginateRepoBriefs(list []RepositoryBrief, r *http.Request) []RepositoryBrief {
+	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
+	if q != "" {
+		filtered := make([]RepositoryBrief, 0, len(list))
+		for _, item := range list {
+			if strings.Contains(strings.ToLower(item.FullName), q) ||
+				strings.Contains(strings.ToLower(item.DisplayName), q) ||
+				strings.Contains(strings.ToLower(item.Description), q) {
+				filtered = append(filtered, item)
+			}
+		}
+		list = filtered
+	}
+	switch strings.TrimSpace(r.URL.Query().Get("sort")) {
+	case "name":
+		sort.SliceStable(list, func(i, j int) bool {
+			return strings.ToLower(list[i].FullName) < strings.ToLower(list[j].FullName)
+		})
+	case "updated":
+		sort.SliceStable(list, func(i, j int) bool {
+			return list[i].UpdatedAt > list[j].UpdatedAt
+		})
+	}
+	return applyOptionalPagination(list, r)
+}
+
+func filterAndPaginateGroupBriefs(list []GroupBrief, r *http.Request) []GroupBrief {
+	q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q")))
+	if q != "" {
+		filtered := make([]GroupBrief, 0, len(list))
+		for _, item := range list {
+			if strings.Contains(strings.ToLower(item.Name), q) ||
+				strings.Contains(strings.ToLower(item.DisplayName), q) ||
+				strings.Contains(strings.ToLower(item.Description), q) {
+				filtered = append(filtered, item)
+			}
+		}
+		list = filtered
+	}
+	return applyOptionalPagination(list, r)
+}
+
+func applyOptionalPagination[T any](list []T, r *http.Request) []T {
+	rawPage := strings.TrimSpace(r.URL.Query().Get("page"))
+	rawPerPage := strings.TrimSpace(r.URL.Query().Get("per_page"))
+	if rawPage == "" && rawPerPage == "" {
+		return list
+	}
+	p, _ := strconv.Atoi(rawPage)
+	pp, _ := strconv.Atoi(rawPerPage)
+	page, perPage := domain.ClampPaging(p, pp)
+	start := (page - 1) * perPage
+	if start >= len(list) {
+		return []T{}
+	}
+	end := start + perPage
+	if end > len(list) {
+		end = len(list)
+	}
+	return list[start:end]
 }
 
 // userNumericID 把 32 位 hex 主键映射为一个稳定的数字 ID。

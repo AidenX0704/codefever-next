@@ -1,6 +1,6 @@
 # Endpoints
 
-Four endpoints exist today, all read-only. In the examples `$API` is your deployment URL
+Seven endpoints exist today, all read-only. In the examples `$API` is your deployment URL
 (for instance `https://git.example.com`) and `$TOKEN` is an access token plaintext (see
 [Authentication and access tokens](auth.md)).
 
@@ -13,7 +13,7 @@ Four endpoints exist today, all read-only. In the examples `$API` is your deploy
   `Cache-Control: no-cache, must-revalidate`;
 - Errors use a non-`200` status and the body `{"message": "...", "url": "..."}`
   (see [Errors and limits](errors.md));
-- No endpoint is paginated, and no `Link` header is emitted.
+- List endpoints return the full array by default for backward compatibility; pass `?page=&per_page=` (max 100) for pagination and `?q=` for keyword filtering.
 
 ### GET /api/v1/user
 
@@ -126,12 +126,43 @@ Possible errors:
 |---|---|---|
 | `id` | number | As above, derived from the repository primary key; stable across requests |
 | `owner` | string | Repository group name; **falls back to the repository name** when no group is resolvable |
-| `name` | string | Repository name |
+| `name` | string | Repository slug |
+| `display_name` | string | Repository display name |
 | `full_name` | string | `owner/name` |
 | `description` | string | Description, may be empty |
 | `private` | boolean | Currently **always `true`**: the table has no visibility column yet, so every repository is treated as private |
 | `fork` | boolean | Whether the repository was created by forking |
-| `empty` | boolean | Currently **always `false`** |
+| `empty` | boolean | Whether the repository is empty (derived from `default_branch`) |
 | `default_branch` | string | Default branch name, **may be empty** (for example before the first commit) |
+| `fork_count` | number | Number of forks |
+| `open_mr_count` | number | Number of open merge requests |
+| `updated_at` | number | Last updated Unix timestamp (seconds) |
 | `html_url` | string | Web URL `<site>/<owner>/<name>` |
 | `clone_url` | string | Git clone URL `<site>/<owner>/<name>.git` |
+
+### GET /api/v1/groups
+
+Requires a token; lists repository groups visible to the user (supports `?q=&page=&per_page=`).
+
+### GET /api/v1/groups/{group}
+
+Token optional; returns a repository group by slug. Returns `404` if nonexistent or unreadable.
+
+### GET /api/v1/groups/{group}/repos
+
+Token optional; lists repositories in the group (supports `?q=&sort=&page=&per_page=`). Returns `404` if nonexistent or unreadable.
+
+### Object fields: group
+
+| Field | Type | Notes |
+|---|---|---|
+| `id` | number | Stable numeric ID derived from the group primary key |
+| `name` | string | Group slug |
+| `display_name` | string | Group display name |
+| `description` | string | Group description |
+| `type` | number | `1` = team group, `2` = personal default group |
+| `repository_count` | number | Number of repositories in the group |
+| `member_count` | number | Number of active members in the group |
+| `html_url` | string | Web URL `<site>/groups/<name>` |
+| `created_at` | number | Created Unix timestamp (seconds) |
+| `updated_at` | number | Updated Unix timestamp (seconds) |

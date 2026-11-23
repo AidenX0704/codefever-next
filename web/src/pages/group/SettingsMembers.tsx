@@ -30,6 +30,7 @@ export default function GroupSettingsMembers() {
     <MembersManager
       members={config?.members ?? []}
       canManage={canManage}
+      hint={t('group.memberInheritHint')}
       onAdd={async (email) => {
         if (!summary) {
           return
