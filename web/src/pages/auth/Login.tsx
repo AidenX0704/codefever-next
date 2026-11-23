@@ -3,23 +3,24 @@ import { useNavigate, useSearchParams } from 'react-router'
 
 import { login as loginApi } from '@/api/auth'
 import { extraField } from '@/api/client'
+import { AppLink } from '@/components/unit/AppLink'
 import { Button } from '@/components/unit/Button'
-import { TextField } from '@/components/unit/TextField'
+import { Icon } from '@/components/unit/Icon'
+import { PasswordField, TextField } from '@/components/unit/TextField'
 import { useToast } from '@/components/unit/Toast'
-import { AuthLayout } from '@/components/view/auth/AuthLayout'
+import { emailIcon, lockIcon, warningCircleIcon } from '@/config/icons'
 import { useT } from '@/i18n'
 
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 /**
- * 登录页（`/user/login`）。
+ * 登录页表单（`/user/login`，由 `AuthEntry` 承载持久化外壳）。
  *
  * 契约（`backend/internal/handlers/user.go` 的 LoginHandler）：
  *   code 0   → 成功，`extra.redirect`（固定 `/repositories`）
  *   code 100 → 需要 2FA，`extra.key` 作为临时键跳到 `/user/verify?key=...`
  *   code 1/2 → 缺邮箱/密码；3 → 账号不存在；4 → 账号或口令错误
- * 三种成功/中间态的处理顺序与旧模板 `login.html` 完全一致。
  */
 export default function Login() {
   const t = useT()
@@ -38,7 +39,6 @@ export default function Login() {
     event.preventDefault()
     setMessage('')
 
-    // 客户端校验规则对齐旧 jQuery.validate：email required+format、password required+min 6。
     const nextEmailError = !email.trim()
       ? t('user_form_email_tel')
       : EMAIL_RE.test(email.trim())
@@ -59,7 +59,7 @@ export default function Login() {
     try {
       const result = await loginApi(email.trim(), password)
       if (result.code === 0) {
-        window.location.href = extraField(result, 'redirect') ?? '/home'
+        window.location.href = extraField(result, 'redirect') ?? '/repositories'
         return
       }
       if (result.code === 100) {
@@ -74,7 +74,7 @@ export default function Login() {
         toast.error(result.message)
       }
     } catch (error) {
-      const text = error instanceof Error ? error.message : '登录失败'
+      const text = error instanceof Error ? error.message : t('base_error_message')
       setMessage(text)
       toast.error(text)
     } finally {
@@ -82,53 +82,52 @@ export default function Login() {
     }
   }
 
-  const bind = params.get('bind') ?? ''
-
   return (
-    <AuthLayout title={t('user_form_page_welcome')}>
-      <form className="auth-form" onSubmit={submit} noValidate>
-        <TextField
-          variant="underline"
-          name="email"
-          type="text"
-          autoComplete="username"
-          placeholder={t('user_form_email_tel')}
-          value={email}
-          error={emailError}
-          onChange={(event) => {
-            setEmail(event.target.value)
-            setEmailError('')
-          }}
-        />
-        <TextField
-          variant="underline"
-          name="password"
-          type="password"
-          autoComplete="current-password"
-          placeholder={t('user_form_password')}
-          value={password}
-          error={passwordError}
-          onChange={(event) => {
-            setPassword(event.target.value)
-            setPasswordError('')
-          }}
-        />
-        <div className="auth-form__links">
-          <a className="auth-link" href="/user/resetPassword">
+    <form className="auth-form" onSubmit={submit} noValidate>
+      <TextField
+        size="lg"
+        label={t('auth.emailLabel')}
+        name="email"
+        type="email"
+        autoComplete="username"
+        autoFocus
+        placeholder={t('auth.emailPlaceholder')}
+        startAdornment={<Icon icon={emailIcon} size={16} />}
+        value={email}
+        error={emailError}
+        onChange={(event) => {
+          setEmail(event.target.value)
+          setEmailError('')
+        }}
+      />
+      <PasswordField
+        size="lg"
+        label={t('auth.passwordLabel')}
+        labelEnd={
+          <AppLink to="/user/resetPassword" className="auth-link">
             {t('user_form_forget_password')}
-          </a>
+          </AppLink>
+        }
+        name="password"
+        autoComplete="current-password"
+        placeholder={t('auth.passwordPlaceholder')}
+        startAdornment={<Icon icon={lockIcon} size={16} />}
+        value={password}
+        error={passwordError}
+        onChange={(event) => {
+          setPassword(event.target.value)
+          setPasswordError('')
+        }}
+      />
+      {message ? (
+        <div className="auth-alert" role="alert">
+          <Icon icon={warningCircleIcon} size={16} className="auth-alert__icon" />
+          <span>{message}</span>
         </div>
-        {message ? <div className="auth-message">{message}</div> : null}
-        <Button variant="contained" className="cf-btn--auth auth-submit" size="lg" type="submit" block loading={submitting}>
-          {submitting ? t('user_form_sending') : t('user_login_btn_login')}
-        </Button>
-        <div className="auth-footnote">
-          {t('user_login_no_account')}
-          <a className="auth-link" href={`/user/register?bind=${encodeURIComponent(bind)}`}>
-            {t('user_login_register_new')}
-          </a>
-        </div>
-      </form>
-    </AuthLayout>
+      ) : null}
+      <Button variant="contained" className="auth-submit" size="lg" type="submit" block loading={submitting}>
+        {submitting ? t('user_form_sending') : t('auth.loginSubmit')}
+      </Button>
+    </form>
   )
 }

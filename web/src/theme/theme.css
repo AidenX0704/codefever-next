@@ -216,9 +216,12 @@
   --shadow-4: 0 6px 16px rgb(14 26 43 / 8%), 0 40px 90px -24px rgb(14 26 43 / 38%);
   --shadow-rail: 0 0 0 1px var(--line), 0 16px 40px -16px rgb(14 26 43 / 18%);
 
-  /* 外壳材质：悬浮玻璃侧栏 + 通栏雾面顶栏（v5 §3.7，真模糊只给这两件） */
+  /* 外壳材质：悬浮玻璃侧栏 + 通栏雾面顶栏（v5 §3.7，真模糊只给这两件）
+     注：--topbar-frost-bg 与 --bg-canvas 同色相（#f4f6f9），静止时与画布无缝融合，
+     滚动后仍通过 backdrop-filter 呈现毛玻璃质感（偏离 DESIGN.md §3.1 原 228/232/239，
+     消除顶栏底缘的深灰分割感）。 */
   --rail-frost-bg: rgb(255 255 255 / 62%);
-  --topbar-frost-bg: rgb(228 232 239 / 55%);
+  --topbar-frost-bg: rgb(244 246 249 / 82%);
 
   /* 标题字重：中文 700 在小字号发糊，浅色 600 / 深色 500 */
   --theme-heading-weight: 600;
@@ -325,9 +328,9 @@
   --shadow-4: 0 6px 16px rgb(0 0 0 / 45%), 0 44px 96px -24px rgb(0 0 0 / 80%);
   --shadow-rail: 0 0 0 1px var(--line), 0 16px 40px -16px rgb(0 0 0 / 55%);
 
-  /* 外壳材质（暗色） */
+  /* 外壳材质（暗色，--topbar-frost-bg 与 --bg-canvas #0a0a0b 同色相，无分割缝） */
   --rail-frost-bg: rgb(24 24 27 / 58%);
-  --topbar-frost-bg: rgb(12 12 14 / 50%);
+  --topbar-frost-bg: rgb(10 10 11 / 82%);
 
   /* 深色标题降一档，避免中文发糊 */
   --theme-heading-weight: 500;

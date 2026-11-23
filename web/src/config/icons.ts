@@ -8,6 +8,7 @@
 import type { ComponentType } from 'react'
 import type { IconProps as PhosphorIconProps } from '@phosphor-icons/react'
 import {
+  ArrowLeft,
   ArrowRight,
   ArrowsOutSimple,
   Bell,
@@ -19,6 +20,9 @@ import {
   Clock,
   Copy,
   DotsThree,
+  EnvelopeSimple,
+  Eye,
+  EyeSlash,
   FileText,
   FolderSimple,
   Gauge,
@@ -28,16 +32,21 @@ import {
   GitFork,
   GitMerge,
   GitPullRequest,
+  Globe,
+  Key,
   List,
   Lock,
   MagnifyingGlass,
+  Moon,
   Plus,
   Question,
+  ShieldCheck,
   SignOut,
   SortDescending,
   Sparkle,
   SquaresFour,
   Star,
+  Sun,
   Tag,
   User,
   Users,
@@ -71,7 +80,16 @@ export {
   WarningCircle as warningCircleIcon,
   GitFork as forkIcon, // 复刻
   Lock as lockIcon, // 私有
+  ArrowLeft as arrowLeftIcon,
   ArrowRight as arrowRightIcon,
+  EnvelopeSimple as emailIcon,
+  Eye as eyeIcon,
+  EyeSlash as eyeSlashIcon,
+  Globe as globeIcon,
+  Key as keyIcon,
+  Moon as moonIcon,
+  Sun as sunIcon,
+  ShieldCheck as shieldCheckIcon,
 
   /* —— 兼容别名（旧 pl / ps 前缀） —— */
   SignOut as plExit,

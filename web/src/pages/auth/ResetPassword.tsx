@@ -1,21 +1,24 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useSearchParams } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 
 import { applyNewPassword, requestResetCode, requestResetTicket } from '@/api/auth'
 import { extraField } from '@/api/client'
 import { Button } from '@/components/unit/Button'
-import { TextField } from '@/components/unit/TextField'
+import { Icon } from '@/components/unit/Icon'
+import { PasswordField, TextField } from '@/components/unit/TextField'
 import { useToast } from '@/components/unit/Toast'
-import { AuthLayout } from '@/components/view/auth/AuthLayout'
+import { emailIcon, keyIcon, lockIcon, warningCircleIcon } from '@/config/icons'
 import { useT } from '@/i18n'
 
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-/** 重发倒计时：与旧模板一致（120 秒）。 */
+/** 重发倒计时（120 秒）。 */
 const COUNTDOWN_SECONDS = 120
 
 /** 「通过邮箱找回」：邮箱 + 邮箱验证码 → 换取临时 key。 */
 function RequestForm() {
   const t = useT()
+  const navigate = useNavigate()
   const toast = useToast()
 
   const [email, setEmail] = useState('')
@@ -80,8 +83,11 @@ function RequestForm() {
       const result = await requestResetTicket(email.trim(), emailCode.trim())
       const redirect = extraField(result, 'redirect')
       if (result.code === 0 && redirect) {
-        // 旧页同样是整页跳转（服务端已把临时 key 写进会话，跳转后进入 mode=reset）。
-        window.location.href = redirect
+        if (redirect.startsWith('/user/')) {
+          navigate(redirect)
+        } else {
+          window.location.href = redirect
+        }
         return
       }
       const text = result.message || t('base_error_message')
@@ -97,66 +103,70 @@ function RequestForm() {
   }
 
   const codeButtonLabel =
-    countdown > 0 ? `${t('user_form_code_sent')} (${countdown}s)` : t('user_form_get_code')
+    countdown > 0 ? t('auth.resendAfter', { n: countdown }) : t('user_form_get_code')
 
   return (
-    <AuthLayout title={t('user_password_retrieval_title')}>
-      <form className="auth-form" onSubmit={submit} noValidate>
-        <TextField
-          variant="underline"
-          name="email"
-          type="text"
-          autoComplete="username"
-          placeholder={t('user_form_email_tel')}
-          value={email}
-          error={errors.email}
-          onChange={(event) => {
-            setEmail(event.target.value.replace(/[\u4e00-\u9fa5\s]/g, ''))
-            setErrors((prev) => ({ ...prev, email: undefined }))
-          }}
-        />
-        <TextField
-          variant="underline"
-          name="emailCode"
-          type="text"
-          inputMode="numeric"
-          autoComplete="one-time-code"
-          maxLength={6}
-          placeholder={t('user_form_email_code')}
-          value={emailCode}
-          error={errors.emailCode}
-          endAdornment={
-            <button
-              type="button"
-              className="cf-btn cf-btn--text cf-auth-code-btn"
-              disabled={sending || countdown > 0}
-              onClick={sendCode}
-            >
-              {sending ? t('user_form_sending') : codeButtonLabel}
-            </button>
-          }
-          onChange={(event) => {
-            setEmailCode(event.target.value.replace(/\D/g, ''))
-            setErrors((prev) => ({ ...prev, emailCode: undefined }))
-          }}
-        />
-        {message ? <div className="auth-message">{message}</div> : null}
-        <Button variant="contained" className="cf-btn--auth auth-submit" size="lg" type="submit" block loading={submitting}>
-          {t('user_form_verfiy')}
-        </Button>
-        <div className="auth-footnote">
-          <a className="auth-link" href="/user/login">
-            {t('user_password_retrieval_login_now')}
-          </a>
+    <form className="auth-form" onSubmit={submit} noValidate>
+      <TextField
+        size="lg"
+        label={t('auth.emailLabel')}
+        name="email"
+        type="email"
+        autoComplete="username"
+        autoFocus
+        placeholder={t('auth.emailPlaceholder')}
+        startAdornment={<Icon icon={emailIcon} size={16} />}
+        value={email}
+        error={errors.email}
+        onChange={(event) => {
+          setEmail(event.target.value.replace(/[\u4e00-\u9fa5\s]/g, ''))
+          setErrors((prev) => ({ ...prev, email: undefined }))
+        }}
+      />
+      <TextField
+        size="lg"
+        label={t('auth.codeLabel')}
+        name="emailCode"
+        type="text"
+        inputMode="numeric"
+        autoComplete="one-time-code"
+        maxLength={6}
+        placeholder={t('auth.codePlaceholder')}
+        startAdornment={<Icon icon={keyIcon} size={16} />}
+        value={emailCode}
+        error={errors.emailCode}
+        endAdornment={
+          <button
+            type="button"
+            className="cf-btn cf-btn--text cf-auth-code-btn"
+            disabled={sending || countdown > 0}
+            onClick={sendCode}
+          >
+            {sending ? t('user_form_sending') : codeButtonLabel}
+          </button>
+        }
+        onChange={(event) => {
+          setEmailCode(event.target.value.replace(/\D/g, ''))
+          setErrors((prev) => ({ ...prev, emailCode: undefined }))
+        }}
+      />
+      {message ? (
+        <div className="auth-alert" role="alert">
+          <Icon icon={warningCircleIcon} size={16} className="auth-alert__icon" />
+          <span>{message}</span>
         </div>
-      </form>
-    </AuthLayout>
+      ) : null}
+      <Button variant="contained" className="auth-submit" size="lg" type="submit" block loading={submitting}>
+        {t('user_form_verfiy')}
+      </Button>
+    </form>
   )
 }
 
 /** 「设置新口令」：临时 key + 新密码 + 确认密码。 */
 function ResetForm({ ticket }: { ticket: string }) {
   const t = useT()
+  const navigate = useNavigate()
   const toast = useToast()
 
   const [password, setPassword] = useState('')
@@ -188,11 +198,20 @@ function ResetForm({ ticket }: { ticket: string }) {
       const result = await applyNewPassword(ticket, password)
       const redirect = extraField(result, 'redirect')
       if (result.code === 0) {
-        window.location.href = redirect ?? '/user/login'
+        const target = redirect ?? '/user/login'
+        if (target.startsWith('/user/')) {
+          navigate(target)
+        } else {
+          window.location.href = target
+        }
         return
       }
       if (result.code === 100 && redirect) {
-        window.location.href = redirect
+        if (redirect.startsWith('/user/')) {
+          navigate(redirect)
+        } else {
+          window.location.href = redirect
+        }
         return
       }
       const text = result.message ?? ''
@@ -210,55 +229,53 @@ function ResetForm({ ticket }: { ticket: string }) {
   }
 
   return (
-    <AuthLayout title={t('user_password_retrieval')}>
-      <form className="auth-form" onSubmit={submit} noValidate>
-        <TextField
-          variant="underline"
-          name="password"
-          type="password"
-          autoComplete="new-password"
-          maxLength={18}
-          placeholder={t('user_password_retrieval_enter_password')}
-          value={password}
-          error={errors.password}
-          onChange={(event) => {
-            setPassword(event.target.value)
-            setErrors((prev) => ({ ...prev, password: undefined }))
-          }}
-        />
-        <TextField
-          variant="underline"
-          name="re_password"
-          type="password"
-          autoComplete="new-password"
-          placeholder={t('user_password_retrieval_re_enter_password')}
-          value={rePassword}
-          error={errors.rePassword}
-          onChange={(event) => {
-            setRePassword(event.target.value.replace(/[\u4e00-\u9fa5\s]/g, ''))
-            setErrors((prev) => ({ ...prev, rePassword: undefined }))
-          }}
-        />
-        {message ? <div className="auth-message">{message}</div> : null}
-        <Button variant="contained" className="cf-btn--auth auth-submit" size="lg" type="submit" block loading={submitting}>
-          {t('user_password_retrieval_reset_password')}
-        </Button>
-        <div className="auth-footnote">
-          <a className="auth-link" href="/user/login">
-            {t('user_password_retrieval_login_now')}
-          </a>
+    <form className="auth-form" onSubmit={submit} noValidate>
+      <PasswordField
+        size="lg"
+        label={t('auth.newPasswordLabel')}
+        name="password"
+        autoComplete="new-password"
+        autoFocus
+        maxLength={18}
+        placeholder={t('user_password_retrieval_enter_password')}
+        startAdornment={<Icon icon={lockIcon} size={16} />}
+        value={password}
+        error={errors.password}
+        onChange={(event) => {
+          setPassword(event.target.value)
+          setErrors((prev) => ({ ...prev, password: undefined }))
+        }}
+      />
+      <PasswordField
+        size="lg"
+        label={t('auth.confirmPasswordLabel')}
+        name="re_password"
+        autoComplete="new-password"
+        maxLength={18}
+        placeholder={t('user_password_retrieval_re_enter_password')}
+        startAdornment={<Icon icon={lockIcon} size={16} />}
+        value={rePassword}
+        error={errors.rePassword}
+        onChange={(event) => {
+          setRePassword(event.target.value.replace(/[\u4e00-\u9fa5\s]/g, ''))
+          setErrors((prev) => ({ ...prev, rePassword: undefined }))
+        }}
+      />
+      {message ? (
+        <div className="auth-alert" role="alert">
+          <Icon icon={warningCircleIcon} size={16} className="auth-alert__icon" />
+          <span>{message}</span>
         </div>
-      </form>
-    </AuthLayout>
+      ) : null}
+      <Button variant="contained" className="auth-submit" size="lg" type="submit" block loading={submitting}>
+        {t('user_password_retrieval_reset_password')}
+      </Button>
+    </form>
   )
 }
 
 /**
- * 找回密码页（`/user/resetPassword`）。
- *
- * 两种模式由查询参数决定，与旧模板 `reset_password.html` 的 `?mode=` 一致：
- *   - 缺省（请求模式）：邮箱 + 邮箱验证码 → `POST /user/resetPassword` 换取临时 key；
- *   - `mode=reset&key=...`：设置新口令 → `POST /user/resetPassword`（`mode=reset`）。
+ * 找回密码页表单（`/user/resetPassword`，由 `AuthEntry` 承载持久化外壳）。
  */
 export default function ResetPassword() {
   const [params] = useSearchParams()

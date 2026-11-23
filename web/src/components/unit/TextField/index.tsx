@@ -1,23 +1,22 @@
-import { useId, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { useId, useState, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
 
+import { Icon } from '@/components/unit/Icon'
+import { eyeIcon, eyeSlashIcon } from '@/config/icons'
 import { cn } from '@/helpers/cn'
+import { useT } from '@/i18n'
 
 
-/**
- * 输入框外观变体：
- *   - `outlined`：应用内表单（旧 MuiOutlinedInput，边框盒 + 圆角 4）；
- *   - `underline`：认证页（旧 SSR 页 `.login-wrap input`，只留底边框、无圆角、大号字）。
- * 两套外观都由组件库统一提供，页面不得自绘输入框。
- */
-export type FieldVariant = 'outlined' | 'underline'
+export type FieldSize = 'md' | 'lg'
 
 interface FieldShellProps {
   label?: ReactNode
+  /** 标签行右侧辅助节点（如登录表单密码栏的「忘记密码？」链接）。 */
+  labelEnd?: ReactNode
   required?: boolean
   error?: ReactNode | boolean
   helperText?: ReactNode
   disabled?: boolean
-  variant?: FieldVariant
+  size?: FieldSize
   startAdornment?: ReactNode
   endAdornment?: ReactNode
   containerClassName?: string
@@ -25,66 +24,76 @@ interface FieldShellProps {
 
 /** 控件需要补到自身上的无障碍属性（由外壳算好回传）。 */
 export interface FieldAriaProps {
+  id: string
   'aria-describedby'?: string
   'aria-invalid'?: true
 }
 
 /**
- * 输入框外壳：标签 + 边框盒 + 帮助/错误文案，Input / Textarea / Select 共用。
+ * 输入框外壳：标签 + 边框盒 + 帮助/错误文案，Input / Password / Textarea / Select 共用。
  *
- * 无障碍（V3 §10）：
- *   - 外壳本身是 `<label>`，控件放在里面，标签天然关联；
- *   - 帮助 / 错误文案生成 id，通过 `aria-describedby` 指给控件 —— 读屏聚焦时会
- *     读出"请输入至少 6 位密码"，而不是只看到一个红框；
+ * 无障碍：
+ *   - 控件与 `<label htmlFor={inputId}>` 显式关联（避免 labelEnd 内的链接或密码切换按钮被
+ *     外层 `<label>` 劫持点击）；
+ *   - 帮助 / 错误文案生成 id，通过 `aria-describedby` 指给控件；
  *   - 有错误时给控件 `aria-invalid`。
- * `children` 因此是渲染函数：外壳算好属性再交给控件，避免每个调用方各写一遍。
  */
 export function FieldShell({
   label,
+  labelEnd,
   required,
   error,
   helperText,
   disabled,
-  variant = 'outlined',
+  size = 'md',
   startAdornment,
   endAdornment,
   containerClassName,
   children,
 }: FieldShellProps & { children: (aria: FieldAriaProps) => ReactNode }) {
+  const inputId = useId()
   const helpId = useId()
   const hasError = Boolean(error)
   const hasHelp = Boolean(error || helperText)
   const aria: FieldAriaProps = {
+    id: inputId,
     'aria-describedby': hasHelp ? helpId : undefined,
     'aria-invalid': hasError ? true : undefined,
   }
   return (
-    <label
+    <div
       className={cn(
         'cf-field',
-        variant === 'underline' && 'cf-field--underline',
+        size === 'lg' && 'cf-field--lg',
         hasError && 'cf-field--error',
         disabled && 'cf-field--disabled',
         containerClassName,
       )}
     >
-      {label ? (
-        <span className="cf-field__label">
-          {label}
-          {required ? <span className="cf-field__required">*</span> : null}
-        </span>
+      {label || labelEnd ? (
+        <div className="cf-field__head">
+          {label ? (
+            <label className="cf-field__label" htmlFor={inputId}>
+              {label}
+              {required ? <span className="cf-field__required">*</span> : null}
+            </label>
+          ) : (
+            <span />
+          )}
+          {labelEnd ? <div className="cf-field__label-end">{labelEnd}</div> : null}
+        </div>
       ) : null}
-      <span className="cf-field__box">
+      <div className="cf-field__box">
         {startAdornment ? <span className="cf-field__adornment">{startAdornment}</span> : null}
         {children(aria)}
         {endAdornment ? <span className="cf-field__adornment">{endAdornment}</span> : null}
-      </span>
+      </div>
       {hasHelp ? (
-        <span className="cf-field__help" id={helpId}>
+        <span className="cf-field__help" id={helpId} role={hasError ? 'alert' : undefined}>
           {error ?? helperText}
         </span>
       ) : null}
-    </label>
+    </div>
   )
 }
 
@@ -92,27 +101,30 @@ export interface TextFieldProps
   extends Omit<InputHTMLAttributes<HTMLInputElement>, 'size'>,
     Omit<FieldShellProps, 'children' | 'disabled'> {}
 
-/** 单行输入框。视觉：border #dee2ec、圆角 4、padding 6.5px 16px、行高 19px。 */
+/** 单行输入框。 */
 export function TextField({
   label,
+  labelEnd,
   required,
   error,
   helperText,
-  variant,
+  size,
   startAdornment,
   endAdornment,
   containerClassName,
   className,
+  id,
   ...rest
 }: TextFieldProps) {
   return (
     <FieldShell
       label={label}
+      labelEnd={labelEnd}
       required={required}
       error={error}
       helperText={helperText}
       disabled={rest.disabled}
-      variant={variant}
+      size={size}
       startAdornment={startAdornment}
       endAdornment={endAdornment}
       containerClassName={containerClassName}
@@ -121,11 +133,38 @@ export function TextField({
         <input
           className={cn('cf-field__input', className)}
           {...aria}
+          id={id ?? aria.id}
           aria-label={label ? undefined : rest.placeholder}
           {...rest}
         />
       )}
     </FieldShell>
+  )
+}
+
+export type PasswordFieldProps = Omit<TextFieldProps, 'type' | 'endAdornment'>
+
+/** 带显隐切换的密码输入框（登录 / 注册 / 重置口令共用，AGENTS §4）。 */
+export function PasswordField(props: PasswordFieldProps) {
+  const t = useT()
+  const [visible, setVisible] = useState(false)
+
+  return (
+    <TextField
+      {...props}
+      type={visible ? 'text' : 'password'}
+      endAdornment={
+        <button
+          type="button"
+          className="cf-field__toggle"
+          aria-label={visible ? t('auth.hidePassword') : t('auth.showPassword')}
+          aria-pressed={visible}
+          onClick={() => setVisible((prev) => !prev)}
+        >
+          <Icon icon={visible ? eyeSlashIcon : eyeIcon} size={16} />
+        </button>
+      }
+    />
   )
 }
 
@@ -136,28 +175,32 @@ export interface TextareaFieldProps
 /** 多行输入框（与单行共用外壳，仅控件换成 textarea）。 */
 export function TextareaField({
   label,
+  labelEnd,
   required,
   error,
   helperText,
-  variant,
+  size,
   containerClassName,
   className,
+  id,
   ...rest
 }: TextareaFieldProps) {
   return (
     <FieldShell
       label={label}
+      labelEnd={labelEnd}
       required={required}
       error={error}
       helperText={helperText}
       disabled={rest.disabled}
-      variant={variant}
+      size={size}
       containerClassName={containerClassName}
     >
       {(aria) => (
         <textarea
           className={cn('cf-field__input', className)}
           {...aria}
+          id={id ?? aria.id}
           aria-label={label ? undefined : rest.placeholder}
           {...rest}
         />

@@ -130,41 +130,26 @@
   min-width: var(--ctl-min-w-sm);
 }
 
-/* 大号按钮：认证页提交按钮（旧 .btn-lg + .btn-self-primary） */
+/* 大号按钮：认证页与 Hero 主动作（v5 §3.3 --ctl-h-lg 42px，14/500） */
 .cf-btn--lg {
   height: var(--ctl-h-lg);
-  font-size: var(--fs-h3);
-}
-
-/* 认证页主色：旧 .btn-self-primary 用的是 #0035EC（与内壳 #3455db 不同，保持原样） */
-.cf-btn--contained.cf-btn--auth {
-  border-color: var(--brand-text);
-  background: var(--brand);
-}
-
-.cf-btn--contained.cf-btn--auth:hover:not(:disabled) {
-  border-color: var(--brand-text);
-  background: var(--brand-hover);
-}
-
-.cf-btn--contained.cf-btn--auth:active:not(:disabled) {
-  border-color: var(--brand-text);
-  background: var(--brand-active);
+  font-size: var(--fs-body);
+  font-weight: var(--fw-medium);
 }
 
 .cf-btn--contained {
-  border-color: var(--brand-text);
+  border-color: var(--brand);
   background: var(--brand);
   color: var(--text-inverse);
 }
 
 .cf-btn--contained:hover:not(:disabled) {
-  border-color: var(--brand-text);
+  border-color: var(--brand-hover);
   background: var(--brand-hover);
 }
 
 .cf-btn--contained:active:not(:disabled) {
-  border-color: var(--brand-text);
+  border-color: var(--brand-active);
   background: var(--brand-active);
 }
 
@@ -304,17 +289,31 @@
 }
 
 /* ============================== Field（Input / Select / Textarea） ============================== */
-/* preset MuiOutlinedInput：padding 6.5px 16px、边框 #dee2ec、圆角 4、行高 19px */
 .cf-field {
   display: flex;
   flex-direction: column;
-  gap: var(--sp-4);
+  gap: var(--sp-3);
   min-width: 0;
+}
+
+.cf-field__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-4);
 }
 
 .cf-field__label {
   color: var(--text-primary);
-  font-size: var(--fs-body);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  line-height: var(--lh-tight);
+}
+
+.cf-field__label-end {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-small);
   line-height: var(--lh-tight);
 }
 
@@ -326,34 +325,52 @@
 .cf-field__box {
   display: flex;
   align-items: center;
-  gap: var(--sp-2);
-  /* 高度由 --ctl-h（32px）固定，配合 border-box 精确成盒：
-     19 行高 + 6.5×2 内边距 + 1×2 边框 = 32px，改 padding 不会把行撑高。 */
+  gap: var(--sp-4);
   box-sizing: border-box;
   height: var(--ctl-h);
   padding: var(--input-pad-y) var(--input-pad-x);
   border: 1px solid var(--line-strong);
   border-radius: var(--r-sm);
-  background: var(--bg-sheet);
-  transition: border-color var(--dur-fast) var(--ease-standard);
+  background: var(--field-surface);
+  transition:
+    border-color var(--dur-fast) var(--ease-standard),
+    background-color var(--dur-fast) var(--ease-standard);
 }
 
-/* 聚焦只把边框换成 --brand：不加光晕、不加外环、不改边框宽度。
-   改宽度会让整行内容位移；从 --line-strong 的灰到 --brand 的蓝已是高对比跳变，
-   可见性足够，且不产生任何布局抖动。 */
+.cf-field__box:hover {
+  border-color: var(--text-tertiary);
+}
+
+/* 聚焦只把边框换成 --brand：不加光晕、不加外环、不改边框宽度（AGENTS §5.8）。 */
 .cf-field__box:focus-within {
-  border-color: var(--brand-text);
+  border-color: var(--brand);
 }
 
-.cf-field--error .cf-field__box {
+.cf-field--lg .cf-field__box {
+  height: var(--ctl-h-lg);
+  padding: 0 var(--sp-5);
+  /* 认证页等大号输入框放在 --bg-sheet 卡片上，用 --bg-sheet-2 + --line-strong 形成清晰层级区分 */
+  --field-surface: var(--bg-sheet-2);
+}
+
+.cf-field--lg .cf-field__box:focus-within {
+  --field-surface: var(--bg-sheet);
+}
+
+.cf-field--lg .cf-field__input {
+  height: 100%;
+}
+
+.cf-field--error .cf-field__box,
+.cf-field--error .cf-field__box:hover,
+.cf-field--error .cf-field__box:focus-within {
   border-color: var(--danger);
 }
 
 .cf-field--disabled .cf-field__box {
-  background: var(--bg-sheet);
+  --field-surface: var(--bg-well);
+  border-color: var(--line);
   cursor: not-allowed;
-  /* 禁用态的输入框底色不同，autofill 盖色要跟着换。 */
-  --field-surface: var(--bg-sheet);
 }
 
 .cf-field__input {
@@ -456,61 +473,67 @@ textarea.cf-field__input {
   display: inline-flex;
   align-items: center;
   gap: var(--sp-2);
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-size: var(--fs-body);
   white-space: nowrap;
+  transition: color var(--dur-fast) var(--ease-standard);
+}
+
+.cf-field__box:focus-within .cf-field__adornment {
+  color: var(--text-secondary);
+}
+
+.cf-field__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  margin-right: calc(var(--sp-2) * -1);
+  padding: 0;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  transition:
+    background-color var(--dur-fast) var(--ease-standard),
+    color var(--dur-fast) var(--ease-standard);
+}
+
+.cf-field__toggle:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
 }
 
 .cf-field__help {
   color: var(--text-secondary);
   font-size: var(--fs-caption);
-  line-height: var(--lh-tight);
+  line-height: var(--lh-snug);
 }
 
 .cf-field--error .cf-field__help {
-  color: var(--danger);
+  color: var(--danger-text);
 }
 
-/* 认证页输入框：只有底边框、无圆角、大号字（旧 `.login-wrap input.form-control`） */
-.cf-field--underline .cf-field__box {
-  padding: var(--sp-4) 0;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-  /* 认证页输入框直接落在 .auth-card__panel 上（不是应用底色），
-     autofill 盖色必须跟着换成面板色，否则会出现新的色差。 */
-  --field-surface: var(--auth-panel-bg);
-}
-
-.cf-field--underline .cf-field__box:focus-within {
-  border-bottom-color: var(--brand-text);
-}
-
-.cf-field--underline .cf-field__input {
-  height: var(--auth-input-h);
-  font-size: var(--auth-input-size);
-}
-
-.cf-field--underline.cf-field--error .cf-field__box {
-  border-bottom-color: var(--danger);
-}
-
-/* 认证页"获取验证码"内联按钮（旧 `.get_code_button`） */
+/* 认证页「获取验证码」内联按钮 */
 .cf-auth-code-btn {
-  height: auto;
+  height: 26px;
   min-width: 0;
-  padding: 0 0 0 var(--sp-4);
+  padding: 0 var(--sp-2) 0 var(--sp-5);
   border: 0;
   border-left: 1px solid var(--line);
   border-radius: 0;
+  background: transparent;
   color: var(--brand-text);
-  font-size: var(--fs-body);
+  font-size: var(--fs-small);
+  font-weight: var(--fw-medium);
+  font-variant-numeric: tabular-nums;
 }
 
 .cf-auth-code-btn:hover:not(:disabled) {
   background: transparent;
-  color: var(--brand-text);
+  color: var(--brand);
 }
 
 /* ============================== Checkbox / Switch ============================== */

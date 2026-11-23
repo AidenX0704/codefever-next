@@ -1,8 +1,6 @@
 /**
  * 复用的静态素材（业务代码只从这里取图，不拼接 `/static/images/` URL）。
  */
-import activityHero from './activity_pgyer_codefever_.png'
-import activityHeroWebp from './activity_pgyer_codefever_.webp'
 import branchesEmpty from './branches-empty.png'
 import commitsEmpty from './commits-empty.png'
 import defaultAvatar from './default_avatar.png'
@@ -24,8 +22,6 @@ export const emptyImages = {
 export type EmptyImageName = keyof typeof emptyImages
 
 export {
-  activityHero,
-  activityHeroWebp,
   branchesEmpty,
   commitsEmpty,
   defaultAvatar,

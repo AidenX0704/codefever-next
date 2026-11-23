@@ -59,10 +59,7 @@ function lazyRoute(loader: () => Promise<{ default: ComponentType }>) {
   )
 }
 
-const Login = lazyRoute(() => import('@/pages/auth/Login'))
-const Register = lazyRoute(() => import('@/pages/auth/Register'))
-const Verify = lazyRoute(() => import('@/pages/auth/Verify'))
-const ResetPassword = lazyRoute(() => import('@/pages/auth/ResetPassword'))
+const AuthEntry = lazyRoute(() => import('@/pages/auth/AuthEntry'))
 const RepositoryList = lazyRoute(() => import('@/pages/RepositoryList'))
 const NewRepository = lazyRoute(() => import('@/pages/NewRepository'))
 const NewRepositoryFork = lazyRoute(() => import('@/pages/NewRepositoryFork'))
@@ -115,10 +112,16 @@ export const router = createBrowserRouter([
   // 文档中心：独立布局（无 AppShell），URL 与旧版一致（/doc/{cn|en}/{path}）。
   { path: '/doc', element: suspense(<Doc />) },
   { path: '/doc/:lang/*', element: suspense(<Doc />) },
-  { path: '/user/login', element: suspense(<Login />) },
-  { path: '/user/register', element: suspense(<Register />) },
-  { path: '/user/verify', element: suspense(<Verify />) },
-  { path: '/user/resetPassword', element: suspense(<ResetPassword />) },
+  // 认证页：四个子路由共享持久化 AuthEntry 外壳与同一懒加载分包，切换登录/注册零闪烁。
+  {
+    element: suspense(<AuthEntry />),
+    children: [
+      { path: '/user/login', element: null },
+      { path: '/user/register', element: null },
+      { path: '/user/verify', element: null },
+      { path: '/user/resetPassword', element: null },
+    ],
+  },
   {
     path: '/',
     element: <AppShell />,
